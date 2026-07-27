@@ -1,0 +1,41 @@
+# Every run parameter lives here, not in code (FR-1).
+# Credentials do NOT live here — they are in the gitignored .env.
+
+[run]
+# Nightly send time, local to the timezone below.
+send_time = "19:00"
+timezone = "America/Chicago"
+# The next-morning window the weather beat reports on (FR-6).
+run_window_start = "05:00"
+run_window_end = "08:00"
+
+[beats]
+# One flag per beat. Adding a beat = one class + one entry here (FR-2).
+astros = true
+weather = true
+
+[location]
+city = "Austin"
+state = "TX"
+latitude = 30.2672
+longitude = -97.7431
+timezone = "America/Chicago"
+
+[delivery]
+# "email" sends via SMTP using the .env credentials; "fake" captures in memory.
+kind = "email"
+target = "sarah.rachel.hernandez@gmail.com"
+
+[escalation]
+# Rules are evaluated in this order, and this order breaks ties (FR-10).
+rules = ["freeze_alert", "watched_player_injury"]
+freeze_threshold_f = 32.0
+# Horizon in days. v1 data only covers the next morning's run window — see
+# BUILD-PROGRESS.md; extending the forecast range is an open decision.
+freeze_horizon_days = 1
+watched_players = ["Yordan Alvarez", "Framber Valdez", "Jeremy Peña"]
+
+[team]
+# Houston Astros. MLB Stats API team id.
+mlb_team_id = 117
+name = "Astros"

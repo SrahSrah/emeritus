@@ -1,0 +1,101 @@
+{
+  "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+  "totalItems": 1,
+  "totalEvents": 0,
+  "totalGames": 1,
+  "totalGamesInProgress": 0,
+  "dates": [
+    {
+      "date": "2026-07-26",
+      "totalItems": 1,
+      "totalEvents": 0,
+      "totalGames": 1,
+      "totalGamesInProgress": 0,
+      "games": [
+        {
+          "gamePk": 824572,
+          "gameGuid": "6444242e-a0cb-4965-acaa-7288ef6c0f92",
+          "link": "/api/v1.1/game/824572/feed/live",
+          "gameType": "R",
+          "season": "2026",
+          "gameDate": "2026-07-26T18:10:00Z",
+          "officialDate": "2026-07-26",
+          "status": {
+            "abstractGameState": "Live",
+            "codedGameState": "I",
+            "detailedState": "In Progress",
+            "statusCode": "I",
+            "startTimeTBD": false,
+            "abstractGameCode": "L"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 117,
+                "name": "Houston Astros",
+                "link": "/api/v1/teams/117"
+              },
+              "leagueRecord": {
+                "wins": 52,
+                "losses": 55,
+                "ties": 0,
+                "pct": ".486"
+              },
+              "score": 2,
+              "splitSquad": false,
+              "seriesNumber": 34
+            },
+            "home": {
+              "team": {
+                "id": 145,
+                "name": "Chicago White Sox",
+                "link": "/api/v1/teams/145"
+              },
+              "leagueRecord": {
+                "wins": 55,
+                "losses": 49,
+                "ties": 0,
+                "pct": ".529"
+              },
+              "score": 1,
+              "splitSquad": false,
+              "seriesNumber": 34
+            }
+          },
+          "venue": {
+            "id": 4,
+            "name": "Rate Field",
+            "link": "/api/v1/venues/4"
+          },
+          "content": {
+            "link": "/api/v1/game/824572/content"
+          },
+          "isTie": false,
+          "gameNumber": 1,
+          "publicFacing": true,
+          "doubleHeader": "N",
+          "gamedayType": "P",
+          "tiebreaker": "N",
+          "calendarEventID": "14-824572-2026-07-26",
+          "seasonDisplay": "2026",
+          "dayNight": "day",
+          "scheduledInnings": 9,
+          "reverseHomeAwayStatus": false,
+          "inningBreakLength": 120,
+          "gamesInSeries": 3,
+          "seriesGameNumber": 3,
+          "seriesDescription": "Regular Season",
+          "recordSource": "S",
+          "ifNecessary": "N",
+          "ifNecessaryDescription": "Normal Game",
+          "linescore": {
+            "currentInning": 6,
+            "inningState": "Top",
+            "isTopInning": true
+          }
+        }
+      ],
+      "events": []
+    }
+  ]
+}

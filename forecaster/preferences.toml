@@ -1,0 +1,26 @@
+# Preference profile (FR-15). A rules file a human edits — read-only in v1.
+# Deliberately NOT learned, weighted-by-history, or embedding-based (PRD §4).
+
+# Players worth escalating on. Kept here as well as in config.toml's [escalation]
+# because preferences are the human-editable surface; escalation is the rules engine's.
+# Must stay above the first [table] header — TOML puts bare keys in the section above them.
+watched_players = ["Yordan Alvarez", "Framber Valdez", "Jeremy Peña"]
+
+[topics]
+# Relative weight per beat. The planner reads these; it does not invent them.
+astros = 1.0
+weather = 1.0
+
+# Each suppression must be able to say which rule fired and why (Step 6 traces it).
+[[suppressions]]
+id = "no-spring-training"
+beat = "astros"
+contains = "Spring Training"
+reason = "Exhibition results don't change anything."
+
+[[suppressions]]
+id = "no-trivial-precip"
+beat = "weather"
+field = "precip_probability_pct"
+equals = 0
+reason = "A 0% chance of rain isn't news."
