@@ -39,6 +39,19 @@ The model phrases; it never originates a score or a temperature.
   latter rejects requests with no `User-Agent`). Don't introduce a paid dependency without
   raising it first.
 
+## The weekly loop
+
+Two global skills drive this repo. Run them in this order, once a week:
+
+1. **`/write-next-assignment`** — drafts the next checkpoint into the course Google Doc, in Sarah's
+   voice, grounded in what this repo actually does.
+2. **`/continue-build`** — folds what that checkpoint newly promises into the PRD, builds the delta,
+   and opens a PR into `dev` (unmerged — Sarah merges).
+
+They share [docs/DIVERGENCES.md](docs/DIVERGENCES.md): every place the submitted text and the shipped
+code disagree, and why. **Check it before writing any sentence about what the agent does** — it's the
+file that stops a checkpoint claiming a feature that shipped dormant.
+
 ## Spec is the source of truth
 
 `docs/prd/forecaster/PRD.md` — numbered functional requirements with acceptance criteria.
