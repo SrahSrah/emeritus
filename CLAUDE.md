@@ -24,6 +24,12 @@ per-beat ReAct workers, then a synthesizer that applies escalation rules and com
 message. The thesis the whole capstone argues: **every checkable fact traces to a tool call.**
 The model phrases; it never originates a score or a temperature.
 
+Since 2026-08-02 the synthesizer also runs a **retrieval-backed ledger check** (FR-9b) before
+composing: semantic search over everything already delivered, then a model judgment on whether
+tonight's line adds anything. Similarity finds candidates; it never decides. FR-19's invariants
+are why — a checkable value that differs from its nearest neighbour can be reframed but never
+suppressed, because silence is a worse failure here than repetition.
+
 ## Non-negotiables
 
 - **Auth is subscription OAuth, never an API key.** `CLAUDE_CODE_OAUTH_TOKEN` only.
@@ -45,7 +51,7 @@ Two global skills drive this repo. Run them in this order, once a week:
 
 1. **`/write-next-assignment`** — drafts the next checkpoint into the course Google Doc, in Sarah's
    voice, grounded in what this repo actually does.
-2. **`/continue-build`** — folds what that checkpoint newly promises into the PRD, builds the delta,
+2. **`/continue-capstone-build`** — folds what that checkpoint newly promises into the PRD, builds the delta,
    and opens a PR into `dev` (unmerged — Sarah merges).
 
 They share [docs/DIVERGENCES.md](docs/DIVERGENCES.md): every place the submitted text and the shipped
@@ -57,9 +63,14 @@ file that stops a checkpoint claiming a feature that shipped dormant.
 `docs/prd/forecaster/PRD.md` — numbered functional requirements with acceptance criteria.
 `BUILD-PROMPTS.md` decomposes it; `BUILD-PROGRESS.md` is the resumable ledger.
 
-**PRD §9 lists open questions. Do not invent answers to them.** The live one is item identity
-for the ledger — which is exactly why the ledger is write-only and FR-9b is unimplemented.
-If a change would require answering one, stop and surface it.
+**PRD §9 lists open questions. Do not invent answers to them.** If a change would require
+answering one, stop and surface it.
+
+Q3 (item identity) **was** the live one; Sarah answered it on 2026-08-02 — *identity is a
+relation computed at read time, not a property stored on an item* — which unblocked FR-9b, so
+the ledger is no longer write-only. Still open: **Q2** (rules vs judgment for escalation) and
+**Q5** (the retrieval thresholds are reasoned, not measured — don't let a checkpoint call them
+tuned).
 
 ## Gotchas that cost time already
 
