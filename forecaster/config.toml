@@ -39,3 +39,17 @@ watched_players = ["Yordan Alvarez", "Framber Valdez", "Jeremy Peña"]
 # Houston Astros. MLB Stats API team id.
 mlb_team_id = 117
 name = "Astros"
+
+[retrieval]
+# FR-9b — semantic dedup against the sent-item ledger. `enabled = false` restores the
+# exact v1 behaviour (every item included, ledger write-only).
+enabled = true
+# Static embeddings: no torch, ~512 dims, fetched once to the local HF cache.
+model = "minishlab/potion-retrieval-32M"
+# How many prior items to retrieve per candidate, and how similar they must be to count.
+# k is small on purpose — a generous k drags in loosely related items and the judgment
+# step starts reading their presence as evidence the story is old.
+k = 5
+similarity_floor = 0.60
+# Only compare against items sent within this many days.
+window_days = 14

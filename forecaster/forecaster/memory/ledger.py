@@ -1,31 +1,39 @@
-"""Sent-item ledger — **write path only** (FR-9).
+"""Sent-item ledger — the write path, and the index FR-9b reads (FR-9).
 
 Every item included in a delivered digest is durably recorded with its beat, timestamp,
-rendered text, and source observation. SQLite at ``data/ledger.db``, gitignored.
+rendered text, source observation, and the checkable values it stated. SQLite at
+``data/ledger.db``, gitignored.
 
-## Why this is write-only, and what must not be added here
+## PRD §9 Q3 is answered — here is what that did and did not change
 
-FR-9 states plainly that nothing reads the ledger to make decisions in v1, and PRD §9
-**Q3 — what makes two items "the same story" (URL, entity+date, or a model judgment) —
-is unresolved.** FR-9b (dedup / "what's new" framing) is `[Later]` and blocked on it.
+Through the v1 build this module was **write-only**, because §9 Q3 — *what makes two items
+"the same story"* — was open, and FR-9b was blocked on it. Sarah answered it on
+2026-08-02:
 
-So this module deliberately has:
+> **Item identity is not a property of an item. It is a relation computed at read time
+> between a candidate and what has already been sent.**
 
-- **no** identity, fingerprint, or "same story" column,
-- **no** content hash,
-- **no** similarity check,
-- **no** `SELECT` used to filter what goes into a digest.
+That answer is why this schema still has **no identity column, no fingerprint, no content
+hash, and no dedup key** — stamping a row with "this is story #47" at write time would
+freeze a judgment that only makes sense in context, and it is exactly the shortcut the
+original guard was protecting against. The surrogate `id` identifies *a row*, not *a
+story*, and still does.
 
-A surrogate autoincrement `id` plus `run_id` is fine — those identify *a row*, not *a
-story*. If the schema ever seems to want a semantic identity column, that is the blocker:
-surface it, don't decide it.
+What is new:
 
-The read helpers below exist for tests and for a human inspecting the file. Nothing in
-the pipeline calls them, and nothing should until Q3 is answered.
+- **`checkable_fields`** — the observed values the line stated, as JSON. Not an identity.
+  FR-9b's load-bearing safety rule ("a differing checkable value can never be suppressed")
+  is impossible without the neighbour's actual values to compare against.
+- **A vector index** (`vec_sent_items`, in `retrieval.py`) — a read-time *accelerator* for
+  the similarity search. It stores no verdict.
+
+Reads now happen, and are confined to `forecaster.memory.retrieval`. Nothing else queries
+this table to make a decision.
 """
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
@@ -42,10 +50,16 @@ CREATE TABLE IF NOT EXISTS sent_items (
     beat                  TEXT    NOT NULL,
     sent_at               TEXT    NOT NULL,
     rendered_text         TEXT    NOT NULL,
-    source_observation_id TEXT
+    source_observation_id TEXT,
+    checkable_fields      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_sent_items_run_id ON sent_items(run_id);
+CREATE INDEX IF NOT EXISTS idx_sent_items_beat_sent_at ON sent_items(beat, sent_at);
 """
+
+# Columns added after the first ledgers were written. SQLite has no "ADD COLUMN IF NOT
+# EXISTS", so migration is explicit rather than a silent CREATE-only schema.
+_MIGRATIONS = (("checkable_fields", "ALTER TABLE sent_items ADD COLUMN checkable_fields TEXT"),)
 
 
 @dataclass(frozen=True)
@@ -58,6 +72,15 @@ class SentItem:
     sent_at: str
     rendered_text: str
     source_observation_id: str | None
+    checkable_fields: str | None = None
+
+    @property
+    def fields(self) -> dict[str, Any]:
+        try:
+            parsed = json.loads(self.checkable_fields or "{}")
+        except (TypeError, ValueError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
 
 
 def connect(path: str | Path | None = None) -> sqlite3.Connection:
@@ -73,6 +96,10 @@ def connect(path: str | Path | None = None) -> sqlite3.Connection:
 def create_schema(connection: sqlite3.Connection) -> None:
     """Idempotent. Running it on an existing database is a no-op."""
     connection.executescript(SCHEMA)
+    existing = {row[1] for row in connection.execute("PRAGMA table_info(sent_items)")}
+    for column, statement in _MIGRATIONS:
+        if column not in existing:
+            connection.execute(statement)
     connection.commit()
 
 
@@ -92,13 +119,21 @@ def record_delivered_items(
     path: str | Path | None = None,
     connection: sqlite3.Connection | None = None,
     sent_at: datetime | None = None,
+    embedder: Any = None,
 ) -> int:
     """Append one row per delivered item. Called **after a successful delivery**.
 
-    Returns the number of rows written. Appending only — no upsert, no dedup, no
-    conflict resolution, because there is no identity to resolve against.
+    Returns the number of rows written. Appending only — no upsert, no conflict
+    resolution, because there is still no stored identity to resolve against. Two rows
+    with identical text are two deliveries, and that is a fact worth keeping.
+
+    When an `embedder` is supplied, each row's rendered text is also indexed into
+    `vec_sent_items` so tomorrow night's FR-9b retrieval can find it. Indexing failures
+    are swallowed on purpose: a broken vector index must not lose the ledger row or fail
+    a run that has *already delivered*.
     """
     stamp = (sent_at or datetime.now(timezone.utc)).isoformat()
+    entries = list(getattr(digest, "ordered", digest).items)
     rows = [
         (
             run_id,
@@ -106,19 +141,34 @@ def record_delivered_items(
             stamp,
             getattr(getattr(entry, "item", entry), "text", str(entry)),
             _first_observation_id(getattr(entry, "item", entry)),
+            json.dumps(getattr(getattr(entry, "item", entry), "fields", None) or {}, default=str),
         )
-        for entry in getattr(digest, "ordered", digest).items
+        for entry in entries
     ]
 
     owned = connection is None
     conn = connection if connection is not None else connect(path)
     try:
+        first_id = conn.execute(
+            "SELECT COALESCE(MAX(id), 0) FROM sent_items"
+        ).fetchone()[0]
         conn.executemany(
             "INSERT INTO sent_items (run_id, beat, sent_at, rendered_text, "
-            "source_observation_id) VALUES (?, ?, ?, ?, ?)",
+            "source_observation_id, checkable_fields) VALUES (?, ?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()
+
+        if embedder is not None and rows:
+            try:
+                from forecaster.memory import retrieval
+
+                retrieval.create_vector_schema(conn, embedder.dimensions)
+                vectors = embedder.encode([row[3] for row in rows])
+                for offset, vector in enumerate(vectors):
+                    retrieval.index_item(conn, int(first_id) + offset + 1, vector)
+            except Exception:  # noqa: BLE001 - the ledger row is the durable part
+                pass
     finally:
         if owned:
             conn.close()
