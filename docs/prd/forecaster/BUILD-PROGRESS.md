@@ -47,6 +47,9 @@ step in this build may make a live `claude-agent-sdk` call.** Every test runs ag
 | 17 | Delivery interface + email | done | `a40762c` | real send is human-gated |
 | 18 | Runner CLI + end-to-end wiring | done (automated) / **blocked** (live run) | `6f08c16` | live `--dry-run` blocked on the OAuth token |
 | 19 | Nightly scheduler script | done (agent-side) / **human-gated** (3 nights) | `636bd54` | task NOT registered by the agent |
+| 20 | Retrieval layer + ledger migration | done | `b88be3f` | §9 Q3 answered by Sarah, not by the build |
+| 21 | Dedup judgment + FR-19 invariants | done | `b88be3f` | model enforced *around*, not *asked* |
+| 22 | Synthesizer + runner wiring, acceptance | done | `874ba80`, `1077db2` | before/after pair green |
 
 ## Per-step log
 
@@ -551,3 +554,84 @@ and on `emeritus/HUMAN-TODO.md` (item 4).
 - Verify observed: `uv run pytest tests/test_nightly.py -q` -> `17 passed in 0.36s`;
   full suite `221 passed in 3.49s`.
 - **All 19 steps complete.** Next: trackers + PR.
+
+---
+
+## Increment 2 — Module 3 (retrieval), 2026-08-02
+
+Branch `feature/fr-9b-retrieval`, cut from a newly created `dev` (this repo had only `main`
+after graduating; the `dev` referenced above was the playground's).
+
+### Step 20 — Retrieval layer (`memory/retrieval.py`) — **done**
+
+- `Embedder` protocol + `StaticEmbedder` (model2vec `minishlab/potion-retrieval-32M`, **512
+  dims**, no torch) + `HashingEmbedder` (deterministic, offline, tests only). Vector index is a
+  `sqlite-vec` vec0 virtual table **inside the existing `ledger.db`**, keyed by `sent_items.id`.
+- **Deps added:** `sqlite-vec 0.1.9`, `model2vec 0.8.2`, and `numpy` — 15 packages total, **no
+  torch**. Verified live before writing any code: `vec_version() -> v0.1.9`.
+- `sent_items` gains `checkable_fields` (JSON). **Explicit migration**, because SQLite has no
+  `ADD COLUMN IF NOT EXISTS` and a `CREATE TABLE IF NOT EXISTS`-only schema would silently leave
+  an existing ledger without the column. Tested against a hand-built legacy database.
+- **The measurement that shaped the whole design**, taken before the design was fixed:
+
+  ```
+  "Final: Houston Astros 4, Texas Rangers 2."
+      vs "Final: Houston Astros 5, Texas Rangers 2."   cosine 0.9859
+  "Astros beat the Rangers 4-2." vs "…5-2."            cosine 0.9746
+  "Astros beat the Rangers 4-2." vs a weather line     cosine 0.0037
+  ```
+
+  Static embeddings are near-blind to numerals. Two *different games* are near-duplicates.
+- **Gotcha worth recording:** sqlite-vec's KNN returns **distance**, not similarity. Over unit
+  vectors, `similarity = 1 - d²/2`. Getting that backwards means nothing is ever a duplicate and
+  every test still passes for the wrong reason, so there is a test asserting an identical line
+  scores ~1.0.
+
+### Step 21 — Dedup judgment + FR-19 — **done**
+
+- `memory/dedup.py`. Retrieval narrows; the model judges; five invariants bound what the judgment
+  may do. Enforced **around** the model — `test_the_model_is_not_even_asked_when_a_checkable_value_moved`
+  asserts the client is never called, because an invariant that can be talked out of is not one.
+- **Bug found by a test I wrote to document intent.** `_checkable_values_differ` compared values
+  as strings, so a field that round-tripped through JSON as `"41.0"` against an int `41` read as
+  *new information* — which would have quietly disabled suppression for every numeric field, in
+  the safe direction, invisibly. Now numeric-aware. Worth remembering: the failure was silent and
+  test-shaped, not crash-shaped.
+
+### Step 22 — Wiring + acceptance — **done**
+
+- Dedup runs between suppression and escalation ordering. The synthesizer takes an **injected**
+  retriever and still opens no database and names no table — `test_the_synthesizer_does_not_read_the_ledger`
+  survived FR-9b unchanged, which is the FR-2 seam doing its job.
+- `retriever=None` reproduces the v1 digest exactly, asserted.
+- **Four ledger guardrail tests were revised, not deleted.** They existed to enforce "§9 Q3 is
+  unanswered". Q3 is answered, so the guard changed shape: no identity may still ever be *written
+  down*, and nothing outside the retrieval layer may query the table. Both still asserted.
+- **Verify observed:** `uv run pytest -q` → **256 passed in 4.22s** (was 221). Still no network
+  and no model call anywhere in the suite.
+- **The demonstration, captured with the real embedder** (no model call — scripted client):
+
+  ```
+  RUN 1 — empty ledger
+    DIGEST: 'Final: Houston Astros 4, Texas Rangers 2.'
+    dedup:  include — 'no prior item within the retrieval window'
+
+  RUN 2 — ledger holds last night; SAME game reported again
+    retrieved: [('Final: Houston Astros 4, Texas Rangers 2.', 1.0)]
+    DIGEST: ''
+    dedup:  suppress — 'judged to add nothing over item #1 (cosine 1.0000)'
+
+  RUN 3 — ledger holds 4-2; a DIFFERENT game (5-2) reported
+    retrieved: [('Final: Houston Astros 4, Texas Rangers 2.', 0.9859)]
+    DIGEST: 'Final: Houston Astros 5, Texas Rangers 2.'
+    dedup:  reframe, forced=True — 'near-duplicate wording (cosine 0.9859) but a
+            checkable value differs … suppression is not permitted'
+    provenance ok: True
+  ```
+
+  Run 3 is the point: 0.9859 similarity, and the item survives anyway, with the model never
+  consulted.
+
+**Still blocked, unchanged:** `CLAUDE_CODE_OAUTH_TOKEN` is not minted, so no live run has
+happened. FR-9b has never executed against an organically accumulated ledger — the demonstration
+above seeds one. Recorded as DIVERGENCES row 4.

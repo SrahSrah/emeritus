@@ -1,6 +1,6 @@
 # STATUS — Emeritus
 
-_Last updated: 2026-07-27_
+_Last updated: 2026-08-02_
 
 > **Graduated from the playground on 2026-07-27.** Source: `playground/emeritus`.
 > Home: `C:\Users\Sarah\Documents\31 Emeritus` → https://github.com/SrahSrah/emeritus (private).
@@ -9,10 +9,16 @@ _Last updated: 2026-07-27_
 
 ## Where things stand
 
-Checkpoints 1.1 and 2.x both **submitted**. The capstone is **built**: all 19 build steps
-implemented and merged, 221 tests green. The pipeline has never made a live model call —
-`CLAUDE_CODE_OAUTH_TOKEN` isn't minted yet, which is the one blocker on a first real run.
-See [HUMAN-TODO.md](HUMAN-TODO.md) items ①–④.
+Checkpoints 1.1 and 2.x **submitted**. Checkpoint 3 **drafted, not yet submitted**. The capstone
+is built through **increment 2**: 22 build steps, **256 tests green**. The pipeline has never made
+a live model call — `CLAUDE_CODE_OAUTH_TOKEN` isn't minted yet, which is still the one blocker on a
+first real run. See [HUMAN-TODO.md](HUMAN-TODO.md) items ①–④.
+
+**Module 3 increment (2026-08-02):** FR-9b shipped — retrieval-backed dedup against the sent-item
+ledger, plus FR-19's safety invariants. PRD §9 **Q3 is answered** (Sarah's call: item identity is a
+read-time relation, not a stored property), and §9 **Q1 is resolved** (email framed as a deliberate
+scope cut, acknowledged in Checkpoint 3). DIVERGENCES rows 1 and 3 are **closed**; rows 4 and 5 are
+new and both concern what Checkpoint 3 may not claim.
 
 Capstone track: **Forecaster** — a nightly 7 pm CT text digest (AI/Claude news,
 Astros, r/WallStreetBets, next-morning weather, need-to-know news, local live music),
@@ -22,10 +28,23 @@ with personalized escalation and dedup against past reports.
 
 | | |
 |---|---|
-| Module | 2 — agent architecture (reasoning loops, memory, tools) |
-| Deliverable | Written refinement of the Checkpoint 1.1 concept, 600–900 words |
-| Draft | [assignments/assignment-2-agent-architecture.md](assignments/assignment-2-agent-architecture.md) — 879 words, synced to the doc |
-| State | **submitted 2026-07-27** |
+| Module | 3 — RAG, vector databases, semantic retrieval |
+| Deliverable | Written design update, 600–900 words, **plus a working agent update** |
+| Draft | [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md) |
+| Build | FR-9b + FR-19 on `feature/fr-9b-retrieval`, 256 tests green, PR open into `dev` |
+| State | **drafted 2026-08-02 — not yet submitted** |
+
+### Module 3's architectural decision (locked)
+
+**Retrieval is required, and scoped to exactly one place: the sent-item ledger.** The two v1 beats
+are structured JSON APIs where a score is a field, not a passage, so retrieval adds nothing to
+*grounding* — that job belongs to the tool call, and FR-11 already enforces it. What retrieval
+changes is *selection*: deciding whether tonight's line tells Sarah anything she wasn't already
+told. Similarity finds candidates; a model judgment decides; five invariants bound the judgment.
+
+The number the design turns on, measured on the shipped model before the design was fixed:
+`"Final: Houston Astros 4, Texas Rangers 2."` vs `"…5, Texas Rangers 2."` → **cosine 0.9859**.
+Two different games. A threshold-only dedup would have dropped a real result.
 
 ### Checked against the "Outcome" criteria (Complete rating)
 
@@ -94,6 +113,7 @@ game in progress; `"In Progress"` is the `detailedState`. The adapter exposes bo
 | 2026-07-27 | Assignment 2 submitted. Wrote the Forecaster PRD (v1, 18 FRs) and locked the build decisions above. |
 | 2026-07-27 | Decomposed the PRD into BUILD-PROMPTS.md — 19 steps, all MVP FRs covered, 3 spec gaps + 2 human gates flagged. |
 | 2026-07-27 | **Built all 19 steps** on `feature/forecaster` (one commit per step), 221 tests green, PR opened into `dev`. Live run blocked on the OAuth token; FR-12's send and FR-14's three nights left at their human gates. Added `tzdata` (Windows has no tz database) and corrected the `abstractGameState` value for live games. |
+| 2026-08-02 | **Module 3 increment.** §9 Q3 answered → FR-9b unblocked and built (Steps 20–22) on `feature/fr-9b-retrieval`: model2vec embeddings + a sqlite-vec index inside `ledger.db`, retrieval-narrows/model-judges dedup, and FR-19's five safety invariants. **256 tests green**, no torch, no paid service. Drafted Checkpoint 3 against the shipped code. Found and fixed a silent bug: numeric fields that round-tripped through JSON compared unequal, which would have disabled suppression invisibly. |
 
 ## Assignment 2 — design decisions (locked)
 
@@ -122,6 +142,7 @@ with them or explicitly note the revision.
 |---|---|---|---|---|
 | 1 | Agent concept | — | Forecaster concept | submitted |
 | 2 | Agent architecture | — | [text](assignments/assignment-2-agent-architecture.md) | submitted |
+| 3 | RAG / vector databases | Wants a **working agent update**, not just prose | [text](assignments/assignment-3-retrieval.md) | **drafted, not submitted** |
 | — | _rest of syllabus TBD_ | | | |
 
 ## Open questions

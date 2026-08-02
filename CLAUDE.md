@@ -70,6 +70,14 @@ If a change would require answering one, stop and surface it.
   ErrorRecords. Use `Start-Process` with redirect files.
 - FR-10's injury rule is **dormant**: no v1 endpoint returns injury data. It is implemented and
   tested against a synthetic signal on purpose.
+- **sqlite-vec's KNN returns distance, not similarity.** Over unit vectors,
+  `similarity = 1 - d²/2`. Inverting that means nothing is ever a duplicate and the tests still
+  pass for the wrong reason — there's a test asserting an identical line scores ~1.0.
+- **Static embeddings are near-blind to numerals.** Two different Astros finals score **cosine
+  0.9859**. Never dedup on similarity alone; FR-19's invariants exist for exactly this.
+- **Compare checkable values numerically, not as strings.** The ledger round-trips through JSON,
+  so an int `41` meets a stored `"41.0"`. A string compare reads that as new information and
+  silently disables suppression for every numeric field.
 
 ## Conventions
 
