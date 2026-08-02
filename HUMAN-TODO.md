@@ -7,10 +7,16 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 ## Now
 
-- [ ] **Submit Assignment 3.** Drafted 2026-08-02 and written into the course Google Doc under
-      `ASSIGNMENT 3: SUBMISSION:`. Read it, edit it in Docs until it sounds like you, then submit
-      through the Emeritus portal. Local copy:
-      [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md).
+- [ ] **Paste Assignment 3 into the course Google Doc**, under `ASSIGNMENT 3: SUBMISSION:`.
+      Drafted 2026-08-02 at
+      [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md) (921 words) —
+      paste the essay body only, not the header block. ⚠️ **The Drive connector is read-only for
+      existing docs**, so no agent can write into that doc; it can only create new files. This step
+      is yours regardless of what `write-next-assignment` says it does.
+- [ ] **Edit it in Docs until it sounds like you**, then submit through the Emeritus portal.
+      Two claims in it are deliberately hedged and should stay hedged — the demonstration runs on a
+      seeded ledger, and the retrieval thresholds are reasoned rather than measured. See
+      DIVERGENCES rows 4 and 5.
 - [ ] **Merge the FR-9b PR into `dev`** once you're happy with it. It is deliberately left
       unmerged — `feature/fr-9b-retrieval` → `dev`, 256 tests green.
 - [x] **Submit Assignment 2.** Done 2026-07-27.
