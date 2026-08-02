@@ -204,6 +204,102 @@ def test_one_beat_failing_still_delivers_traces_and_writes_ledger_rows(
 
 
 # --------------------------------------------------------------------------- #
+# FR-9b through the real runner — two nights, one ledger
+# --------------------------------------------------------------------------- #
+
+
+def test_two_consecutive_runs_dedup_against_the_ledger_the_second_night(
+    tmp_path: Path,
+) -> None:
+    """The full pipeline, twice, against one ledger file.
+
+    Night one writes its items and indexes their vectors; night two retrieves them
+    before composing. Nothing is stubbed but the embedder (offline) and the model.
+    """
+    from forecaster.agent import AgentResponse
+    from forecaster.memory.retrieval import HashingEmbedder
+
+    class SuppressingClient(FakeAgentClient):
+        def complete(self, prompt, *, structured=None, system=None, effort="low"):
+            if structured and "candidate" in structured:
+                return AgentResponse(
+                    text="SUPPRESS you were told this last night",
+                    input_tokens=0,
+                    output_tokens=0,
+                )
+            return super().complete(
+                prompt, structured=structured, system=system, effort=effort
+            )
+
+    config = make_config(retrieval={"enabled": True})
+    ledger = tmp_path / "ledger.db"
+    embedder = HashingEmbedder()
+
+    def one_night(run_dir: str):
+        client, _ = fixture_client(HAPPY_ROUTES)
+        with client:
+            return run_pipeline(
+                config,
+                PREFS,
+                agent_client=SuppressingClient(),
+                deliverer=FakeDeliverer(),
+                http_client=client,
+                now=NOW,
+                trace_dir=tmp_path / run_dir,
+                ledger_path=ledger,
+                embedder=embedder,
+            )
+
+    first = one_night("runs1")
+    second = one_night("runs2")
+
+    # Night one has an empty ledger, so nothing can be suppressed.
+    assert set(first.dedup_actions) == {"include"}
+    assert first.ledger_rows == len(first.dedup_actions)
+    assert "Run window" in first.text
+
+    # Night two retrieves night one's rows. Identical input, so every line is a repeat.
+    assert set(second.dedup_actions) == {"suppress"}
+    assert len(second.dedup_actions) == len(first.dedup_actions)
+    assert "Run window" not in second.text
+
+    # The decisions and their reasons are in the trace, per FR-9b's acceptance.
+    decisions = [
+        record
+        for record in records_of(read_trace(second.trace_path), "decision")
+        if str(record.get("decision", "")).startswith("dedup_")
+    ]
+    assert len(decisions) == len(second.dedup_actions)
+    assert all(record["neighbours"] for record in decisions)
+    assert all(record["top_similarity"] > 0.9 for record in decisions)
+    assert all(record["reason"] for record in decisions)
+
+
+def test_retrieval_stays_off_when_config_disables_it(tmp_path: Path) -> None:
+    """FR-1 still holds: one config key turns the whole layer off."""
+    from forecaster.memory.retrieval import HashingEmbedder
+
+    ledger = tmp_path / "ledger.db"
+    for run_dir in ("runs1", "runs2"):
+        client, _ = fixture_client(HAPPY_ROUTES)
+        with client:
+            report = run_pipeline(
+                make_config(retrieval={"enabled": False}),
+                PREFS,
+                agent_client=FakeAgentClient(),
+                deliverer=FakeDeliverer(),
+                http_client=client,
+                now=NOW,
+                trace_dir=tmp_path / run_dir,
+                ledger_path=ledger,
+                embedder=HashingEmbedder(),
+            )
+
+    assert report.dedup_actions == []
+    assert "Run window" in report.text, "the repeat survives when retrieval is off"
+
+
+# --------------------------------------------------------------------------- #
 # Wiring details
 # --------------------------------------------------------------------------- #
 

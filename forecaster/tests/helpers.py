@@ -38,6 +38,15 @@ BASE_CONFIG: dict[str, Any] = {
         "watched_players": ["Yordan Alvarez"],
     },
     "team": {"mlb_team_id": 117, "name": "Houston Astros"},
+    # Off by default so every pre-FR-9b test keeps asserting exactly the v1 behaviour.
+    # The retrieval tests opt in with make_config(retrieval={"enabled": True}).
+    "retrieval": {
+        "enabled": False,
+        "model": "test-hashing-embedder",
+        "k": 5,
+        "similarity_floor": 0.60,
+        "window_days": 14,
+    },
 }
 
 
@@ -74,6 +83,20 @@ def make_context(
         scratchpad=scratchpad if scratchpad is not None else Scratchpad(trace=trace),
         trace=trace,
         http_client=http_client,
+    )
+
+
+def make_retriever(tmp_path: Path, **overrides: Any) -> Any:
+    """A `LedgerRetriever` over a temp ledger, using the offline hashing embedder."""
+    from forecaster.memory.ledger import connect
+    from forecaster.memory.retrieval import HashingEmbedder, LedgerRetriever
+
+    settings: dict[str, Any] = {"k": 5, "similarity_floor": 0.60, "window_days": 14}
+    settings.update(overrides)
+    return LedgerRetriever(
+        connection=connect(tmp_path / "ledger.db"),
+        embedder=HashingEmbedder(),
+        **settings,
     )
 
 
