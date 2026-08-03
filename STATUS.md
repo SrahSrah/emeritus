@@ -31,7 +31,7 @@ with personalized escalation and dedup against past reports.
 | Module | 3 — RAG, vector databases, semantic retrieval |
 | Deliverable | Written design update, 600–900 words, **plus a working agent update** |
 | Draft | [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md) |
-| Build | FR-9b + FR-19 on `feature/fr-9b-retrieval`, 256 tests green, PR open into `dev` |
+| Build | FR-9b + FR-19 on `feature/fr-9b-retrieval`, 265 tests green, PR open into `dev` |
 | State | **drafted 2026-08-02 — not yet submitted** |
 
 ### Module 3's architectural decision (locked)
