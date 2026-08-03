@@ -635,3 +635,36 @@ after graduating; the `dev` referenced above was the playground's).
 **Still blocked, unchanged:** `CLAUDE_CODE_OAUTH_TOKEN` is not minted, so no live run has
 happened. FR-9b has never executed against an organically accumulated ledger — the demonstration
 above seeds one. Recorded as DIVERGENCES row 4.
+
+### Step 23 — Time-scoped items (FR-19 amendment) — **done**
+
+Found by Sarah asking a plain architecture question: retrieval runs on every beat, so does the
+Astros beat, which is a pure API call, actually need it, and can it hurt?
+
+It can. FR-19's first invariant fires on a **differing checkable value**, and three Astros items
+carried no date, so:
+
+- `No {team} game today.` had `fields={"game_count": 0}` — byte-identical on every off day, so a
+  run of off days would go silent about the Astros entirely;
+- `Final: …` had `{state, away_score, home_score, doubleheader}` — a 4-2 win on the 3rd and a 4-2
+  win on the 9th are indistinguishable inside the 14-day window;
+- `No game scheduled in the next 14 days.` carried **no fields at all**.
+
+All three fell through to the model, which is exactly what FR-19 exists to prevent.
+
+**A correction worth recording, because the first diagnosis was wrong.** The initial probe
+hand-built a weather item and concluded the *weather* beat was the broken one. It is not: the real
+`WeatherBeat` already emits `"morning": "2026-07-28"` in `fields`, so its date differs every night
+and the invariant fires. The probe tested a shape the beat never produces. Running the real beats
+against the real fixtures reversed the finding. `test_the_weather_beat_was_already_protected`
+passes with and without this change, which is the proof.
+
+- Fix: `game_date` on the live, final and preview items, `date` on no-game-today, `as_of` on
+  nothing-upcoming. `BeatItem.fields` only — **not** `BeatResult.checkable_fields`, so FR-11's
+  provenance surface is unchanged (the weather item already carried `grid` in `fields` alone,
+  which is the precedent).
+- `tests/test_time_scoped_items.py`: 9 tests. A parametrized structural guard asserting every item
+  from every shipped beat carries a date, plus the two behavioural cases that were broken, plus a
+  test that a *true* repeat is still suppressible so the fix doesn't disable dedup.
+- Verify observed: new file `9 passed`; **stashing the fix makes 5 of the 9 fail**, which is what
+  proves the bug was real rather than theoretical. Full suite `uv run pytest -q` → **265 passed**.

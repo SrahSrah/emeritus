@@ -159,7 +159,14 @@ worth writing about each week.
   - **Acceptance:** Done when a candidate whose score differs from a 0.98-similar neighbour survives
     the check with the model never consulted, asserted on the structured decision; and when a broken
     retriever still produces a delivered digest with the failure named in the trace.
-  - **Touches:** `forecaster/memory/dedup.py`
+  - **Amended 2026-08-02 (time-scoped items).** Invariant (a) fires on a *differing value*, so an
+    item about a particular day must carry that day in `BeatItem.fields` or the invariant cannot
+    fire: two off days, or two different games sharing a scoreline inside the retrieval window,
+    otherwise look identical and reach the model as candidates for suppression. Every shipped beat
+    now carries a date (`morning`, `game_date`, `date`, `as_of`), enforced by
+    `tests/test_time_scoped_items.py`. Note this is `BeatItem.fields`, which dedup compares, not
+    `BeatResult.checkable_fields`, which FR-11 polices; the two are deliberately separate.
+  - **Touches:** `forecaster/memory/dedup.py`, `forecaster/beats/astros.py`
 
 - **FR-10 — Escalation rules engine** `[MVP]`
   - **Requirement:** Deterministic rules over `BeatResult`s promote items to the top of the digest.

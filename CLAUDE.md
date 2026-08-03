@@ -89,6 +89,12 @@ tuned).
 - **Compare checkable values numerically, not as strings.** The ledger round-trips through JSON,
   so an int `41` meets a stored `"41.0"`. A string compare reads that as new information and
   silently disables suppression for every numeric field.
+- **Every `BeatItem` about a point in time must carry a date in `fields`.** FR-19's first
+  invariant fires on a *differing checkable value*, so without a date two off days, or two
+  different games sharing a scoreline, look identical and can be suppressed as repeats. Note
+  `BeatItem.fields` (what dedup compares) is separate from `BeatResult.checkable_fields` (what
+  provenance polices), so adding a date does not widen the provenance surface.
+  `tests/test_time_scoped_items.py` enforces this for every shipped beat.
 
 ## Conventions
 
