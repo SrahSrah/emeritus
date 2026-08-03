@@ -18,7 +18,7 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
       seeded ledger, and the retrieval thresholds are reasoned rather than measured. See
       DIVERGENCES rows 4 and 5.
 - [ ] **Merge the FR-9b PR into `dev`** once you're happy with it. It is deliberately left
-      unmerged — `feature/fr-9b-retrieval` → `dev`, 256 tests green.
+      unmerged — `feature/fr-9b-retrieval` → `dev`, 265 tests green.
 - [x] **Submit Assignment 2.** Done 2026-07-27.
 - [x] **Decide the SMS-vs-email framing** (PRD §9 Q1). Done 2026-08-02: deliberate scope cut,
       acknowledged in Checkpoint 3. DIVERGENCES row 1 closed.

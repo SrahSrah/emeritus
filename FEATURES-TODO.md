@@ -19,7 +19,7 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
       each. The load-bearing one: a differing checkable value can never be suppressed.
 - [x] **PRD §9 Q3 answered** — identity is a read-time relation, not a stored property. This is
       why there is still no identity column.
-- 256 tests green, no network, no model calls, no torch, no paid dependency.
+- 265 tests green, no network, no model calls, no torch, no paid dependency.
 
 ## Blocked on a decision, not on effort
 
