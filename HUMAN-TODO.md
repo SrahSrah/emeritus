@@ -9,7 +9,7 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [ ] **Paste Assignment 3 into the course Google Doc**, under `ASSIGNMENT 3: SUBMISSION:`.
       Drafted 2026-08-02 at
-      [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md) (921 words) —
+      [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md) (886 words) —
       paste the essay body only, not the header block. ⚠️ **The Drive connector is read-only for
       existing docs**, so no agent can write into that doc; it can only create new files. This step
       is yours regardless of what `write-next-assignment` says it does.
@@ -28,7 +28,7 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 ### Before the Forecaster build can run
 
-The code is built and its test suite is green (221 tests, no network, no model calls).
+The code is built and its test suite is green (265 tests, no network, no model calls).
 Four things below are **blocking a first real run** — everything else is done.
 
 - [ ] **① Mint a Claude Code OAuth token** and put it in `forecaster/.env` as
