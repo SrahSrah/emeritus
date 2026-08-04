@@ -704,28 +704,57 @@ def check_provenance(
                 )
 
         # Fidelity: an observation-backed rendering must not appear altered.
+        #
+        # A template is numbers-are-wildcards, so it matches every sentence of the same
+        # shape — including a *different* observation that happens to read the same way.
+        # The Astros beat produces exactly that on any night of a series: "Toronto Blue
+        # Jays 0, Houston Astros 0" (tonight, live) and "Toronto Blue Jays 3, Houston
+        # Astros 1" (last night, final) are two true claims sharing one shape, and each
+        # one's template matches the other's sentence. Comparing their numbers then reads
+        # as tampering.
+        #
+        # So a match is only altered if the passage it matched is **not itself** an
+        # observation-backed rendering. That keeps the real catch — a score the model
+        # changed by one matches the shape and matches no observation — while letting two
+        # genuinely different observed values coexist in one digest.
+        #
+        # Found 2026-08-04 by the first live run that hit a real series. Latent since the
+        # v1 build; it would have fired on most nights the Astros played.
         renderings = [str(value) for value in checkable.values() if isinstance(value, str)]
         renderings.extend(
             str(item.get("text", "")) for item in (result.get("items") or [])
         )
+        backed = {rendering.lower() for rendering in renderings if rendering}
+
+        # One bad passage matches every template of its shape, so without this it is
+        # reported once per rendering — three times, each blaming a different "correct"
+        # value, none of which is the one it was supposed to be. One defect, one line.
+        flagged: set[str] = set()
+
         for rendering in renderings:
             pattern = _template(rendering)
             if pattern is None:
                 continue
             expected = _numbers(rendering)
             for match in pattern.finditer(digest_text):
-                if list(match.groups()) != expected:
-                    report.violations.append(
-                        ProvenanceViolation(
-                            kind="altered_claim",
-                            beat=beat,
-                            field_name="rendered_text",
-                            detail=(
-                                f"digest states {match.group(0)!r} where the "
-                                f"observation-backed value is {rendering!r}"
-                            ),
-                        )
+                if list(match.groups()) == expected:
+                    continue
+                passage = match.group(0)
+                if passage.lower() in backed or passage in flagged:
+                    continue
+                flagged.add(passage)
+                report.violations.append(
+                    ProvenanceViolation(
+                        kind="altered_claim",
+                        beat=beat,
+                        field_name="rendered_text",
+                        detail=(
+                            f"digest states {passage!r}, which matches the shape of an "
+                            f"observation-backed value (e.g. {rendering!r}) but matches "
+                            "no observation this run recorded"
+                        ),
                     )
+                )
 
     return report
 
