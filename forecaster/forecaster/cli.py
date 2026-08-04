@@ -324,11 +324,28 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Send one real digest to the configured address. Sarah runs this, not the agent.",
     )
+    parser.add_argument(
+        "--news-metric",
+        action="store_true",
+        help=(
+            "Report PRD §2's four news-beat conditions over the traces in data/runs/ "
+            "and exit. Reads only; runs nothing."
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.news_metric:
+        # Reporting only: no auth, no config, no run. Reads the traces and exits.
+        from forecaster.news_metric import check_news_metric, trace_files
+        from forecaster.trace import DEFAULT_RUN_DIR
+
+        report = check_news_metric(trace_files(DEFAULT_RUN_DIR))
+        print(report.summary())
+        return 0
 
     load_env()
     try:

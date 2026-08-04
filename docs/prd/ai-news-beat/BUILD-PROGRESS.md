@@ -39,8 +39,8 @@ repair this file, and say so.
 | 30 | Grounded-text provenance check | **done** | `da1d098` | 369 tests (+11). Added `ungrounded_item` beyond the spec's two kinds — a synthesized item pointing at no observation is the emptiest version of the failure. Word-form mapping is closed at 20. |
 | 31 | Grounded-value suppression veto | **done** | `e35e098` | 385 tests (+16). Built **stronger than specced** — see the deviation below; PRD FR-27 amended to match. `test_time_scoped_items.py` gains a coverage test that fails when a registered beat is not exercised there. |
 | 32 | News beat worker | **done** | `351ab05` | 398 tests (+13). `BeatContext` gains `embedder`, `corpus`, **and `agent_client`** (the PRD anticipated the first two). Seam verified: `git diff dev...HEAD` touches none of `planner.py`, `synthesizer.py`, `delivery/`. Step 31's coverage test fired on cue and forced the news case into the time-scoped guard. |
-| 33 | Per-source failure handling | **done** | — | 405 tests (+7). Fixed two bugs Step 32 left: "all sources failed" was tested as "no entries" (a quiet night misread as an outage), and a cold corpus raised instead of returning empty. Failed-source lines are **status** items with a date, so FR-19's original invariant makes them unsuppressible. |
-| 34 | News-beat metric checker | todo | — | — |
+| 33 | Per-source failure handling | **done** | `952754b` | 405 tests (+7). Fixed two bugs Step 32 left: "all sources failed" was tested as "no entries" (a quiet night misread as an outage), and a cold corpus raised instead of returning empty. Failed-source lines are **status** items with a date, so FR-19's original invariant makes them unsuppressible. |
+| 34 | News-beat metric checker | **done** | — | 419 tests (+14). `--news-metric` verified against the real `data/runs/`. Condition (d) reports **n/a** rather than passing when retrieval was off — a run that assessed nothing proves nothing. |
 
 ## Log
 
@@ -87,9 +87,30 @@ and only one of them is permission. A 404 still means no restrictions.
 
 ## Blockers surfaced
 
-_None yet._
+**None.** No §9 open question had to be answered to finish a step. Q2 (escalation), Q5 (dedup
+thresholds), Q6 (corpus thresholds), and child Q4 (suppression resurrection) all stayed open and
+constrained *how* steps were built rather than whether they could be.
+
+## Bugs found and fixed during the build
+
+Recorded because each one was invisible in the output and would have shipped quietly:
+
+1. **`published` stored in the publisher's own UTC offset** (found Step 29). FR-24's window filter
+   compares those as strings in SQL, so an article stamped `-05:00` sorted against one stamped
+   `+00:00` by its local wall clock. Normalized to UTC on write.
+2. **"All sources failed" tested as "no entries came back"** (found Step 33). Three working feeds on
+   a quiet news day return nothing, and the beat would have reported an outage. Now counted against
+   the configured feed list.
+3. **A cold corpus raised instead of returning empty** (found Step 33). `vec_chunks` does not exist
+   until something is indexed, so the first-ever run — or any genuinely quiet night — reported
+   `available=False`. The beat calling itself broken when it simply had nothing to read is the exact
+   confusion FR-18 exists to prevent.
 
 ## For HUMAN-TODO
 
-_None yet beyond what the PRD already flagged (③ SMTP, ④ scheduled task, Q6 thresholds, feed-list
-review)._
+Nothing new. The build surfaced no credential, signup, or account action beyond what the PRD already
+flagged: ③ SMTP app password, ④ the scheduled task, Q6's thresholds, and a review of the feed list
+and topic queries in `config.toml`.
+
+**④ is the one that matters now.** §2(c) — the organic dedup evidence that retires DIVERGENCES row
+4 — needs 14 consecutive nights. This build made the traffic; it cannot make the nights.
