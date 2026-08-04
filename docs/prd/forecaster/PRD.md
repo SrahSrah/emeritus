@@ -166,6 +166,14 @@ worth writing about each week.
     now carries a date (`morning`, `game_date`, `date`, `as_of`), enforced by
     `tests/test_time_scoped_items.py`. Note this is `BeatItem.fields`, which dedup compares, not
     `BeatResult.checkable_fields`, which FR-11 polices; the two are deliberately separate.
+  - **Amended 2026-08-04 (invariant 1 does not generalize to document-shaped beats).** The date rule
+    above assumes a *recurring status item*, where identical wording on a different day means a
+    genuinely different fact. A news item inverts that: the same story on a different day **is** the
+    repeat, so any per-artifact field in its `fields` — run date, publication date, or url — makes
+    invariant 1 fire every night and silently disables dedup for that beat. The child spec's **FR-27**
+    transplants the invariant from typed fields to grounded prose (veto on a new number, quoted phrase,
+    or proper noun) and exempts `text_origin="synthesized"` items from the date guard. Read FR-27 before
+    adding any beat whose item text is model-written rather than assembled in code.
   - **Touches:** `forecaster/memory/dedup.py`, `forecaster/beats/astros.py`
 
 - **FR-10 — Escalation rules engine** `[MVP]`
@@ -236,6 +244,15 @@ worth writing about each week.
   - **Requirement:** AI/Claude news, r/WallStreetBets mention volume, need-to-know news, Austin live
     music — each a `Beat` implementation plus a config entry.
   - **Acceptance:** Done when each is added without modifying planner, synthesizer, or delivery.
+  - **Amended 2026-08-04 — the AI/Claude news beat is specced separately.** It is no longer `[Later]`
+    here: it has its own child spec at [`docs/prd/ai-news-beat/PRD.md`](../ai-news-beat/PRD.md), which
+    owns **FR-20 … FR-29**. It is broken out because it is the only one of the four that carries a
+    submitted forward commitment (DIVERGENCES row 6: *"Retrieval of the classic kind arrives with the
+    AI news beat, where the documents are articles"*), and because it is the first beat whose items are
+    model-synthesized from retrieved passages rather than assembled from typed API fields — which
+    requires FR-11's provenance check to grow a case (child FR-26) and FR-19's first invariant to be
+    transplanted from typed fields to grounded prose (child FR-27). The other three — r/WallStreetBets,
+    need-to-know news, Austin live music — stay `[Later]` under this requirement, unspecced.
 
 ## 6. Technical & data notes
 
@@ -307,7 +324,14 @@ Downstream must not invent answers to these.
 5. **New — retrieval thresholds are unvalidated in the wild.** `k = 5`, `similarity_floor = 0.60`,
    `window_days = 14` are reasoned defaults, not measured ones. Nothing has run against a real
    multi-week ledger. The trace records every neighbour and score specifically so these can be tuned
-   from evidence later; do not treat them as settled.
+   from evidence later; do not treat them as settled. **Still open 2026-08-04:** the AI news beat
+   generates the repeat traffic that makes measuring them possible, but producing traffic is not
+   measuring it, and the measurement needs the nights that HUMAN-TODO ④ gates.
+6. **New — the news beat's *corpus* retrieval has its own unmeasured thresholds.** `k = 6`,
+   `similarity_floor = 0.35`, `window_days = 3`, `max_chunks_per_article = 2`, specified in
+   [`docs/prd/ai-news-beat/PRD.md`](../ai-news-beat/PRD.md) §9 Q6. A **sibling** of Q5, not an answer
+   to it: Q5 is about comparing a candidate line to past lines, Q6 is about matching a topic query to
+   article chunks, and the two are different retrieval problems with different natural floors.
 
 ## 10. Phasing
 

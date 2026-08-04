@@ -38,9 +38,11 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
       into a durable preference rule. Needs an inbox-read path, which v1 doesn't have.
 - [ ] **FR-17 — the remaining four beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
-  - [ ] AI / Claude news — **the first real test of FR-9b.** The v1 beats don't naturally
-        repeat, so dedup has only ever run against a seeded ledger (DIVERGENCES row 4). News
-        is where repetition is frequent and where the thresholds get their workout.
+  - [~] **AI / Claude news — specced 2026-08-04, not built.**
+        [docs/prd/ai-news-beat/PRD.md](docs/prd/ai-news-beat/PRD.md), FR-20 … FR-29. RSS discovery
+        plus article-body fetch (free, keyless — no news API returns full article text at any price).
+        Pays DIVERGENCES row 6 and gives FR-9b its first organic test (row 4). Next step:
+        `build-build-prompts` over that PRD.
   - [ ] r/WallStreetBets mention volume
   - [ ] "need-to-know" news (the bar is higher than daily drudgery)
   - [ ] Austin live music and theatre

@@ -99,6 +99,14 @@ gates real work.
         ConvertFrom-Json | Where-Object { $_.decision -like 'dedup_*' } |
         Select-Object decision, top_similarity, reason
       ```
+- [ ] **Q6 (new) — the news beat's corpus-retrieval thresholds.** `k = 6`,
+      `similarity_floor = 0.35`, `window_days = 3`, `max_chunks_per_article = 2`. Reasoned, not
+      measured, and a **separate** question from Q5: Q5 compares a candidate line to past lines,
+      Q6 matches a topic query to article chunks. Same rule applies — no checkpoint may call
+      either set tuned. [docs/prd/ai-news-beat/PRD.md](docs/prd/ai-news-beat/PRD.md) §9.
+- [ ] **Review the news feed list and topic queries** in that PRD's §6 before the build. The five
+      feeds and three topics are a starting proposal; they are your taste, not a design decision,
+      and nothing in the code knows those ids.
 - [ ] **The freeze horizon.** `freeze_horizon_days` is in config, but the weather adapter
       fetches only the next morning's window, so the rule can only apply over that. A
       multi-day "freeze within N days" alert needs a decision to extend the forecast range.
