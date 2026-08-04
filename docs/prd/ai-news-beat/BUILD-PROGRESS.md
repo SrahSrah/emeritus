@@ -32,8 +32,8 @@ repair this file, and say so.
 | 23 | Text/bytes fixtures in the harness | **done** | `407afbf` | 271 tests (+6). `load_text_fixture` requires the extension; `Route.text`/`content_type`; `capture_fixture.py --raw`. Regression case asserts all three JSON route shapes unchanged. |
 | 24 | News config schema | **done** | `5f1ed7b` | 289 tests (+18). `[news]` is **optional** — every pre-news config (including `tests/helpers.BASE_CONFIG`) is still valid; enabling the beat without the section is what raises. `[beats] news = false` until Step 32. |
 | 25 | RSS/Atom feed adapter | **done** | `f62bff4` | 303 tests (+14). Stdlib `xml.etree`, no `feedparser`. Real fixtures captured: Ars = RSS 2.0/20 items, Verge = Atom/10 entries. `within_window` lives here so FR-21 can filter before fetching. |
-| 26 | Article body fetch and extraction | **done** | — | 321 tests (+18). Hand-rolled extractor (see deviation below). Real article fixture extracts to 3,673 chars / 15 paragraphs. Unreachable `robots.txt` disallows per RFC 9309. |
-| 27 | Paragraph-aware chunking | todo | — | — |
+| 26 | Article body fetch and extraction | **done** | `fb2051d` | 321 tests (+18). Hand-rolled extractor (see deviation below). Real article fixture extracts to 3,673 chars / 15 paragraphs. Unreachable `robots.txt` disallows per RFC 9309. |
+| 27 | Paragraph-aware chunking | **done** | — | 340 tests (+19). `reconstruct()` shipped in the module, not just the tests — it *is* the definition of correct chunking. Paragraph spans tile the body contiguously so no character can be lost. |
 | 28 | Article chunk corpus | todo | — | — |
 | 29 | Topic-query retrieval | todo | — | — |
 | 30 | Grounded-text provenance check | todo | — | — |
