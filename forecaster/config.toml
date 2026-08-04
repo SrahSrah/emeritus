@@ -13,6 +13,9 @@ run_window_end = "08:00"
 # One flag per beat. Adding a beat = one class + one entry here (FR-2).
 astros = true
 weather = true
+# Flipped on in Step 32, once NewsBeat is registered. Enabling a beat nobody registered
+# is a LookupError by design, not a silent skip.
+news = false
 
 [location]
 city = "Austin"
@@ -53,3 +56,60 @@ k = 5
 similarity_floor = 0.60
 # Only compare against items sent within this many days.
 window_days = 14
+
+[news]
+# FR-20 … FR-29. Every source here is free and keyless — RSS for discovery, then the
+# article page itself for the body. No news API returns full article text at any price,
+# so paying would not have bought this. Measured 2026-08-04: feed summaries run 111–975
+# chars (one chunk), fetched article bodies run 3,233–6,838 (a real document).
+user_agent = "forecaster/0.1 (sarah.rachel.hernandez@gmail.com)"
+# Politeness, per host. robots.txt on the configured publishers declares no crawl delay.
+fetch_delay_seconds = 1.0
+timeout_seconds = 15
+# Below this, extraction is treated as failed and the feed summary is used instead —
+# marked `text_source = "summary"`, never padded out with invented text.
+min_body_chars = 600
+feeds = [
+  { name = "Ars Technica",  url = "https://feeds.arstechnica.com/arstechnica/index" },
+  { name = "TechCrunch AI", url = "https://techcrunch.com/category/artificial-intelligence/feed/" },
+  { name = "The Verge",     url = "https://www.theverge.com/rss/index.xml" },
+  { name = "OpenAI",        url = "https://openai.com/news/rss.xml" },
+  { name = "DeepMind",      url = "https://deepmind.google/blog/rss.xml" },
+]
+
+[news.chunking]
+target_chars = 900
+max_chars = 1200
+overlap_chars = 150
+
+[news.corpus]
+# A SEPARATE file from ledger.db. The ledger is the permanent record of what was
+# delivered and cannot be rebuilt; article chunks are disposable and reconstructible
+# from the feeds in one run, and would otherwise dwarf it (~1,400 vectors a week
+# against the ledger's ~35).
+path = "data/corpus.db"
+ttl_days = 7
+
+[news.retrieval]
+# NOT the same numbers as [retrieval]. Matching a topic query to an article chunk is a
+# weaker match than line-against-line, hence the lower floor; news goes stale faster
+# than it should be forgotten, hence window_days < ttl_days.
+# Reasoned, NOT measured — PRD §9 Q6. Do not describe these as tuned.
+k = 6
+similarity_floor = 0.35
+window_days = 3
+# One long article must not fill the whole context for a topic.
+max_chunks_per_article = 2
+
+# Sarah's taste, not a design decision. Nothing in the code knows these ids.
+[[news.topics]]
+id = "claude"
+query = "Anthropic Claude model releases, capabilities, and pricing"
+
+[[news.topics]]
+id = "agents"
+query = "AI agents, tool use, and agent frameworks"
+
+[[news.topics]]
+id = "evals"
+query = "model evaluations, benchmarks, and safety testing"

@@ -23,10 +23,14 @@ repair this file, and say so.
 
 ## Steps
 
+> **SHA convention:** a step's commit SHA is written in during the *next* step's commit, since a
+> commit cannot contain its own hash. If the last row shows `done` with no SHA, it is the tip commit
+> — read it from `git log`.
+
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
-| 23 | Text/bytes fixtures in the harness | todo | — | — |
-| 24 | News config schema | todo | — | — |
+| 23 | Text/bytes fixtures in the harness | **done** | `407afbf` | 271 tests (+6). `load_text_fixture` requires the extension; `Route.text`/`content_type`; `capture_fixture.py --raw`. Regression case asserts all three JSON route shapes unchanged. |
+| 24 | News config schema | **done** | — | 289 tests (+18). `[news]` is **optional** — every pre-news config (including `tests/helpers.BASE_CONFIG`) is still valid; enabling the beat without the section is what raises. `[beats] news = false` until Step 32. |
 | 25 | RSS/Atom feed adapter | todo | — | — |
 | 26 | Article body fetch and extraction | todo | — | — |
 | 27 | Paragraph-aware chunking | todo | — | — |

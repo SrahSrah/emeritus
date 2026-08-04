@@ -150,3 +150,116 @@ def test_no_module_but_config_hardcodes_the_location_or_timezone() -> None:
             if needle in text:
                 offenders.append(f"{path.relative_to(PROJECT_ROOT)}: {needle}")
     assert offenders == []
+
+
+# --------------------------------------------------------------------------- #
+# Step 24 — the news section
+# --------------------------------------------------------------------------- #
+
+
+def _news_config(**overrides: object) -> Config:
+    """Parse a base config with `[news]` merged in, applying section overrides."""
+    from tests.helpers import NEWS_CONFIG, make_config
+
+    news = {key: value for key, value in NEWS_CONFIG.items()}
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(news.get(key), dict):
+            news[key] = {**news[key], **value}
+        else:
+            news[key] = value
+    return make_config(news=news)
+
+
+def test_the_real_config_parses_its_news_section() -> None:
+    config = load_config(REAL_CONFIG)
+    assert config.news is not None
+    assert config.news.chunking.target_chars == 900
+    assert config.news.corpus.ttl_days == 7
+    assert config.news.retrieval.k == 6
+    assert config.news.retrieval.similarity_floor == 0.35
+    assert [feed.name for feed in config.news.feeds][0] == "Ars Technica"
+    assert [topic.id for topic in config.news.topics] == ["claude", "agents", "evals"]
+
+
+def test_the_news_beat_ships_disabled_until_it_is_registered() -> None:
+    """Enabling a beat nobody registered is a LookupError; Step 32 flips this."""
+    config = load_config(REAL_CONFIG)
+    assert config.beats["news"] is False
+    assert "news" not in enabled_beats(config)
+
+
+def test_a_config_with_no_news_section_is_still_valid() -> None:
+    """Every config that predates the news beat is still a config."""
+    from tests.helpers import make_config
+
+    assert make_config().news is None
+
+
+def test_enabling_news_without_a_news_section_raises() -> None:
+    from tests.helpers import make_config
+
+    with pytest.raises(ConfigError, match=r"no \[news\] section"):
+        make_config(beats={"news": True})
+
+
+@pytest.mark.parametrize(
+    "overrides,message",
+    [
+        ({"chunking": {"overlap_chars": 900}}, "less than target_chars"),
+        ({"chunking": {"overlap_chars": -1}}, "must not be negative"),
+        ({"chunking": {"target_chars": 2000}}, "must not exceed max_chars"),
+        ({"retrieval": {"k": 0}}, r"\[news.retrieval\].k must be at least 1"),
+        ({"retrieval": {"similarity_floor": 1.5}}, "within 0.0"),
+        ({"retrieval": {"window_days": 0}}, "window_days must be at least 1"),
+        ({"retrieval": {"max_chunks_per_article": 0}}, "max_chunks_per_article"),
+        ({"corpus": {"ttl_days": 0}}, "ttl_days must be at least 1"),
+        ({"retrieval": {"window_days": 30}}, "exceeds"),
+        ({"user_agent": ""}, "non-empty string"),
+    ],
+)
+def test_each_news_validation_rule_has_a_raising_case(overrides, message) -> None:
+    """A config that would silently misbehave at 2 am fails here instead."""
+    with pytest.raises(ConfigError, match=message):
+        _news_config(**overrides)
+
+
+def test_a_window_wider_than_the_ttl_is_rejected() -> None:
+    """Retrieving over articles the purge already deleted is a config bug, not a quirk."""
+    with pytest.raises(ConfigError, match="already deleted"):
+        _news_config(retrieval={"window_days": 8})
+
+
+def test_duplicate_feed_names_and_topic_ids_are_rejected() -> None:
+    """A duplicate makes a trace entry ambiguous — same reasoning as suppression ids."""
+    with pytest.raises(ConfigError, match="duplicate name"):
+        _news_config(
+            feeds=[
+                {"name": "Ars Technica", "url": "https://a.test/feed"},
+                {"name": "Ars Technica", "url": "https://b.test/feed"},
+            ]
+        )
+    with pytest.raises(ConfigError, match="duplicate id"):
+        _news_config(
+            topics=[
+                {"id": "claude", "query": "one"},
+                {"id": "claude", "query": "two"},
+            ]
+        )
+
+
+def test_enabling_news_with_no_feeds_or_no_topics_raises() -> None:
+    from tests.helpers import NEWS_CONFIG, make_config
+
+    with pytest.raises(ConfigError, match="nothing to read"):
+        make_config(beats={"news": True}, news={**NEWS_CONFIG, "feeds": []})
+    with pytest.raises(ConfigError, match="retrieval has no query"):
+        make_config(beats={"news": True}, news={**NEWS_CONFIG, "topics": []})
+
+
+def test_news_retrieval_is_a_separate_setting_from_ledger_retrieval() -> None:
+    """Q5 and Q6 are siblings. Conflating the two sets would answer one with the other."""
+    config = load_config(REAL_CONFIG)
+    assert config.news is not None
+    assert config.retrieval.k != config.news.retrieval.k
+    assert config.retrieval.similarity_floor != config.news.retrieval.similarity_floor
+    assert config.retrieval.window_days != config.news.retrieval.window_days
