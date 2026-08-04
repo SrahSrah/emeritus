@@ -162,3 +162,204 @@ def test_invalid_settings_raise_rather_than_looping_forever() -> None:
         _chunk(_body(5), overlap_chars=TARGET)
     with pytest.raises(ValueError, match="at least target_chars"):
         _chunk(_body(5), max_chars=TARGET - 1)
+
+
+# --------------------------------------------------------------------------- #
+# Step 28 — FR-23: the store, and its separation from the ledger
+# --------------------------------------------------------------------------- #
+
+
+def _entry(url: str, *, published: str = "2026-08-03T14:30:00+00:00", body: str | None = None):
+    from datetime import datetime
+
+    from forecaster.tools.feeds import SOURCE_ARTICLE, FeedEntry
+
+    return FeedEntry(
+        url=url,
+        source="Ars Technica",
+        headline=HEADLINE,
+        published=datetime.fromisoformat(published),
+        summary="short",
+        body=body if body is not None else _body(8),
+        text_source=SOURCE_ARTICLE,
+    )
+
+
+def _corpus(tmp_path):
+    from forecaster.memory.corpus import connect
+
+    return connect(tmp_path / "corpus.db")
+
+
+def _embedder():
+    from forecaster.memory.retrieval import HashingEmbedder
+
+    return HashingEmbedder()
+
+
+def test_indexing_writes_one_chunk_row_and_one_vector_per_chunk(tmp_path) -> None:
+    from forecaster.memory.corpus import (
+        article_count,
+        chunk_count,
+        index_article,
+        vector_count,
+    )
+
+    conn = _corpus(tmp_path)
+    entry = _entry("https://a.test/one")
+    chunks = _chunk(entry.body)
+
+    written = index_article(conn, entry, chunks, _embedder())
+
+    assert written == len(chunks) > 1
+    assert article_count(conn) == 1
+    assert chunk_count(conn) == len(chunks)
+    assert vector_count(conn) == len(chunks)
+
+
+def test_reindexing_the_same_url_replaces_rather_than_duplicates(tmp_path) -> None:
+    """An article fetched two nights running is one article, not two."""
+    from forecaster.memory.corpus import (
+        article_count,
+        chunk_count,
+        index_article,
+        vector_count,
+    )
+
+    conn = _corpus(tmp_path)
+    entry = _entry("https://a.test/one")
+    chunks = _chunk(entry.body)
+    embedder = _embedder()
+
+    index_article(conn, entry, chunks, embedder)
+    first_chunks = chunk_count(conn)
+    index_article(conn, entry, chunks, embedder)
+
+    assert article_count(conn) == 1
+    assert chunk_count(conn) == first_chunks
+    assert vector_count(conn) == first_chunks
+
+
+def test_purge_removes_expired_articles_and_their_vectors(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from forecaster.memory.corpus import (
+        article_count,
+        chunk_count,
+        index_article,
+        purge_expired,
+        vector_count,
+    )
+
+    conn = _corpus(tmp_path)
+    now = datetime(2026, 8, 4, 19, 0, tzinfo=timezone.utc)
+    embedder = _embedder()
+
+    old = _entry("https://a.test/old")
+    fresh = _entry("https://a.test/fresh")
+    index_article(conn, old, _chunk(old.body), embedder, fetched_at=now - timedelta(days=9))
+    index_article(conn, fresh, _chunk(fresh.body), embedder, fetched_at=now)
+    total_chunks = chunk_count(conn)
+
+    removed = purge_expired(conn, ttl_days=7, now=now)
+
+    assert removed == 1
+    assert article_count(conn) == 1
+    assert chunk_count(conn) < total_chunks
+    assert vector_count(conn) == chunk_count(conn), "no vector may outlive its chunk row"
+
+
+def test_purge_on_an_empty_corpus_is_a_no_op(tmp_path) -> None:
+    from datetime import datetime, timezone
+
+    from forecaster.memory.corpus import purge_expired
+
+    conn = _corpus(tmp_path)
+    assert purge_expired(conn, ttl_days=7, now=datetime(2026, 8, 4, tzinfo=timezone.utc)) == 0
+
+
+def test_the_corpus_never_touches_the_ledger(tmp_path) -> None:
+    """FR-23's separation, asserted rather than asserted-in-prose."""
+    from forecaster.memory.corpus import index_article, purge_expired
+    from forecaster.memory.ledger import all_rows, connect as connect_ledger
+
+    from datetime import datetime, timezone
+
+    ledger_path = tmp_path / "ledger.db"
+    ledger = connect_ledger(ledger_path)
+    ledger.execute(
+        "INSERT INTO sent_items (run_id, beat, sent_at, rendered_text, "
+        "source_observation_id, checkable_fields) VALUES (?,?,?,?,?,?)",
+        ("run-1", "astros", "2026-08-03T19:00:00", "Final: 4-2.", "obs-1", "{}"),
+    )
+    ledger.commit()
+    before = len(all_rows(connection=ledger))
+
+    conn = _corpus(tmp_path)
+    entry = _entry("https://a.test/one")
+    index_article(conn, entry, _chunk(entry.body), _embedder())
+    purge_expired(conn, ttl_days=7, now=datetime(2026, 8, 4, tzinfo=timezone.utc))
+
+    assert len(all_rows(connection=ledger)) == before
+    assert (tmp_path / "corpus.db").exists()
+    assert (tmp_path / "corpus.db") != ledger_path
+
+
+def test_corpus_module_never_imports_or_opens_the_ledger() -> None:
+    """Structural guard, matching the one test_ledger.py already keeps over identity.
+
+    Reads the AST rather than the file text, because the module docstring *should* name
+    `ledger.db` — explaining why the two corpora live in separate files is exactly the
+    documentation that ought to exist. What may not exist is code that opens it.
+    """
+    import ast
+    from pathlib import Path as _Path
+
+    source = (
+        _Path(__file__).resolve().parent.parent / "forecaster" / "memory" / "corpus.py"
+    ).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    imported: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            imported.append(node.module)
+        elif isinstance(node, ast.Import):
+            imported.extend(alias.name for alias in node.names)
+    assert not any("ledger" in module for module in imported), imported
+
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef))
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+        and isinstance(node.body[0].value.value, str)
+    }
+    literals = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in docstrings
+    ]
+
+    offenders = [
+        literal
+        for literal in literals
+        if "ledger.db" in literal or "sent_items" in literal
+    ]
+    assert offenders == [], f"corpus.py names the ledger in live code: {offenders}"
+
+
+def test_an_article_with_no_chunks_still_records_the_article(tmp_path) -> None:
+    """A body that extracted to nothing is a fact about the article, not a reason to lose it."""
+    from forecaster.memory.corpus import article_count, chunk_count, index_article
+
+    conn = _corpus(tmp_path)
+    written = index_article(conn, _entry("https://a.test/empty", body=""), [], _embedder())
+
+    assert written == 0
+    assert article_count(conn) == 1
+    assert chunk_count(conn) == 0

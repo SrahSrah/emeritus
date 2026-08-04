@@ -177,12 +177,29 @@ def load_vec(connection: sqlite3.Connection) -> None:
         raise RetrievalError(f"could not load sqlite-vec: {exc}") from exc
 
 
-def create_vector_schema(connection: sqlite3.Connection, dimensions: int) -> None:
-    """Idempotent. The vec0 virtual table is keyed by ``sent_items.id``."""
+#: The vec0 table name and key column for the sent-item index. FR-23's article corpus
+#: passes its own; the defaults keep every pre-existing caller unchanged.
+SENT_ITEM_VEC_TABLE = "vec_sent_items"
+SENT_ITEM_VEC_KEY = "sent_item_id"
+
+
+def create_vector_schema(
+    connection: sqlite3.Connection,
+    dimensions: int,
+    *,
+    table: str = SENT_ITEM_VEC_TABLE,
+    key: str = SENT_ITEM_VEC_KEY,
+) -> None:
+    """Idempotent. The vec0 virtual table is keyed by the owning row's id.
+
+    Parameterized by table name so FR-23's article corpus can reuse it. It is the *same*
+    accelerator over a different corpus, not a second implementation — a second one would
+    be a second place for the distance-to-similarity conversion to be got backwards.
+    """
     load_vec(connection)
     connection.execute(
-        f"CREATE VIRTUAL TABLE IF NOT EXISTS vec_sent_items USING vec0("
-        f"  sent_item_id INTEGER PRIMARY KEY,"
+        f"CREATE VIRTUAL TABLE IF NOT EXISTS {table} USING vec0("
+        f"  {key} INTEGER PRIMARY KEY,"
         f"  embedding FLOAT[{dimensions}]"
         f")"
     )
@@ -190,15 +207,30 @@ def create_vector_schema(connection: sqlite3.Connection, dimensions: int) -> Non
 
 
 def index_item(
-    connection: sqlite3.Connection, sent_item_id: int, vector: np.ndarray
+    connection: sqlite3.Connection,
+    sent_item_id: int,
+    vector: np.ndarray,
+    *,
+    table: str = SENT_ITEM_VEC_TABLE,
+    key: str = SENT_ITEM_VEC_KEY,
 ) -> None:
-    """Store one delivered item's vector against its ledger row id."""
+    """Store one row's vector against its owning id."""
     payload = np.asarray(vector, dtype=np.float32).reshape(-1).tobytes()
     connection.execute(
-        "INSERT OR REPLACE INTO vec_sent_items (sent_item_id, embedding) VALUES (?, ?)",
+        f"INSERT OR REPLACE INTO {table} ({key}, embedding) VALUES (?, ?)",
         (sent_item_id, payload),
     )
     connection.commit()
+
+
+def similarity_from_distance(distance: float) -> float:
+    """sqlite-vec's KNN returns L2 distance; over unit vectors cosine is 1 - d²/2.
+
+    Extracted so there is exactly one of these in the codebase. Getting it backwards
+    means everything scores as a match, which looks like working software right up until
+    it silently suppresses a real fact.
+    """
+    return 1.0 - (distance * distance) / 2.0
 
 
 def retrieve_neighbours(
@@ -250,8 +282,7 @@ def retrieve_neighbours(
 
     neighbours: list[Neighbour] = []
     for row in rows:
-        distance = float(row[5])
-        similarity = 1.0 - (distance * distance) / 2.0
+        similarity = similarity_from_distance(float(row[5]))
         if similarity < similarity_floor:
             continue
         try:
@@ -316,6 +347,8 @@ __all__ = [
     "LedgerRetriever",
     "DEFAULT_SIMILARITY_FLOOR",
     "DEFAULT_WINDOW_DAYS",
+    "SENT_ITEM_VEC_KEY",
+    "SENT_ITEM_VEC_TABLE",
     "Embedder",
     "HashingEmbedder",
     "Neighbour",
@@ -325,4 +358,5 @@ __all__ = [
     "index_item",
     "load_vec",
     "retrieve_neighbours",
+    "similarity_from_distance",
 ]

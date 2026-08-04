@@ -30,8 +30,45 @@ Both use the **same `Embedder` instance**, passed in, so the model loads once pe
 from __future__ import annotations
 
 import re
+import sqlite3
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Iterable, Sequence
+
+from forecaster.memory.retrieval import (
+    Embedder,
+    create_vector_schema,
+    index_item,
+)
+
+DEFAULT_CORPUS_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "corpus.db"
+
+VEC_TABLE = "vec_chunks"
+VEC_KEY = "chunk_id"
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS articles (
+    url          TEXT PRIMARY KEY,
+    source       TEXT NOT NULL,
+    headline     TEXT NOT NULL,
+    published    TEXT NOT NULL,
+    fetched_at   TEXT NOT NULL,
+    text_source  TEXT NOT NULL,
+    body_chars   INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chunks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    url         TEXT NOT NULL REFERENCES articles(url),
+    ordinal     INTEGER NOT NULL,
+    text        TEXT NOT NULL,
+    char_start  INTEGER NOT NULL,
+    char_end    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chunks_url ON chunks(url);
+CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published);
+CREATE INDEX IF NOT EXISTS idx_articles_fetched_at ON articles(fetched_at);
+"""
 
 #: Sentence-ish boundaries, used only when a single paragraph exceeds `max_chars`.
 _SENTENCE_END = re.compile(r"[.!?][\"')\]]?\s")
@@ -185,8 +222,171 @@ def reconstruct(body: str, chunks: Sequence[Chunk]) -> str:
     return "".join(parts)
 
 
+# --------------------------------------------------------------------------- #
+# FR-23 — the store. A separate file from ledger.db, with its own lifecycle.
+# --------------------------------------------------------------------------- #
+
+
+def connect(path: str | Path | None = None) -> sqlite3.Connection:
+    """Open (and create, idempotently) the article corpus.
+
+    Deliberately **not** `ledger.connect`. Nothing in this module opens `ledger.db`, and
+    a test asserts that: the durable record of what was delivered and a disposable cache
+    of what publishers said this week have no business sharing a file.
+    """
+    db_path = Path(path) if path is not None else DEFAULT_CORPUS_PATH
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    connection.executescript(SCHEMA)
+    connection.commit()
+    return connection
+
+
+def _iso(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def index_article(
+    connection: sqlite3.Connection,
+    entry: Any,
+    chunks: Sequence[Chunk],
+    embedder: Embedder,
+    *,
+    fetched_at: datetime | None = None,
+) -> int:
+    """Store one article and its chunks. Returns the number of chunks written.
+
+    Re-indexing a url **replaces** its chunks rather than appending: an article fetched
+    on two consecutive nights is one article, and duplicate chunks would let a single
+    story crowd out every other result for a topic.
+    """
+    create_vector_schema(connection, embedder.dimensions, table=VEC_TABLE, key=VEC_KEY)
+    stamp = (fetched_at or datetime.now(timezone.utc)).isoformat()
+    body_chars = len(getattr(entry, "body", "") or "")
+
+    _delete_chunks_for(connection, [entry.url])
+
+    connection.execute(
+        "INSERT OR REPLACE INTO articles "
+        "(url, source, headline, published, fetched_at, text_source, body_chars) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            entry.url,
+            entry.source,
+            entry.headline,
+            _iso(entry.published),
+            stamp,
+            getattr(entry, "text_source", "unfetched"),
+            body_chars,
+        ),
+    )
+
+    if not chunks:
+        connection.commit()
+        return 0
+
+    vectors = embedder.encode([chunk.text for chunk in chunks])
+    for chunk, vector in zip(chunks, vectors):
+        cursor = connection.execute(
+            "INSERT INTO chunks (url, ordinal, text, char_start, char_end) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (entry.url, chunk.ordinal, chunk.text, chunk.char_start, chunk.char_end),
+        )
+        index_item(
+            connection,
+            int(cursor.lastrowid),
+            vector,
+            table=VEC_TABLE,
+            key=VEC_KEY,
+        )
+    connection.commit()
+    return len(chunks)
+
+
+def _delete_chunks_for(connection: sqlite3.Connection, urls: Sequence[str]) -> None:
+    """Drop chunks and their vectors together, so the index never outlives its rows."""
+    if not urls:
+        return
+    placeholders = ",".join("?" for _ in urls)
+    ids = [
+        int(row[0])
+        for row in connection.execute(
+            f"SELECT id FROM chunks WHERE url IN ({placeholders})", tuple(urls)
+        )
+    ]
+    if ids:
+        id_placeholders = ",".join("?" for _ in ids)
+        try:
+            connection.execute(
+                f"DELETE FROM {VEC_TABLE} WHERE {VEC_KEY} IN ({id_placeholders})",
+                tuple(ids),
+            )
+        except sqlite3.Error:
+            # The vec table may not exist yet on a first index. The chunk rows are the
+            # durable part; an orphaned vector cannot be returned without its row.
+            pass
+    connection.execute(
+        f"DELETE FROM chunks WHERE url IN ({placeholders})", tuple(urls)
+    )
+
+
+def purge_expired(
+    connection: sqlite3.Connection, *, ttl_days: int, now: datetime | None = None
+) -> int:
+    """Delete articles fetched longer ago than the TTL. Returns the article count removed.
+
+    Called at run start, **before** indexing, so a night's fetch never competes with
+    last week's. The corpus is meant to be small and disposable; the ledger is not, and
+    nothing here can touch it.
+    """
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=ttl_days)).isoformat()
+    urls = [
+        str(row[0])
+        for row in connection.execute(
+            "SELECT url FROM articles WHERE fetched_at < ?", (cutoff,)
+        )
+    ]
+    if not urls:
+        return 0
+    _delete_chunks_for(connection, urls)
+    placeholders = ",".join("?" for _ in urls)
+    connection.execute(
+        f"DELETE FROM articles WHERE url IN ({placeholders})", tuple(urls)
+    )
+    connection.commit()
+    return len(urls)
+
+
+def article_count(connection: sqlite3.Connection) -> int:
+    return int(connection.execute("SELECT COUNT(*) FROM articles").fetchone()[0])
+
+
+def chunk_count(connection: sqlite3.Connection) -> int:
+    return int(connection.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
+
+
+def vector_count(connection: sqlite3.Connection) -> int:
+    try:
+        return int(connection.execute(f"SELECT COUNT(*) FROM {VEC_TABLE}").fetchone()[0])
+    except sqlite3.Error:
+        return 0
+
+
 __all__ = [
+    "DEFAULT_CORPUS_PATH",
+    "SCHEMA",
+    "VEC_KEY",
+    "VEC_TABLE",
     "Chunk",
+    "article_count",
     "chunk_article",
+    "chunk_count",
+    "connect",
+    "index_article",
+    "purge_expired",
     "reconstruct",
+    "vector_count",
 ]
