@@ -4,7 +4,16 @@ The test suite runs entirely off these files — no live network (see the socket
 `tests/conftest.py`). Every fixture below is either **recorded** verbatim from the live
 endpoint or **recorded then hand-edited**. Nobody should have to guess which.
 
-Re-record with `uv run python scripts/capture_fixture.py <name> "<url>"`.
+Re-record with `uv run python scripts/capture_fixture.py <name> "<url>"`, or, for the
+non-JSON sources the news beat reads (XML feeds, HTML article pages, `robots.txt`):
+
+```
+uv run python scripts/capture_fixture.py --raw <name>.<ext> "<url>" --user-agent "<ua>"
+```
+
+Under `--raw` the name carries its own extension, and the body is written verbatim —
+nothing is parsed. The extension is also what tells the harness which content type to
+serve the fixture with.
 
 ## Recorded verbatim
 
@@ -16,8 +25,9 @@ Re-record with `uv run python scripts/capture_fixture.py <name> "<url>"`.
 | `nws_points_austin.json` | `api.weather.gov/points/30.2672,-97.7431` — resolves to grid **EWX 156,91** | 2026-07-27 |
 | `nws_hourly_austin.json` | `api.weather.gov/gridpoints/EWX/156,91/forecast/hourly` | 2026-07-27 |
 
-`sample.json` is not a recording — it is a two-line file that exists only to prove the
-fixture harness itself serves JSON through an `httpx.Client`.
+`sample.json`, `sample.xml`, and `sample.html` are not recordings — they are tiny files
+that exist only to prove the fixture harness itself serves JSON, XML, and HTML through an
+`httpx.Client`.
 
 ## Recorded, then hand-edited — **synthetic**
 
