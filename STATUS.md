@@ -31,7 +31,7 @@ with personalized escalation and dedup against past reports.
 | Module | 3 — RAG, vector databases, semantic retrieval |
 | Deliverable | Written design update, 600–900 words, **plus a working agent update** |
 | Draft | [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md) |
-| Build | FR-9b + FR-19 on `feature/fr-9b-retrieval`, 265 tests green, PR open into `dev` |
+| Build | FR-9b + FR-19 **merged into `dev`** 2026-08-04 (`f452153`), 265 tests green |
 | State | **submitted 2026-08-02** |
 
 ### Module 3's architectural decision (locked)
@@ -113,6 +113,7 @@ game in progress; `"In Progress"` is the `detailedState`. The adapter exposes bo
 | 2026-07-27 | Assignment 2 submitted. Wrote the Forecaster PRD (v1, 18 FRs) and locked the build decisions above. |
 | 2026-07-27 | Decomposed the PRD into BUILD-PROMPTS.md — 19 steps, all MVP FRs covered, 3 spec gaps + 2 human gates flagged. |
 | 2026-07-27 | **Built all 19 steps** on `feature/forecaster` (one commit per step), 221 tests green, PR opened into `dev`. Live run blocked on the OAuth token; FR-12's send and FR-14's three nights left at their human gates. Added `tzdata` (Windows has no tz database) and corrected the `abstractGameState` value for live games. |
+| 2026-08-04 | **First live end-to-end run.** `auth_mode=subscription_oauth`, provenance OK across 7 checkable fields with 0 violations, 12.0s, 2 in / 85 out tokens, nothing sent (FakeDeliverer). Then merged PR #1 into `dev` as `f452153`. `main` still untouched. |
 | 2026-08-02 | **Checkpoint 3 submitted.** Final text logged verbatim at [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md). It commits to document-shaped RAG landing with the AI news beat, recorded as DIVERGENCES row 6 and now the top build priority. |
 | 2026-08-02 | Fixed a silent-suppression bug FR-19 was supposed to prevent: three Astros items carried no date, so two off days in a row, or two different games sharing a scoreline, reached the model as suppression candidates. Dates added to `BeatItem.fields`; `tests/test_time_scoped_items.py` guards it. 265 tests green. |
 | 2026-08-02 | **Module 3 increment.** §9 Q3 answered → FR-9b unblocked and built (Steps 20–22) on `feature/fr-9b-retrieval`: model2vec embeddings + a sqlite-vec index inside `ledger.db`, retrieval-narrows/model-judges dedup, and FR-19's five safety invariants. **256 tests green**, no torch, no paid service. Drafted Checkpoint 3 against the shipped code. Found and fixed a silent bug: numeric fields that round-tripped through JSON compared unequal, which would have disabled suppression invisibly. |

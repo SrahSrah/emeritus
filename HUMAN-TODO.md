@@ -9,8 +9,9 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [x] **Submit Assignment 3.** Done 2026-08-02. Submitted text logged verbatim at
       [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md).
-- [ ] **Merge the FR-9b PR into `dev`** once you're happy with it. It is deliberately left
-      unmerged — `feature/fr-9b-retrieval` → `dev`, 265 tests green.
+- [x] **Merge the FR-9b PR into `dev`.** Done 2026-08-04: PR #1 merged as `f452153`
+      (merge commit, not squash, so BUILD-PROGRESS's per-step SHAs stay reachable).
+      265 tests green on `dev`. `main` untouched.
 - [x] **Submit Assignment 2.** Done 2026-07-27.
 - [x] **Decide the SMS-vs-email framing** (PRD §9 Q1). Done 2026-08-02: deliberate scope cut,
       acknowledged in Checkpoint 3. DIVERGENCES row 1 closed.
