@@ -26,6 +26,8 @@ serve the fixture with.
 | `nws_hourly_austin.json` | `api.weather.gov/gridpoints/EWX/156,91/forecast/hourly` | 2026-07-27 |
 | `feed_arstechnica.xml` | `feeds.arstechnica.com/arstechnica/index` — **RSS 2.0**, 20 `<item>`, RFC 822 `<pubDate>`, body in `<content:encoded>` | 2026-08-04 |
 | `feed_theverge.xml` | `www.theverge.com/rss/index.xml` — **Atom**, 10 `<entry>`, ISO 8601 `<published>`, url in a `link` href | 2026-08-04 |
+| `article_arstechnica.html` | `arstechnica.com/tech-policy/2026/08/senators-demand-crackdown-on-wildfire-prediction-markets/` — extracts to **3,673 chars across 15 paragraphs** | 2026-08-04 |
+| `robots_arstechnica.txt` | `arstechnica.com/robots.txt` — the real file, which permits the article path above | 2026-08-04 |
 
 The two feeds are kept as full recordings rather than trimmed, because the point of the
 pair is that RSS 2.0 and Atom really do differ in three places — the item element, where
@@ -67,6 +69,21 @@ Why synthetic: real publishers mostly emit well-formed entries, so the drop path
 otherwise be untested. FR-20 drops rather than defaults, because a substituted date files
 an article in the wrong retrieval window and a substituted url is not a thing that can be
 fetched.
+
+### `article_paywalled.html`
+
+Hand-built. One free paragraph, a `div.paywall` telling you to subscribe, and boilerplate
+in `nav` / `header` / `aside` / `footer` / `script` / `style`. Extracts to well under the
+600-char floor, which is what makes FR-21's summary fallback fire.
+
+Why synthetic: a real paywalled capture would be a copyright problem to check in, and the
+shape is what matters, not whose paywall it is.
+
+### `robots_disallow.txt`
+
+Hand-built. `Disallow: /articles/` and `/premium/` for `*`, with a permissive
+`Googlebot` block underneath — so the fixture proves the rules are actually *read* rather
+than the file's mere presence being noticed. `/blog/` on the same host stays fetchable.
 
 ### `nws_hourly_austin_freezing.json`
 

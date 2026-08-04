@@ -31,8 +31,8 @@ repair this file, and say so.
 |---|---|---|---|---|
 | 23 | Text/bytes fixtures in the harness | **done** | `407afbf` | 271 tests (+6). `load_text_fixture` requires the extension; `Route.text`/`content_type`; `capture_fixture.py --raw`. Regression case asserts all three JSON route shapes unchanged. |
 | 24 | News config schema | **done** | `5f1ed7b` | 289 tests (+18). `[news]` is **optional** — every pre-news config (including `tests/helpers.BASE_CONFIG`) is still valid; enabling the beat without the section is what raises. `[beats] news = false` until Step 32. |
-| 25 | RSS/Atom feed adapter | **done** | — | 303 tests (+14). Stdlib `xml.etree`, no `feedparser`. Real fixtures captured: Ars = RSS 2.0/20 items, Verge = Atom/10 entries. `within_window` lives here so FR-21 can filter before fetching. |
-| 26 | Article body fetch and extraction | todo | — | — |
+| 25 | RSS/Atom feed adapter | **done** | `f62bff4` | 303 tests (+14). Stdlib `xml.etree`, no `feedparser`. Real fixtures captured: Ars = RSS 2.0/20 items, Verge = Atom/10 entries. `within_window` lives here so FR-21 can filter before fetching. |
+| 26 | Article body fetch and extraction | **done** | — | 321 tests (+18). Hand-rolled extractor (see deviation below). Real article fixture extracts to 3,673 chars / 15 paragraphs. Unreachable `robots.txt` disallows per RFC 9309. |
 | 27 | Paragraph-aware chunking | todo | — | — |
 | 28 | Article chunk corpus | todo | — | — |
 | 29 | Topic-query retrieval | todo | — | — |
@@ -49,7 +49,24 @@ repair this file, and say so.
 
 ## Deviations from the build prompts
 
-_None yet._
+**Step 26 — extractor: hand-rolled, not `trafilatura`.** The prompt said prefer
+`trafilatura` only if it pulls a small tree. Measured 2026-08-04: it resolves to **16
+packages** — `lxml`, `lxml-html-clean`, `babel`, `pytz`, `dateparser`, `python-dateutil`,
+`regex`, `tzlocal`, `courlan`, `htmldate`, `justext`, `tld`, `six`, `urllib3`,
+`charset-normalizer`. That is not a small tree for one function, in a project that already
+chose `model2vec` over `sentence-transformers` on exactly this reasoning. The hand-rolled
+pass extracts 3,673 chars from the real fixture, inside the measured 3,233–6,838 range the
+source decision was made on.
+
+**Step 26 — the 1,108-entry case is built in code, not checked in as a fixture.** A
+1,108-item XML file is roughly a megabyte of repo for a test whose entire subject is the
+*count* of HTTP requests. The entries are constructed in `test_article_fetch.py`; the
+assertion is unchanged.
+
+**Step 26 — unreachable `robots.txt` disallows.** The prompt did not say what to do when
+`robots.txt` itself 5xx's or times out. Chose disallow-and-record, per RFC 9309: "the
+publisher said nothing" and "we could not find out what the publisher said" are different,
+and only one of them is permission. A 404 still means no restrictions.
 
 ## Blockers surfaced
 

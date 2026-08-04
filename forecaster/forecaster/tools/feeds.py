@@ -33,10 +33,13 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+import time as _time
+import urllib.parse
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
+from urllib.robotparser import RobotFileParser
 from xml.etree import ElementTree
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -45,7 +48,13 @@ import httpx
 from forecaster.tools.mlb import AdapterError
 
 ADAPTER_NAME = "feeds.fetch_feed"
+ARTICLE_ADAPTER_NAME = "feeds.fetch_article"
 DEFAULT_TIMEOUT = 15.0
+
+#: Text sources an entry's body can have. Never "invented" — that is the point.
+SOURCE_UNFETCHED = "unfetched"
+SOURCE_ARTICLE = "article"
+SOURCE_SUMMARY = "summary"
 
 #: Namespaces the two shapes use. `content:encoded` is where RSS puts a fuller body.
 _NS = {
@@ -72,7 +81,7 @@ class FeedEntry:
     published: datetime
     summary: str
     body: str = ""
-    text_source: str = "unfetched"
+    text_source: str = SOURCE_UNFETCHED
 
     def with_body(self, body: str, text_source: str) -> "FeedEntry":
         """Return a copy carrying a fetched body. Frozen, so this replaces rather than mutates."""
@@ -303,10 +312,259 @@ def within_window(
     return kept
 
 
+# --------------------------------------------------------------------------- #
+# FR-21 — the article body. This is what makes the documents document-shaped.
+# --------------------------------------------------------------------------- #
+
+#: Blocks that are never article prose. Removed whole, tags and contents alike.
+_BOILERPLATE = re.compile(
+    r"(?is)<(script|style|nav|header|footer|aside|form|figure|noscript)\b.*?</\1\s*>"
+)
+_PARAGRAPH = re.compile(r"(?is)<p\b[^>]*>(.*?)</p\s*>")
+
+
+def extract_body(document: str) -> str:
+    """Pull the article prose out of an HTML page.
+
+    Hand-rolled rather than `trafilatura`, which resolves to **16 packages** including
+    `lxml`, `babel`, `pytz`, and `dateparser` (measured 2026-08-04). That is a large tree
+    for one function, in a project that already chose `model2vec` over
+    `sentence-transformers` on exactly this reasoning. This pass produced the 3,233–6,838
+    character range the source decision was made on.
+
+    Paragraphs come back **blank-line separated**, because FR-22's chunker splits on
+    paragraph boundaries and cannot find them otherwise.
+    """
+    if not document:
+        return ""
+    stripped = _BOILERPLATE.sub(" ", document)
+    paragraphs = [strip_markup(match) for match in _PARAGRAPH.findall(stripped)]
+    return "\n\n".join(paragraph for paragraph in paragraphs if paragraph)
+
+
+@dataclass
+class RobotsCache:
+    """Per-run `robots.txt` decisions, fetched **through the injected client**.
+
+    `RobotFileParser.read()` opens its own URL. That bypasses the injected client, which
+    means the socket guard kills it in the test suite and it dodges the configured
+    `User-Agent` in production — so the file is fetched here and handed to
+    :meth:`RobotFileParser.parse` instead.
+
+    Unreachable is treated as **disallowed**, per RFC 9309, and recorded. A 404 means no
+    robots file, which means no restriction. The asymmetry is deliberate: "the publisher
+    said nothing" and "we could not find out what the publisher said" are different, and
+    only one of them is permission.
+    """
+
+    client: httpx.Client
+    user_agent: str
+    timeout: float = DEFAULT_TIMEOUT
+    _parsers: dict[str, RobotFileParser | None] = field(default_factory=dict)
+    _reasons: dict[str, str] = field(default_factory=dict)
+
+    def _load(self, origin: str) -> RobotFileParser | None:
+        try:
+            response = self.client.get(
+                f"{origin}/robots.txt",
+                headers={"User-Agent": self.user_agent},
+                timeout=self.timeout,
+            )
+        except httpx.HTTPError as exc:
+            self._reasons[origin] = f"robots.txt unreachable ({type(exc).__name__})"
+            return None
+
+        if response.status_code in (404, 410):
+            parser = RobotFileParser()
+            parser.parse([])  # no file means no restriction
+            return parser
+        if response.status_code >= 400:
+            self._reasons[origin] = f"robots.txt returned {response.status_code}"
+            return None
+
+        parser = RobotFileParser()
+        parser.parse(response.text.splitlines())
+        return parser
+
+    def allows(self, url: str) -> bool:
+        parts = urllib.parse.urlsplit(url)
+        origin = f"{parts.scheme}://{parts.netloc}"
+        if origin not in self._parsers:
+            self._parsers[origin] = self._load(origin)
+        parser = self._parsers[origin]
+        if parser is None:
+            return False
+        return parser.can_fetch(self.user_agent, url)
+
+    def reason_for(self, url: str) -> str:
+        parts = urllib.parse.urlsplit(url)
+        origin = f"{parts.scheme}://{parts.netloc}"
+        return self._reasons.get(origin, "robots.txt disallows this path")
+
+
+@dataclass
+class HostRateLimiter:
+    """At least `delay` seconds between requests to the same host.
+
+    `sleep` and `clock` are injected so the suite asserts the wait was *requested*
+    without spending it. A test that actually slept one second per fixture article would
+    be a test nobody runs.
+    """
+
+    delay: float
+    sleep: Callable[[float], None] = _time.sleep
+    clock: Callable[[], float] = _time.monotonic
+    _last: dict[str, float] = field(default_factory=dict)
+    waits: list[tuple[str, float]] = field(default_factory=list)
+
+    def wait_for(self, url: str) -> None:
+        if self.delay <= 0:
+            return
+        host = urllib.parse.urlsplit(url).netloc
+        previous = self._last.get(host)
+        now = self.clock()
+        if previous is not None:
+            remaining = self.delay - (now - previous)
+            if remaining > 0:
+                self.waits.append((host, remaining))
+                self.sleep(remaining)
+                now = self.clock()
+        self._last[host] = now
+
+
+def fetch_article_body(
+    entry: FeedEntry,
+    *,
+    client: httpx.Client,
+    user_agent: str,
+    robots: RobotsCache,
+    limiter: HostRateLimiter,
+    min_body_chars: int,
+    timeout: float = DEFAULT_TIMEOUT,
+    trace: Any = None,
+) -> FeedEntry | None:
+    """Fetch and extract one article. ``None`` means the entry was skipped entirely.
+
+    Three outcomes, **none of which invents text**:
+
+    - extracted body at or above ``min_body_chars`` → ``text_source="article"``;
+    - anything shorter, or a fetch that failed → ``text_source="summary"``, carrying the
+      feed's own summary verbatim. The entry survives; it just says less.
+    - ``robots.txt`` disallows → skipped, and the caller sees ``None``.
+    """
+
+    def _record(decision: str, reason: str) -> None:
+        if trace is not None:
+            trace.decision(beat="news", decision=decision, reason=reason)
+
+    if not robots.allows(entry.url):
+        _record(
+            "article_skipped",
+            f"{entry.source}: {robots.reason_for(entry.url)} for {entry.url}",
+        )
+        return None
+
+    limiter.wait_for(entry.url)
+
+    try:
+        response = client.get(
+            entry.url,
+            headers={"User-Agent": user_agent},
+            timeout=timeout,
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        _record(
+            "article_fetch_failed",
+            (
+                f"{entry.source}: {entry.url} could not be fetched "
+                f"({type(exc).__name__}); falling back to the feed summary rather than "
+                "dropping the entry or inventing a body"
+            ),
+        )
+        return entry.with_body(entry.summary, SOURCE_SUMMARY)
+
+    # A redirect chain can rewrite the canonical url. Keep the one actually fetched, so
+    # the digest links where the reader would land.
+    final_url = str(response.url)
+    resolved = entry if final_url == entry.url else FeedEntry(
+        url=final_url,
+        source=entry.source,
+        headline=entry.headline,
+        published=entry.published,
+        summary=entry.summary,
+    )
+
+    body = extract_body(response.text)
+    if len(body) < min_body_chars:
+        _record(
+            "article_body_short",
+            (
+                f"{entry.source}: extracted {len(body)} chars from {final_url}, under the "
+                f"{min_body_chars}-char floor (paywall, truncation, or an extractor miss); "
+                "using the feed summary verbatim"
+            ),
+        )
+        return resolved.with_body(resolved.summary, SOURCE_SUMMARY)
+
+    return resolved.with_body(body, SOURCE_ARTICLE)
+
+
+def fetch_article_bodies(
+    entries: Iterable[FeedEntry],
+    *,
+    client: httpx.Client,
+    user_agent: str,
+    now: datetime,
+    window_days: int,
+    min_body_chars: int,
+    fetch_delay_seconds: float = 0.0,
+    timeout: float = DEFAULT_TIMEOUT,
+    robots: RobotsCache | None = None,
+    limiter: HostRateLimiter | None = None,
+    trace: Any = None,
+) -> list[FeedEntry]:
+    """Filter to the window, **then** fetch. The order is the whole point.
+
+    One feed returned 1,108 entries in a single request on 2026-08-04. Filtering after
+    fetching would mean a thousand HTTP calls a night against publishers who are doing
+    us a favour by serving the feed at all.
+    """
+    in_window = within_window(entries, now=now, window_days=window_days)
+    robots = robots or RobotsCache(client=client, user_agent=user_agent, timeout=timeout)
+    limiter = limiter or HostRateLimiter(delay=fetch_delay_seconds)
+
+    fetched: list[FeedEntry] = []
+    for entry in in_window:
+        result = fetch_article_body(
+            entry,
+            client=client,
+            user_agent=user_agent,
+            robots=robots,
+            limiter=limiter,
+            min_body_chars=min_body_chars,
+            timeout=timeout,
+            trace=trace,
+        )
+        if result is not None:
+            fetched.append(result)
+    return fetched
+
+
 __all__ = [
     "ADAPTER_NAME",
+    "ARTICLE_ADAPTER_NAME",
+    "SOURCE_ARTICLE",
+    "SOURCE_SUMMARY",
+    "SOURCE_UNFETCHED",
     "AdapterError",
     "FeedEntry",
+    "HostRateLimiter",
+    "RobotsCache",
+    "extract_body",
+    "fetch_article_bodies",
+    "fetch_article_body",
     "fetch_feed",
     "parse_feed",
     "strip_markup",
