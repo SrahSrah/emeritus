@@ -251,6 +251,15 @@ Module 3 named and the one Checkpoint 3 promised to demonstrate next.
     project's stated position is that going quiet is worse than repeating.
   - **Touches:** `forecaster/memory/dedup.py`, `tests/test_time_scoped_items.py`
   - **This is the load-bearing requirement in the spec.** See §8 for the failure it prevents.
+  - **Amended 2026-08-04, during the build (Step 31).** As built, the grounded-value branch
+    **short-circuits** the typed comparison rather than running alongside it: for an item declaring
+    `text_origin="synthesized"`, `_checkable_values_differ` is never reached. That is stronger than
+    this requirement asked for. The "no date, url, or source in `fields`" rule was written as a
+    *necessity* — a leaked artifact key would fire the typed invariant nightly and kill dedup. It is
+    now belt-and-braces: a stray key cannot disable dedup, because nothing consults it. The
+    convention still holds (those keys are meaningless noise on a news item) and acceptance clause
+    (iv) still asserts it, but the failure mode it guarded against is now impossible rather than
+    merely forbidden. Enforcing rather than requesting is the same reasoning as FR-11 and FR-19.
 
 - **FR-28 — Per-source failure handling (FR-18 at feed granularity)** `[MVP]`
   - **Requirement:** A feed or article fetch that fails does not fail the beat. Each failed source is

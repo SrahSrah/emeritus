@@ -7,6 +7,8 @@ rather than requested of it — the same reasoning as FR-11's provenance check.
 
 from __future__ import annotations
 
+# FR-27's grounded-value veto lives at the bottom of this file.
+
 from typing import Any, Mapping
 
 import pytest
@@ -246,3 +248,188 @@ def test_a_reframe_with_no_replacement_text_keeps_the_original() -> None:
     )
     assert decision.action == "reframe"
     assert decision.reframed_text is None
+
+
+# --------------------------------------------------------------------------- #
+# FR-27 — invariant 1, transplanted from typed fields to grounded prose
+# --------------------------------------------------------------------------- #
+#
+# The typed version assumes a recurring status item, where identical wording on a
+# different day means a different fact. News inverts that: the same story on a different
+# day IS the repeat. So for an item whose text the model wrote from retrieved passages,
+# the veto reads the prose — a new number, quotation, or proper noun.
+
+from forecaster.memory.dedup import SYNTHESIZED  # noqa: E402
+
+SYNTH_FIELDS = {"topic": "claude", "text_origin": SYNTHESIZED}
+
+
+def _news_item(text: str) -> BeatItem:
+    return BeatItem(beat="news", text=text, fields=dict(SYNTH_FIELDS))
+
+
+def _news_neighbour(text: str, similarity: float = 1.0) -> Neighbour:
+    return Neighbour(
+        sent_item_id=1,
+        beat="news",
+        sent_at="2026-08-03T19:00:00",
+        rendered_text=text,
+        checkable_fields=dict(SYNTH_FIELDS),
+        similarity=similarity,
+    )
+
+
+def test_a_new_figure_survives_a_cosine_one_neighbour_without_asking_the_model() -> None:
+    """FR-27's first clause. A benchmark number no neighbour stated is new information."""
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _news_item("Anthropic's newest Claude model scored 71.5 on the benchmark."),
+        [_news_neighbour("Anthropic shipped a newest Claude model this week.")],
+        agent_client=client,
+        beat="news",
+    )
+
+    assert decision.action == "reframe"
+    assert decision.forced is True
+    assert "71.5" in decision.reason
+    assert client.calls == [], "a rule must decide this, not the model"
+
+
+def test_a_new_entity_survives_the_same_way() -> None:
+    """The clause without which the model alone decides whether a real story lands."""
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _news_item("Anthropic shipped the Claude Agent SDK this week."),
+        [_news_neighbour("Anthropic shipped a model this week.")],
+        agent_client=client,
+        beat="news",
+    )
+
+    assert decision.action == "reframe"
+    assert decision.forced is True
+    assert "SDK" in decision.reason or "Agent" in decision.reason
+    assert client.calls == []
+
+
+def test_a_new_quotation_survives_the_same_way() -> None:
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _news_item('Anthropic called it "a meaningful step for agentic work".'),
+        [_news_neighbour("Anthropic commented on the release.")],
+        agent_client=client,
+        beat="news",
+    )
+
+    assert decision.action == "reframe"
+    assert decision.forced is True
+    assert client.calls == []
+
+
+def test_the_same_story_restated_reaches_the_model_and_is_suppressible() -> None:
+    """The case the whole feature exists for: three days of the same AI story."""
+    client = VerdictClient("SUPPRESS adds nothing new")
+    text = "Anthropic shipped a faster Claude model, and it costs more."
+    decision = assess_item(
+        _news_item(text),
+        [_news_neighbour(text)],
+        agent_client=client,
+        beat="news",
+    )
+
+    assert decision.action == "suppress"
+    assert len(client.calls) == 1
+
+
+def test_the_same_story_reworded_is_still_suppressible() -> None:
+    """Different sentence, same figures and entities. Publishers do this constantly."""
+    client = VerdictClient("SUPPRESS same story")
+    decision = assess_item(
+        _news_item("Claude got faster this week, though Anthropic raised the price."),
+        [_news_neighbour("Anthropic shipped a faster Claude model, and it costs more.")],
+        agent_client=client,
+        beat="news",
+    )
+
+    assert decision.action == "suppress"
+    assert len(client.calls) == 1
+
+
+def test_a_sentence_initial_capital_is_not_treated_as_a_new_entity() -> None:
+    """Otherwise the veto fires on everything, which is the opposite failure."""
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _news_item("Today Anthropic shipped a faster Claude model."),
+        [_news_neighbour("Anthropic shipped a faster Claude model.")],
+        agent_client=client,
+        beat="news",
+    )
+
+    assert decision.action == "suppress"
+    assert len(client.calls) == 1, "'Today' must not count as a new name"
+
+
+def test_an_entity_named_in_a_different_case_still_counts_as_known() -> None:
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _news_item("Reports say Anthropic shipped a model."),
+        [_news_neighbour("reports say anthropic shipped a model.")],
+        agent_client=client,
+        beat="news",
+    )
+
+    assert decision.action == "suppress"
+
+
+def test_escalation_still_outranks_the_grounded_veto() -> None:
+    """Invariant 2 is checked before FR-27 and stays unconditional."""
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _news_item("Anthropic shipped a faster Claude model."),
+        [_news_neighbour("Anthropic shipped a faster Claude model.")],
+        agent_client=client,
+        beat="news",
+        escalation_candidate=True,
+    )
+
+    assert decision.action == "include"
+    assert decision.forced is True
+    assert client.calls == []
+
+
+def test_a_cold_ledger_still_means_nothing_known_for_a_news_item() -> None:
+    """Invariant 3, unchanged: an empty neighbour set is not 'nothing new'."""
+    decision = assess_item(
+        _news_item("Anthropic shipped a faster Claude model."),
+        [],
+        agent_client=VerdictClient("SUPPRESS"),
+        beat="news",
+    )
+    assert decision.action == "include"
+
+
+def test_a_broken_judgment_still_degrades_to_include_for_a_news_item() -> None:
+    """Invariant 4, unchanged, reached through the new branch."""
+    decision = assess_item(
+        _news_item("Anthropic shipped a faster Claude model."),
+        [_news_neighbour("Anthropic shipped a faster Claude model.")],
+        agent_client=ExplodingClient(),
+        beat="news",
+    )
+    assert decision.action == "include"
+    assert "unavailable" in decision.reason
+
+
+def test_the_typed_invariant_is_untouched_for_unflagged_items() -> None:
+    """The two shipped beats must not notice FR-27 exists."""
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _item("Astros beat the Rangers 5-2.", {"score": "5-2", "game_date": "2026-08-04"}),
+        [_neighbour("Astros beat the Rangers 4-2.", {"score": "4-2", "game_date": "2026-08-03"})],
+        agent_client=client,
+        beat="astros",
+    )
+
+    assert decision.action == "reframe"
+    assert decision.forced is True
+    assert "score changed" in decision.reason
+    assert client.calls == []

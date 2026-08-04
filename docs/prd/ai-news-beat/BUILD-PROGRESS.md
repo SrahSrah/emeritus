@@ -36,8 +36,8 @@ repair this file, and say so.
 | 27 | Paragraph-aware chunking | **done** | `09093de` | 340 tests (+19). `reconstruct()` shipped in the module, not just the tests — it *is* the definition of correct chunking. Paragraph spans tile the body contiguously so no character can be lost. |
 | 28 | Article chunk corpus | **done** | `1919b26` | 347 tests (+7). `create_vector_schema`/`index_item` parameterized by table; `similarity_from_distance` extracted so there is exactly one of it. AST guard asserts `corpus.py` never opens the ledger in live code. |
 | 29 | Topic-query retrieval | **done** | `42925f8` | 358 tests (+11). Found and fixed a real bug while writing it: `published` was stored in whatever offset the feed gave, and FR-24 compares those **as strings** in SQL. Now normalized to UTC on write. |
-| 30 | Grounded-text provenance check | **done** | — | 369 tests (+11). Added `ungrounded_item` beyond the spec's two kinds — a synthesized item pointing at no observation is the emptiest version of the failure. Word-form mapping is closed at 20. |
-| 31 | Grounded-value suppression veto | todo | — | — |
+| 30 | Grounded-text provenance check | **done** | `da1d098` | 369 tests (+11). Added `ungrounded_item` beyond the spec's two kinds — a synthesized item pointing at no observation is the emptiest version of the failure. Word-form mapping is closed at 20. |
+| 31 | Grounded-value suppression veto | **done** | — | 385 tests (+16). Built **stronger than specced** — see the deviation below; PRD FR-27 amended to match. `test_time_scoped_items.py` gains a coverage test that fails when a registered beat is not exercised there. |
 | 32 | News beat worker | todo | — | — |
 | 33 | Per-source failure handling | todo | — | — |
 | 34 | News-beat metric checker | todo | — | — |
@@ -62,6 +62,23 @@ source decision was made on.
 1,108-item XML file is roughly a megabyte of repo for a test whose entire subject is the
 *count* of HTTP requests. The entries are constructed in `test_article_fetch.py`; the
 assertion is unchanged.
+
+**Step 31 — the veto short-circuits rather than coexists, which is stronger than specced.**
+FR-27 was written assuming the grounded-value check would sit *beside* the typed one, which made
+"news items carry no date, url, or source in `fields`" a necessity: a leaked artifact key would fire
+the typed invariant every night and silently kill dedup. As built, a synthesized item never reaches
+the typed comparison at all, so a stray key **cannot** disable dedup. The convention still holds and
+is still asserted, but the bug class is now impossible rather than forbidden. Caught by writing a
+demonstration test that asserted the weaker claim and watching it fail. PRD FR-27 amended to record
+the amendment rather than quietly shipping past its own spec.
+
+**Step 31 — `test_time_scoped_items.py` gains a coverage test, not a registry walk.** The prompt
+asked for the structural assertion to be "registry-driven so it covers the news beat automatically".
+A registry walk cannot actually drive a new beat, because it has no way to know that beat's fixture
+routes. So the file keeps driving real beats through real fixtures and adds
+`test_every_registered_beat_is_exercised_by_this_file`, which fails with an explanation the moment a
+registered beat is missing from the list. Not automatic, but it cannot be forgotten either, which
+was the actual goal.
 
 **Step 26 — unreachable `robots.txt` disallows.** The prompt did not say what to do when
 `robots.txt` itself 5xx's or times out. Chose disallow-and-record, per RFC 9309: "the
