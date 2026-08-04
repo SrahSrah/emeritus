@@ -7,18 +7,27 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 ## Now
 
+- [x] **Submit Assignment 3.** Done 2026-08-02. Submitted text logged verbatim at
+      [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md).
+- [ ] **Merge the FR-9b PR into `dev`** once you're happy with it. It is deliberately left
+      unmerged — `feature/fr-9b-retrieval` → `dev`, 265 tests green.
 - [x] **Submit Assignment 2.** Done 2026-07-27.
+- [x] **Decide the SMS-vs-email framing** (PRD §9 Q1). Done 2026-08-02: deliberate scope cut,
+      acknowledged in Checkpoint 3. DIVERGENCES row 1 closed.
+- [x] **Answer PRD §9 Q3 — item identity for the ledger.** Done 2026-08-02: identity is a
+      read-time relation between a candidate and what's already been sent, not a stored property.
+      That unblocked FR-9b, which is now built.
 
 ### Before the Forecaster build can run
 
-The code is built and its test suite is green (221 tests, no network, no model calls).
+The code is built and its test suite is green (265 tests, no network, no model calls).
 Four things below are **blocking a first real run** — everything else is done.
 
-- [ ] **① Mint a Claude Code OAuth token** and put it in `emeritus/forecaster/.env` as
+- [ ] **① Mint a Claude Code OAuth token** and put it in `forecaster/.env` as
       `CLAUDE_CODE_OAUTH_TOKEN`. Only you can do this — it's an account action.
       ```powershell
       claude setup-token
-      cd C:\Users\Sarah\Documents\28_playground\emeritus\forecaster
+      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
       Copy-Item .env.example .env      # then paste the token in. .env is gitignored.
       ```
       **This is the single blocker on the whole build.** Every run currently stops with
@@ -34,7 +43,7 @@ Four things below are **blocking a first real run** — everything else is done.
 - [ ] **② Do the first end-to-end run** once ① is done. Uses the fake deliverer — nothing
       is sent — but a real agent client and the two live APIs.
       ```powershell
-      cd C:\Users\Sarah\Documents\28_playground\emeritus\forecaster
+      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
       Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
       uv run python -m forecaster.cli --dry-run
       ```
@@ -46,7 +55,7 @@ Four things below are **blocking a first real run** — everything else is done.
       Then send one real digest — **this is FR-12's acceptance and it is yours to run; no
       agent will send it**:
       ```powershell
-      cd C:\Users\Sarah\Documents\28_playground\emeritus\forecaster
+      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
       Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
       uv run python -m forecaster.cli --send-test
       ```
@@ -55,12 +64,12 @@ Four things below are **blocking a first real run** — everything else is done.
 - [ ] **④ Register the nightly scheduled task.** Changes system settings, so it is yours
       to run:
       ```powershell
-      schtasks /Create /TN "Forecaster Nightly" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\Sarah\Documents\28_playground\emeritus\forecaster\scripts\run_nightly.ps1" /SC DAILY /ST 19:00 /RL LIMITED
+      schtasks /Create /TN "Forecaster Nightly" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\Users\Sarah\Documents\31 Emeritus\forecaster\scripts\run_nightly.ps1\"" /SC DAILY /ST 19:00 /RL LIMITED
       ```
       After **three consecutive nights** (FR-14's actual acceptance), check all three ran
       on subscription auth:
       ```powershell
-      cd C:\Users\Sarah\Documents\28_playground\emeritus\forecaster
+      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
       Get-ChildItem data\runs\*.jsonl | Select-Object -Last 3 | ForEach-Object {
         (Get-Content $_ -TotalCount 1 | ConvertFrom-Json).auth_mode
       }
@@ -69,18 +78,26 @@ Four things below are **blocking a first real run** — everything else is done.
       A sleeping laptop at 7 pm produces no digest and no error — the runner records those
       slots as `missed_run` so the metric stays honest.
 
-- [ ] **Decide the SMS-vs-email framing** for the next checkpoint (PRD §9 Q1) — your call
-      whether to present email as a deliberate scope cut or restore SMS before submitting.
 
 ### Design decisions the build deliberately did not make
 
 These are PRD §9 open questions. The build surfaced them rather than guessing; each one
 gates real work.
 
-- [ ] **Q3 — item identity for the ledger.** What makes two items "the same story": URL,
-      entity+date, or a model judgment? The ledger is **write-only** until this is
-      answered, and FR-9b (dedup / "what's new" framing) has no implementation.
-- [ ] **Q2 — rules vs judgment for escalation.** Escalation is deterministic rules only.
+- [x] **Q3 — item identity for the ledger.** Answered 2026-08-02. FR-9b is built.
+- [ ] **Q2 — rules vs judgment for escalation.** Escalation is still deterministic rules only.
+      FR-9b settled the same tension for *dedup* by splitting it — retrieval narrows
+      mechanically, the model judges, invariants bound the judgment. Whether that split should
+      transfer to escalation is untested and yours to decide.
+- [ ] **Q5 (new) — validate the retrieval thresholds.** `k = 5`, `similarity_floor = 0.60`,
+      `window_days = 14` are reasoned, not measured. After a few weeks of real runs, read the
+      traces and tune:
+      ```powershell
+      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
+      Get-ChildItem data\runs\*.jsonl | ForEach-Object { Get-Content $_ } |
+        ConvertFrom-Json | Where-Object { $_.decision -like 'dedup_*' } |
+        Select-Object decision, top_similarity, reason
+      ```
 - [ ] **The freeze horizon.** `freeze_horizon_days` is in config, but the weather adapter
       fetches only the next morning's window, so the rule can only apply over that. A
       multi-day "freeze within N days" alert needs a decision to extend the forecast range.

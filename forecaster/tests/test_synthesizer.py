@@ -272,7 +272,12 @@ def test_without_an_escalation_the_base_order_is_kept(tmp_path: Path) -> None:
 
 
 def test_the_synthesizer_does_not_read_the_ledger(tmp_path: Path) -> None:
-    """FR-9b is blocked on §9 Q3 — no ledger read, no invented identity key."""
+    """Still true after FR-9b landed, and still worth enforcing.
+
+    The synthesizer applies the ledger check through an **injected** retriever, so it
+    never opens a database, never names a table, and stays testable with no ledger at
+    all. `retriever=None` is exactly the v1 pipeline.
+    """
     import ast
 
     path = Path(__file__).resolve().parent.parent / "forecaster" / "synthesizer.py"

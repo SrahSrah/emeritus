@@ -10,11 +10,23 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [x] FR-1 … FR-9, FR-10 … FR-15, FR-18 — all 16 MVP requirements, 221 tests green.
 
+## Shipped in v2 — the Module 3 increment (2026-08-02)
+
+- [x] **FR-9b — retrieval-backed dedup / "what's new" framing.** model2vec static embeddings
+      indexed by sqlite-vec inside the existing `ledger.db`; retrieval narrows to the k nearest
+      same-beat items, a model judgment decides include/reframe/suppress.
+- [x] **FR-19 — retrieval safety invariants.** Five rules enforced around the model, one test
+      each. The load-bearing one: a differing checkable value can never be suppressed.
+- [x] **PRD §9 Q3 answered** — identity is a read-time relation, not a stored property. This is
+      why there is still no identity column.
+- 265 tests green, no network, no model calls, no torch, no paid dependency.
+
 ## Blocked on a decision, not on effort
 
-- [ ] **FR-9b — ledger dedup / "what's new" framing.** Blocked on PRD §9 Q3 (item identity:
-      URL, entity+date, or model judgment?). The ledger is write-only until this is answered,
-      and tests actively enforce that — no identity column, no similarity check, no read path.
+- [ ] **Validate the retrieval thresholds.** `k = 5`, `similarity_floor = 0.60`,
+      `window_days = 14` are reasoned, **not measured** — nothing has run against a real
+      multi-week ledger. The trace records every neighbour and score so they can be tuned from
+      evidence. PRD §9 Q5. Don't let a checkpoint describe them as tuned.
 - [ ] **Multi-day freeze horizon.** `freeze_horizon_days` exists in config but the weather
       adapter fetches only the next morning's window. Extending it is a scope decision.
 - [ ] **Injury data source.** FR-10's injury escalation rule is implemented and **dormant** —
@@ -26,7 +38,9 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
       into a durable preference rule. Needs an inbox-read path, which v1 doesn't have.
 - [ ] **FR-17 — the remaining four beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
-  - [ ] AI / Claude news
+  - [ ] AI / Claude news — **the first real test of FR-9b.** The v1 beats don't naturally
+        repeat, so dedup has only ever run against a seeded ledger (DIVERGENCES row 4). News
+        is where repetition is frequent and where the thresholds get their workout.
   - [ ] r/WallStreetBets mention volume
   - [ ] "need-to-know" news (the bar is higher than daily drudgery)
   - [ ] Austin live music and theatre

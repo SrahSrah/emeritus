@@ -178,6 +178,9 @@ class AstrosBeat:
                     "away_score": game.away_score,
                     "home_score": game.home_score,
                     "start_time_local": _local(game),
+                    # FR-19: what day this is about. Without it two different games
+                    # sharing a scoreline look identical to the dedup rule.
+                    "game_date": game.game_date,
                 },
                 observations=[today_ref],
             )
@@ -251,6 +254,9 @@ class AstrosBeat:
                     "away_score": game.away_score,
                     "home_score": game.home_score,
                     "doubleheader": game.is_doubleheader,
+                    # FR-19: see the live branch. A 4-2 win on the 3rd and a 4-2 win
+                    # on the 9th are different games, and only the date says so.
+                    "game_date": game.game_date,
                 },
                 observations=[today_ref],
             )
@@ -310,6 +316,7 @@ class AstrosBeat:
                 BeatItem(
                     beat=self.name,
                     text=f"No game scheduled in the next {LOOKAHEAD_DAYS} days.",
+                    fields={"as_of": today.isoformat()},  # FR-19
                     observations=[next_ref],
                 )
             )
@@ -349,6 +356,7 @@ class AstrosBeat:
                     fields={
                         "state": game.abstract_game_state,
                         "start_time_local": _local(game),
+                        "game_date": game.game_date,  # FR-19
                     },
                     observations=[today_ref],
                 )
@@ -383,7 +391,9 @@ class AstrosBeat:
                 BeatItem(
                     beat=self.name,
                     text=f"No {team_name} game today.",
-                    fields={"game_count": 0},
+                    # FR-19: identical on every off day without the date, so a run of
+                    # off days would go silent about the Astros entirely.
+                    fields={"game_count": 0, "date": today.isoformat()},
                     observations=[today_ref],
                 )
             ],

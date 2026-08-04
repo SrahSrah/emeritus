@@ -947,7 +947,61 @@ Per PRD §9, none of these may be answered by an implementing agent. Surface, do
 
 | Q | Question | Effect on this build |
 |---|---|---|
-| Q1 | SMS divergence — email vs restoring SMS | None on v1 code (email ships). Sarah's checkpoint-framing call. |
-| Q2 | Rules vs judgment for escalation | Step 13 stays **deterministic rules only**. If judgment is wanted, that's a new decision. |
-| Q3 | Item identity for the ledger | **FR-9 stays write-only** (Step 16); FR-9b gets no step. |
+| Q1 | SMS divergence — email vs restoring SMS | None on v1 code (email ships). Sarah's checkpoint-framing call. **Resolved 2026-08-02: deliberate scope cut, acknowledged in Checkpoint 3.** |
+| Q2 | Rules vs judgment for escalation | Step 13 stays **deterministic rules only**. If judgment is wanted, that's a new decision. Still open. |
+| Q3 | Item identity for the ledger | **FR-9 stayed write-only** (Step 16); FR-9b got no step. **Answered 2026-08-02 — see Steps 20–22.** |
 | Q4 | Unknown syllabus (Modules 3+) | Nothing anticipated. The FR-2 seam and FR-13's over-recording are the hedge. |
+
+---
+
+# Increment 2 — Module 3 (retrieval). Steps 20–22.
+
+Added 2026-08-02, after Checkpoint 3's directions landed. Scope is **only** FR-9b and the new
+FR-19; Steps 1–19 are done and must not be regenerated.
+
+**What unblocked this.** PRD §9 Q3 was answered by Sarah, not by an agent: *item identity is not a
+property of an item; it is a relation computed at read time between a candidate and what has already
+been sent.* Every design choice below follows from that sentence — most importantly, that **nothing
+stores an identity**, only vectors that accelerate a read-time comparison.
+
+**The standing constraints from the header still apply**, plus two new ones:
+
+6. **No paid embedding service and no torch.** Local static embeddings only; nothing leaves the
+   machine.
+7. **The embedder is injected**, like the agent client. Real models fetch weights on first use, and
+   the suite forbids network — so tests get a deterministic offline double.
+
+### Step 20 — Retrieval layer (`memory/retrieval.py`)
+
+An `Embedder` protocol; `StaticEmbedder` (model2vec) for the nightly run and `HashingEmbedder` for
+tests; a `sqlite-vec` virtual table inside the existing `ledger.db`; a KNN search scoped to one beat
+and a time window, returning neighbours with cosine similarity. Add `checkable_fields` to the ledger
+row, with an explicit migration — real ledgers predate the column.
+
+**Verify:** an identical line scores ~1.0 (the distance→similarity conversion is easy to get
+backwards, and backwards means nothing is ever a duplicate); a cold ledger returns `[]`; a
+cross-beat item is never returned; the window and floor both exclude.
+
+### Step 21 — The judgment (`memory/dedup.py`) and FR-19's invariants
+
+Retrieval finds candidates; the model decides include / reframe / suppress. The five invariants are
+enforced **around** the model, not requested of it — same reasoning as FR-11.
+
+**Verify:** with a client hard-coded to say SUPPRESS, an item whose score differs from a 0.98-similar
+neighbour still survives, **and the client is never called**. An invariant that can be talked out of
+is not an invariant.
+
+### Step 22 — Wire into the synthesizer and the runner; acceptance
+
+Dedup runs between suppression and escalation. The synthesizer takes an injected retriever and still
+opens no database; `retriever=None` reproduces the v1 digest exactly. The runner shares one ledger
+connection between the read and the vector write.
+
+**Verify (FR-9b's acceptance):** the same night run twice — once against an empty ledger, once
+against one holding last night's item — produces different digests, with the decision, its reason,
+the retrieved neighbours and their scores all in the trace.
+
+| FR | Phase | Step(s) | Where its acceptance is actually asserted |
+|---|---|---|---|
+| FR-9b Retrieval dedup | **MVP** | 20, 21, **22** | Step 22 (`test_fr9b_acceptance.py`, before/after pair) |
+| FR-19 Safety invariants | **MVP** | **21**, 22 | Step 21 (`test_dedup.py`, one test per invariant) |

@@ -40,6 +40,13 @@ BASE = {
         "watched_players": [],
     },
     "team": {"mlb_team_id": 117, "name": "Astros"},
+    "retrieval": {
+        "enabled": False,
+        "model": "test-hashing-embedder",
+        "k": 5,
+        "similarity_floor": 0.60,
+        "window_days": 14,
+    },
 }
 
 

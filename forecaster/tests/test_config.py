@@ -49,6 +49,13 @@ watched_players = ["Yordan Alvarez"]
 [team]
 mlb_team_id = 117
 name = "Astros"
+
+[retrieval]
+enabled = false
+model = "test-hashing-embedder"
+k = 5
+similarity_floor = 0.60
+window_days = 14
 """
 
 ONE_BEAT = TWO_BEATS.replace("weather = true", "weather = false")

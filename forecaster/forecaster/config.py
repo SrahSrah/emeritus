@@ -120,6 +120,17 @@ class TeamConfig:
 
 
 @dataclass(frozen=True)
+class RetrievalConfig:
+    """FR-9b's retrieval layer. `enabled = false` restores exact v1 behaviour."""
+
+    enabled: bool
+    model: str
+    k: int
+    similarity_floor: float
+    window_days: int
+
+
+@dataclass(frozen=True)
 class Config:
     run: RunConfig
     beats: dict[str, bool]
@@ -127,6 +138,7 @@ class Config:
     delivery: DeliveryConfig
     escalation: EscalationConfig
     team: TeamConfig
+    retrieval: RetrievalConfig
     source_path: Path | None = None
     raw: Mapping[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
@@ -187,6 +199,22 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         name=_require_str(team_table, "name", "team"),
     )
 
+    retrieval_table = _require_table(data, "retrieval")
+    enabled = _require(retrieval_table, "enabled", "retrieval")
+    if not isinstance(enabled, bool):
+        raise ConfigError("config.toml: [retrieval].enabled must be true or false")
+    retrieval = RetrievalConfig(
+        enabled=enabled,
+        model=_require_str(retrieval_table, "model", "retrieval"),
+        k=_require_int(retrieval_table, "k", "retrieval"),
+        similarity_floor=_require_float(retrieval_table, "similarity_floor", "retrieval"),
+        window_days=_require_int(retrieval_table, "window_days", "retrieval"),
+    )
+    if retrieval.k < 1:
+        raise ConfigError("config.toml: [retrieval].k must be at least 1")
+    if not 0.0 <= retrieval.similarity_floor <= 1.0:
+        raise ConfigError("config.toml: [retrieval].similarity_floor must be within 0.0–1.0")
+
     return Config(
         run=run,
         beats=beats,
@@ -194,6 +222,7 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         delivery=delivery,
         escalation=escalation,
         team=team,
+        retrieval=retrieval,
         source_path=source_path,
         raw=dict(data),
     )
@@ -229,6 +258,7 @@ __all__ = [
     "DeliveryConfig",
     "EscalationConfig",
     "LocationConfig",
+    "RetrievalConfig",
     "RunConfig",
     "TeamConfig",
     "config_digest",

@@ -127,17 +127,46 @@ worth writing about each week.
   - **Acceptance:** Done when a completed run appends one ledger row per delivered item, and a
     second run appends its own rows without collision.
   - **Touches:** `forecaster/memory/ledger.py`, SQLite at `forecaster/data/ledger.db`
-  - **Note:** deliberately split from FR-9b. See §9 Q3 — item identity is unresolved, and the
-    repetition failure mode this was designed for does not occur in the v1 beat set.
+  - **Amended 2026-08-02:** no longer write-only. FR-9b reads it. The row also carries
+    `checkable_fields` — the observed values the line stated — because FR-19's first invariant
+    cannot be checked without them. Still **no identity column**: see §9 Q3's answer.
 
-- **FR-9b — Ledger-based dedup / "what's new" framing** `[Later]`
-  - **Requirement:** Before an item is included, check it against the ledger; suppress it or reframe
-    it around what changed. The check is a judgment about whether the item adds anything to what the
-    reader already knows — not string equality.
+- **FR-9b — Retrieval-backed dedup / "what's new" framing** `[MVP]`
+  - **Requirement:** Before an item is included, embed it and semantically search the ledger for the
+    `k` nearest previously-delivered items from the same beat inside a configured window. Retrieval
+    finds candidates; a model judgment decides include / reframe / suppress. The check is a judgment
+    about whether the item adds anything to what the reader already knows — not string equality, and
+    not a similarity threshold.
   - **Acceptance:** Done when a fixture pair representing the same story on consecutive nights
     produces a suppression or a reframe, with the decision and its reason in the run trace.
-  - **Blocked on:** §9 Q3 (item identity). Land alongside FR-17's AI-news beat, where repetition
-    actually occurs.
+  - **Touches:** `forecaster/memory/retrieval.py`, `forecaster/memory/dedup.py`,
+    `forecaster/synthesizer.py`
+  - **Unblocked 2026-08-02** by the answer to §9 Q3. Implemented, tested, and shipped in the
+    Module 3 increment.
+
+- **FR-19 — Retrieval safety invariants (no silent suppression)** `[MVP]`
+  - **Requirement:** Five invariants hold whatever the embedding scores and whatever the model says,
+    enforced *around* the model rather than requested of it: (a) an item whose checkable value
+    differs from its nearest neighbour's recorded value may be reframed but **never** suppressed;
+    (b) an escalation candidate is never suppressed; (c) an empty neighbour set means "nothing
+    known", not "nothing new"; (d) any retrieval or judgment failure degrades to *include*;
+    (e) every retrieval, its neighbours, their scores, the action and its reason are written to the
+    run trace.
+  - **Rationale:** static embeddings are near-blind to numerals — two different Astros games score
+    **cosine 0.9859** on the shipped model. A threshold-only design would drop tonight's real result.
+    For an agent whose only promise is that its facts are real, going quiet is a worse failure than
+    repeating, and much harder to notice.
+  - **Acceptance:** Done when a candidate whose score differs from a 0.98-similar neighbour survives
+    the check with the model never consulted, asserted on the structured decision; and when a broken
+    retriever still produces a delivered digest with the failure named in the trace.
+  - **Amended 2026-08-02 (time-scoped items).** Invariant (a) fires on a *differing value*, so an
+    item about a particular day must carry that day in `BeatItem.fields` or the invariant cannot
+    fire: two off days, or two different games sharing a scoreline inside the retrieval window,
+    otherwise look identical and reach the model as candidates for suppression. Every shipped beat
+    now carries a date (`morning`, `game_date`, `date`, `as_of`), enforced by
+    `tests/test_time_scoped_items.py`. Note this is `BeatItem.fields`, which dedup compares, not
+    `BeatResult.checkable_fields`, which FR-11 polices; the two are deliberately separate.
+  - **Touches:** `forecaster/memory/dedup.py`, `forecaster/beats/astros.py`
 
 - **FR-10 — Escalation rules engine** `[MVP]`
   - **Requirement:** Deterministic rules over `BeatResult`s promote items to the top of the digest.
@@ -147,6 +176,9 @@ worth writing about each week.
   - **Touches:** `forecaster/escalation.py`
 
 - **FR-11 — Synthesizer** `[MVP]`
+  - **Amended 2026-08-02:** "applies the ledger check" is now literally true — that check is FR-9b,
+    and it runs between suppression and escalation ordering. The synthesizer still opens no database
+    and names no table: the retriever is injected, and `retriever=None` is exactly the v1 pipeline.
   - **Requirement:** Collects all `BeatResult`s, applies the ledger check and escalation ordering,
     and composes the final message. Every checkable value it emits is copied from a `BeatResult`
     field — the model phrases, it does not originate.
@@ -219,7 +251,15 @@ worth writing about each week.
 - **External services:** `statsapi.mlb.com` (no key), `api.weather.gov` (no key, `User-Agent`
   required). Neither needs a paid signup.
 - **Storage:** SQLite for the ledger; JSON-lines for run traces. Both local, both gitignored.
-- **Testing:** recorded HTTP fixtures — no live network in the test suite.
+- **Retrieval (added 2026-08-02):** `model2vec` static embeddings (`minishlab/potion-retrieval-32M`,
+  512-dim) with a `sqlite-vec` index inside the existing `ledger.db`. Chosen over
+  `sentence-transformers` because it needs no torch — a multi-gigabyte install for a nightly job
+  that embeds a handful of one-line items is not a trade worth making — and over a hosted embeddings
+  API because that would be a paid signup and would send the digest off the machine. Model weights
+  are fetched once to the local HF cache; the `Embedder` protocol keeps that out of the tests.
+- **Testing:** recorded HTTP fixtures — no live network in the test suite. The embedder is injected
+  for the same reason the agent client is: `HashingEmbedder` is deterministic and offline, and
+  reproduces the numeral collision the real model has.
 
 ## 7. Dependencies
 
@@ -248,24 +288,44 @@ worth writing about each week.
 
 Downstream must not invent answers to these.
 
-1. **SMS divergence.** Checkpoints 1.1 and 2.x both state the report arrives as a text message.
-   v1 delivers email. A future checkpoint needs one sentence acknowledging the revision — decide
-   whether to frame it as a deliberate scope cut or to restore SMS before then.
+1. ~~**SMS divergence.**~~ **Resolved 2026-08-02.** Framed as a deliberate scope cut and
+   acknowledged in Checkpoint 3: real SMS needs Twilio plus A2P 10DLC registration — paperwork and a
+   multi-day approval outside Sarah's control — and email makes FR-16's reply-based feedback loop
+   work natively instead of needing a webhook. DIVERGENCES row 1 is closed.
 2. **Rules vs judgment for escalation** — carried forward from the Assignment 2 submission, still
-   open, and still the most interesting unresolved design question.
-3. **Item identity for the ledger.** What makes two items "the same story"? URL, entity plus date,
-   or a model judgment. FR-9 depends on this and it is not yet decided.
-4. **Unknown syllabus.** Modules 3+ are unannounced. The architecture is built for additive change
+   open. **Partially informed 2026-08-02:** FR-9b settled the same question for *dedup* by splitting
+   it — retrieval narrows mechanically, the model judges, and safety invariants bound what the
+   judgment is allowed to do. Whether that split transfers to escalation is untested and still open.
+3. ~~**Item identity for the ledger.**~~ **Answered 2026-08-02 by Sarah:** *item identity is not a
+   property of an item; it is a relation computed at read time between a candidate and what has
+   already been sent.* Hence no identity column, no fingerprint, no content hash — a stored key would
+   freeze a judgment that only makes sense in context. FR-9b implements the read-time comparison.
+4. **Unknown syllabus.** Modules 4+ are unannounced. The architecture is built for additive change
    (FR-2, FR-13) rather than for specific anticipated requirements, because guessing them would be
-   fabrication.
+   fabrication. Module 3 (RAG) landed as FR-9b/FR-19 with no change to the beat contract, which is
+   some evidence the bet is paying.
+5. **New — retrieval thresholds are unvalidated in the wild.** `k = 5`, `similarity_floor = 0.60`,
+   `window_days = 14` are reasoned defaults, not measured ones. Nothing has run against a real
+   multi-week ledger. The trace records every neighbour and score specifically so these can be tuned
+   from evidence later; do not treat them as settled.
 
 ## 10. Phasing
 
 - **v1 (MVP):** FR-1 … FR-9, FR-10 … FR-15, FR-18 — two beats, end to end, delivered, traced, and
-  honest when a tool fails.
-- **Later:** FR-9b (ledger dedup, blocked on §9 Q3), FR-16 (feedback loop), FR-17 (remaining four
-  beats) — the natural weekly increments as new checkpoints land.
+  honest when a tool fails. **Shipped 2026-07-27.**
+- **v2 (Module 3 increment):** FR-9b + FR-19 — retrieval-backed dedup and the safety invariants that
+  keep it from silencing a real fact. **Shipped 2026-08-02.**
+- **Later:** FR-16 (feedback loop), FR-17 (remaining four beats). FR-17's AI-news beat is where
+  repetition actually becomes frequent, so it is also where FR-9b's thresholds get their first real
+  workout — see §9 Q5.
 
 ## 12. Changelog
 
+- **v2 — 2026-08-02:** Module 3 increment. §9 Q3 answered (item identity is a read-time relation,
+  not a stored property), which unblocked **FR-9b** — promoted `[Later]` → `[MVP]` and rewritten
+  around semantic retrieval rather than an unspecified "check". Added **FR-19** (retrieval safety
+  invariants) because the measured 0.9859 cosine between two different games makes silent
+  suppression a real risk rather than a theoretical one. FR-9 amended: the ledger is no longer
+  write-only and carries `checkable_fields`. §9 Q1 resolved (email, acknowledged in Checkpoint 3);
+  §9 Q2 partially informed; §9 Q5 added (thresholds unvalidated). §10 gains a v2 row.
 - **v1 — 2026-07-27:** Initial PRD.

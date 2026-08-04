@@ -34,7 +34,7 @@ from forecaster.beats.base import BeatContext, get_beats, load_builtin_beats, ru
 from forecaster.config import DEFAULT_CONFIG_PATH, Config, config_digest, load_config
 from forecaster.delivery.base import FakeDeliverer
 from forecaster.delivery.email import make_deliverer
-from forecaster.memory.ledger import record_delivered_items
+from forecaster.memory.ledger import connect as connect_ledger, record_delivered_items
 from forecaster.memory.preferences import (
     DEFAULT_PREFERENCES_PATH,
     Preferences,
@@ -106,6 +106,7 @@ class RunReport:
     ledger_rows: int = 0
     missed_runs: int = 0
     error: str | None = None
+    dedup_actions: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -129,12 +130,43 @@ def run_pipeline(
     beats: Sequence[Any] | None = None,
     auth_mode: str | None = None,
     write_ledger: bool = True,
+    embedder: Any = None,
 ) -> RunReport:
-    """One complete run. Returns a report; raises only on a provenance failure."""
+    """One complete run. Returns a report; raises only on a provenance failure.
+
+    `embedder` is injected so the tests never download model weights — the pipeline is
+    otherwise identical. When retrieval is enabled and no embedder is supplied, the real
+    `StaticEmbedder` is constructed here.
+    """
     started = time.monotonic()
     moment = now or datetime.now()
     owns_client = http_client is None
     client = http_client or httpx.Client(timeout=30.0)
+
+    # One ledger connection for the run: FR-9b reads it before composing, and the write
+    # path indexes into it afterwards. Opening it twice would mean two vector schemas.
+    ledger_conn = None
+    retriever = None
+    if config.retrieval.enabled:
+        try:
+            from forecaster.memory.retrieval import LedgerRetriever, StaticEmbedder
+
+            if embedder is None:
+                embedder = StaticEmbedder(config.retrieval.model)
+            ledger_conn = connect_ledger(ledger_path)
+            retriever = LedgerRetriever(
+                connection=ledger_conn,
+                embedder=embedder,
+                k=config.retrieval.k,
+                similarity_floor=config.retrieval.similarity_floor,
+                window_days=config.retrieval.window_days,
+            )
+        except Exception as exc:  # noqa: BLE001 - retrieval is never load-bearing
+            retriever = None
+            print(
+                f"retrieval unavailable ({exc}); running without the ledger check",
+                file=sys.stderr,
+            )
 
     # Computed before the trace is opened, so tonight's own file isn't "the last run".
     skipped = missed_slots(last_run_at(trace_dir), moment, config.run.send_time)
@@ -186,9 +218,16 @@ def run_pipeline(
             report.executed_beats.append(entry.beat)
 
         digest = synthesize(
-            results, config, preferences, trace, agent_client=agent_client
+            results,
+            config,
+            preferences,
+            trace,
+            agent_client=agent_client,
+            retriever=retriever,
+            now=moment,
         )
         report.digest = digest
+        report.dedup_actions = [decision.action for _, decision in digest.dedup]
 
         delivery = deliverer.send(digest)
         report.delivery = delivery
@@ -201,7 +240,11 @@ def run_pipeline(
 
         if write_ledger and getattr(delivery, "success", False):
             report.ledger_rows = record_delivered_items(
-                digest, trace.run_id, path=ledger_path
+                digest,
+                trace.run_id,
+                path=ledger_path,
+                connection=ledger_conn,
+                embedder=embedder if retriever is not None else None,
             )
 
         usage = digest.usage
@@ -229,6 +272,8 @@ def run_pipeline(
             trace.close()
         if owns_client:
             client.close()
+        if ledger_conn is not None:
+            ledger_conn.close()
 
     return report
 

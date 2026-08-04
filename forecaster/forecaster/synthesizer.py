@@ -13,13 +13,24 @@ digest is checked against the run's own trace with :func:`forecaster.trace.check
 and a violation **fails the run**, loudly, into the trace. A prompt instruction is not a
 guarantee; the check is.
 
-## Scope correction — read before adding anything
+## The ledger check (FR-9b) — unblocked 2026-08-02
 
-FR-11's prose says the synthesizer "applies the ledger check". The ledger check **is
-FR-9b**, which is `[Later]` and blocked on PRD §9 Q3 (item identity), and FR-9 states
-plainly that nothing reads the ledger to make decisions in v1. So this module applies
-**escalation ordering and preference suppression only**. It does not read the ledger and
-does not invent an identity or dedup key.
+FR-11's prose always said the synthesizer "applies the ledger check". Through v1 it did
+not, because that check *is* FR-9b and FR-9b was blocked on PRD §9 Q3 (item identity).
+Q3 is answered, so the check now runs, as step 2 of four:
+
+1. preference suppression;
+2. **retrieval-backed dedup** — for each surviving item, search the sent-item ledger for
+   near neighbours and decide include / reframe / suppress;
+3. escalation ordering;
+4. composition through the injected client, then the provenance check.
+
+Dedup sits **before** escalation on purpose: escalation decides what leads, and it should
+rank what is actually going to be said. The safety invariants that keep step 2 from
+silencing a real fact live in `forecaster.memory.dedup` — in particular, an item whose
+checkable value differs from its nearest neighbour's can be reframed but never suppressed.
+
+Passing `retriever=None` disables step 2 entirely and restores exactly the v1 behaviour.
 """
 
 from __future__ import annotations
@@ -29,6 +40,7 @@ from typing import Any, Mapping, Sequence
 
 from forecaster.agent import AgentClientLike, AgentResponse, DEFAULT_EFFORT
 from forecaster.escalation import OrderedItems, apply_escalation
+from forecaster.memory.dedup import DedupDecision, assess_item
 from forecaster.memory.preferences import Preferences, SuppressionDecision, suppression_match
 from forecaster.trace import ProvenanceReport, check_provenance
 
@@ -63,6 +75,7 @@ class Digest:
     unavailable_lines: list[str] = field(default_factory=list)
     provenance: ProvenanceReport | None = None
     usage: AgentResponse | None = None
+    dedup: list[tuple[str, DedupDecision]] = field(default_factory=list)
 
     @property
     def beat_order(self) -> list[str]:
@@ -106,6 +119,75 @@ def _filter_suppressed(
     return kept, suppressed
 
 
+def _apply_dedup(
+    results: Sequence[Any],
+    retriever: Any,
+    trace: Any,
+    *,
+    agent_client: AgentClientLike,
+    now: Any = None,
+    effort: str = DEFAULT_EFFORT,
+) -> list[tuple[str, DedupDecision]]:
+    """FR-9b. Mutates each result's `items` in place; returns every decision made.
+
+    An unavailable beat is skipped entirely — it has no items, and FR-18's "couldn't
+    reach X tonight" line is generated later and is never a dedup candidate.
+    """
+    decisions: list[tuple[str, DedupDecision]] = []
+
+    for result in results:
+        beat = getattr(result, "beat", "")
+        if not getattr(result, "available", True):
+            continue
+
+        surviving: list[Any] = []
+        for item in getattr(result, "items", []) or []:
+            text = getattr(item, "text", str(item))
+            try:
+                neighbours = retriever.neighbours_for(text, beat=beat, now=now)
+            except Exception as exc:  # noqa: BLE001 - invariant 4: never silence a digest
+                neighbours = []
+                if trace is not None:
+                    trace.decision(
+                        beat=beat,
+                        decision="retrieval_failed",
+                        reason=f"{type(exc).__name__}: {exc}; including the item unchecked",
+                    )
+                surviving.append(item)
+                continue
+
+            decision = assess_item(
+                item,
+                neighbours,
+                agent_client=agent_client,
+                beat=beat,
+                escalation_candidate=bool(getattr(result, "escalation_candidate", False)),
+                effort=effort,
+            )
+            decisions.append((beat, decision))
+
+            if trace is not None:
+                trace.decision(
+                    beat=beat,
+                    decision=f"dedup_{decision.action}",
+                    reason=decision.reason,
+                    **decision.as_record(),
+                )
+
+            if decision.action == "suppress":
+                continue
+            if decision.action == "reframe" and decision.reframed_text:
+                # Reframing may re-order a sentence; it may never restate a value. The
+                # FR-11 provenance check still runs over the final text and would fail
+                # the run if a number moved.
+                item.text = decision.reframed_text
+            surviving.append(item)
+
+        result.items = surviving
+
+    return decisions
+
+
 def _structured_payload(
     ordered: OrderedItems, unavailable_lines: Sequence[str]
 ) -> dict[str, Any]:
@@ -127,9 +209,18 @@ def synthesize(
     agent_client: AgentClientLike,
     effort: str = DEFAULT_EFFORT,
     enforce_provenance: bool = True,
+    retriever: Any = None,
+    now: Any = None,
 ) -> Digest:
     """Compose the digest. Raises :class:`ProvenanceError` if it cannot be backed."""
     kept, suppressed = _filter_suppressed(list(results), preferences, trace)
+
+    dedup_decisions: list[tuple[str, DedupDecision]] = []
+    if retriever is not None:
+        dedup_decisions = _apply_dedup(
+            kept, retriever, trace, agent_client=agent_client, now=now, effort=effort
+        )
+
     ordered = apply_escalation(kept, config, trace=trace)
 
     unavailable_lines = [
@@ -156,6 +247,7 @@ def synthesize(
         suppressed=suppressed,
         unavailable_lines=unavailable_lines,
         usage=response,
+        dedup=dedup_decisions,
     )
 
     if trace is not None:

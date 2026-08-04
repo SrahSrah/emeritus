@@ -112,7 +112,13 @@ def test_the_database_file_is_created_on_demand(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# The guardrail: nothing here may answer §9 Q3
+# The guardrail, revised 2026-08-02 when §9 Q3 was answered
+#
+# These tests used to enforce "the ledger is write-only because item identity is an
+# open question". Q3 is now answered — *identity is a read-time relation, not a stored
+# property* — so the guard changes shape rather than going away. What must still hold:
+# no identity is ever written down, and nothing outside the retrieval layer queries this
+# table to make a decision.
 # --------------------------------------------------------------------------- #
 
 
@@ -121,8 +127,13 @@ LEDGER_SOURCE = (
 ).read_text(encoding="utf-8")
 
 
-def test_the_schema_has_no_semantic_identity_column(tmp_path: Path) -> None:
-    """A surrogate id plus run_id is fine. A "same story" key is the open question."""
+def test_the_schema_still_has_no_semantic_identity_column(tmp_path: Path) -> None:
+    """`checkable_fields` is the *observed values*, not a "same story" key.
+
+    The distinction is the whole answer to §9 Q3. Storing what a line claimed is a
+    record. Storing "this is story #47" would be a frozen judgment, and that is still
+    forbidden.
+    """
     db = tmp_path / "ledger.db"
     with connect(db) as connection:
         columns = {
@@ -136,13 +147,19 @@ def test_the_schema_has_no_semantic_identity_column(tmp_path: Path) -> None:
         "sent_at",
         "rendered_text",
         "source_observation_id",
+        "checkable_fields",
     }
     for forbidden in ("item_identity", "fingerprint", "content_hash", "story_id", "dedup_key"):
         assert forbidden not in columns
 
 
-def test_the_module_computes_no_hash_and_runs_no_similarity_check() -> None:
-    """Checked against the code, not the prose — the docstring explains *why* not."""
+def test_the_module_computes_no_hash_and_stores_no_verdict() -> None:
+    """Checked against the code, not the prose.
+
+    The ledger may *index* a vector (an accelerator for a read-time search) but it may
+    never compute a content hash or persist a dedup verdict — either would turn identity
+    back into a stored property.
+    """
     tree = ast.parse(LEDGER_SOURCE)
     identifiers: set[str] = set()
     for node in ast.walk(tree):
@@ -157,8 +174,42 @@ def test_the_module_computes_no_hash_and_runs_no_similarity_check() -> None:
             identifiers.add(node.attr)
 
     haystack = " ".join(identifiers).lower()
-    for forbidden in ("hashlib", "sha256", "md5", "similarity", "difflib", "embedding"):
+    for forbidden in ("hashlib", "sha256", "md5", "difflib", "dedup", "suppress"):
         assert forbidden not in haystack
+
+
+def test_the_migration_adds_the_column_to_an_existing_ledger(tmp_path: Path) -> None:
+    """A ledger written before 2026-08-02 must open, not crash. Real ones exist."""
+    db = tmp_path / "old.db"
+    legacy = sqlite3.connect(db)
+    legacy.executescript(
+        """
+        CREATE TABLE sent_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL,
+            beat TEXT NOT NULL,
+            sent_at TEXT NOT NULL,
+            rendered_text TEXT NOT NULL,
+            source_observation_id TEXT
+        );
+        """
+    )
+    legacy.execute(
+        "INSERT INTO sent_items (run_id, beat, sent_at, rendered_text, "
+        "source_observation_id) VALUES ('old-run', 'astros', '2026-07-01T00:00:00', "
+        "'Astros won.', NULL)"
+    )
+    legacy.commit()
+    legacy.close()
+
+    with connect(db) as connection:
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(sent_items)")
+        }
+        surviving = connection.execute("SELECT COUNT(*) FROM sent_items").fetchone()[0]
+
+    assert "checkable_fields" in columns
+    assert surviving == 1
 
 
 def test_no_unique_constraint_implies_an_identity(tmp_path: Path) -> None:
@@ -186,5 +237,6 @@ def test_the_pipeline_never_reads_the_ledger_to_make_a_decision() -> None:
                 importers.append(path.name)
 
     assert set(importers) <= {"cli.py"}, (
-        f"the ledger is write-only in v1; only the runner may import it, got {importers}"
+        "only the runner may import the ledger module; FR-9b reads the table through a "
+        f"connection handed to `retrieval.py`, not by importing it, got {importers}"
     )
