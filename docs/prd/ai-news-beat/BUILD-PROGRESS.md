@@ -35,8 +35,8 @@ repair this file, and say so.
 | 26 | Article body fetch and extraction | **done** | `fb2051d` | 321 tests (+18). Hand-rolled extractor (see deviation below). Real article fixture extracts to 3,673 chars / 15 paragraphs. Unreachable `robots.txt` disallows per RFC 9309. |
 | 27 | Paragraph-aware chunking | **done** | `09093de` | 340 tests (+19). `reconstruct()` shipped in the module, not just the tests — it *is* the definition of correct chunking. Paragraph spans tile the body contiguously so no character can be lost. |
 | 28 | Article chunk corpus | **done** | `1919b26` | 347 tests (+7). `create_vector_schema`/`index_item` parameterized by table; `similarity_from_distance` extracted so there is exactly one of it. AST guard asserts `corpus.py` never opens the ledger in live code. |
-| 29 | Topic-query retrieval | **done** | — | 358 tests (+11). Found and fixed a real bug while writing it: `published` was stored in whatever offset the feed gave, and FR-24 compares those **as strings** in SQL. Now normalized to UTC on write. |
-| 30 | Grounded-text provenance check | todo | — | — |
+| 29 | Topic-query retrieval | **done** | `42925f8` | 358 tests (+11). Found and fixed a real bug while writing it: `published` was stored in whatever offset the feed gave, and FR-24 compares those **as strings** in SQL. Now normalized to UTC on write. |
+| 30 | Grounded-text provenance check | **done** | — | 369 tests (+11). Added `ungrounded_item` beyond the spec's two kinds — a synthesized item pointing at no observation is the emptiest version of the failure. Word-form mapping is closed at 20. |
 | 31 | Grounded-value suppression veto | todo | — | — |
 | 32 | News beat worker | todo | — | — |
 | 33 | Per-source failure handling | todo | — | — |
