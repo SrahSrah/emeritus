@@ -21,6 +21,30 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
       why there is still no identity column.
 - 265 tests green, no network, no model calls, no torch, no paid dependency.
 
+## Shipped in v3 — the AI news beat (2026-08-04)
+
+Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
+[docs/prd/ai-news-beat/PRD.md](docs/prd/ai-news-beat/PRD.md) · ledger:
+[BUILD-PROGRESS.md](docs/prd/ai-news-beat/BUILD-PROGRESS.md).
+
+- [x] **FR-20 … FR-25** — RSS/Atom adapter, article-body fetch (robots-respecting, rate-limited,
+      falls back to the feed summary rather than inventing text), paragraph-aware chunking with
+      overlap, a **separate** `corpus.db` with its own TTL, topic-query retrieval, and the beat that
+      assembles them. Free and keyless throughout: **no news API returns full article text at any
+      price**, so paying would not have bought the feature.
+- [x] **FR-26 — grounded-text provenance.** Neither the support check nor the fidelity check can see
+      a number the model *invented* into a sentence, because every other beat assembles its text in
+      code. `check_provenance` grew a case.
+- [x] **FR-27 — grounded-value suppression veto.** FR-19's first invariant inverts for a
+      document-shaped beat; transplanted from typed fields to prose. **The load-bearing one.**
+- [x] **FR-28 — per-source failure**, and **FR-29 — the metric checker** (`--news-metric`).
+- 419 tests green, no network, no model calls, no new paid dependency. FR-2's seam intact.
+
+- [ ] **DIVERGENCES row 6 retires at merge** — the Checkpoint 3 forward commitment is paid.
+- [ ] **DIVERGENCES row 4 does NOT retire at merge.** It needs §2(c): 14 consecutive nights with at
+      least one suppression on organically accumulated history. This build made the traffic; only
+      HUMAN-TODO ④ can make the nights. `--news-metric` reports "N of 14" and cannot claim it early.
+
 ## Blocked on a decision, not on effort
 
 - [ ] **Validate the retrieval thresholds.** `k = 5`, `similarity_floor = 0.60`,
@@ -36,15 +60,8 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [ ] **FR-16 — reply-driven feedback loop.** Reply to the digest in plain English; parse it
       into a durable preference rule. Needs an inbox-read path, which v1 doesn't have.
-- [ ] **FR-17 — the remaining four beats**, each a `Beat` implementation plus a config entry,
+- [ ] **FR-17 — the remaining three beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
-  - [~] **AI / Claude news — specced 2026-08-04, not built.**
-        [docs/prd/ai-news-beat/PRD.md](docs/prd/ai-news-beat/PRD.md), FR-20 … FR-29. RSS discovery
-        plus article-body fetch (free, keyless — no news API returns full article text at any price).
-        Pays DIVERGENCES row 6 and gives FR-9b its first organic test (row 4). Decomposed into
-        **Steps 23–34** in [docs/prd/ai-news-beat/BUILD-PROMPTS.md](docs/prd/ai-news-beat/BUILD-PROMPTS.md).
-        Next step: `drive-the-build`. Note row 4 does **not** close at merge — it needs 14 organic
-        nights, which needs the scheduled task (④).
   - [ ] r/WallStreetBets mention volume
   - [ ] "need-to-know" news (the bar is higher than daily drudgery)
   - [ ] Austin live music and theatre

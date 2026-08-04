@@ -9,10 +9,15 @@ _Last updated: 2026-08-02_
 
 ## Where things stand
 
-Checkpoints 1.1, 2.x and **3.1 submitted** (3.1 on 2026-08-02). The capstone
-is built through **increment 2**: 23 build steps, **265 tests green**. The pipeline has never made
-a live model call — `CLAUDE_CODE_OAUTH_TOKEN` isn't minted yet, which is still the one blocker on a
-first real run. See [HUMAN-TODO.md](HUMAN-TODO.md) items ①–④.
+Checkpoints 1.1, 2.x and **3.1 submitted** (3.1 on 2026-08-02). The capstone is built through
+**increment 3**: 34 build steps, **419 tests green**, no network and no model calls in the suite.
+First live end-to-end run succeeded 2026-08-04.
+
+**Increment 3 (2026-08-04) — the AI news beat, on `feature/ai-news-beat`, PR open into `dev`.**
+FR-20 … FR-29: RSS discovery plus an article-body fetch, real chunking, a second vector collection
+in its own file, and topic-query retrieval that **grounds** the prose rather than only selecting
+lines. This is what DIVERGENCES row 6 promised. Row 4 does **not** close yet — it needs 14 organic
+nights, which needs [HUMAN-TODO](HUMAN-TODO.md) ④.
 
 **Module 3 increment (2026-08-02):** FR-9b shipped — retrieval-backed dedup against the sent-item
 ledger, plus FR-19's safety invariants. PRD §9 **Q3 is answered** (Sarah's call: item identity is a
@@ -116,6 +121,7 @@ game in progress; `"In Progress"` is the `detailedState`. The adapter exposes bo
 | 2026-08-04 | **First live end-to-end run.** `auth_mode=subscription_oauth`, provenance OK across 7 checkable fields with 0 violations, 12.0s, 2 in / 85 out tokens, nothing sent (FakeDeliverer). Then merged PR #1 into `dev` as `f452153`. `main` still untouched. |
 | 2026-08-02 | **Checkpoint 3 submitted.** Final text logged verbatim at [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md). It commits to document-shaped RAG landing with the AI news beat, recorded as DIVERGENCES row 6 and now the top build priority. |
 | 2026-08-02 | Fixed a silent-suppression bug FR-19 was supposed to prevent: three Astros items carried no date, so two off days in a row, or two different games sharing a scoreline, reached the model as suppression candidates. Dates added to `BeatItem.fields`; `tests/test_time_scoped_items.py` guards it. 265 tests green. |
+| 2026-08-04 | **Increment 3 built — the AI news beat.** Steps 23–34 on `feature/ai-news-beat`, one commit each, **419 tests green** (from 265). Retrieval now grounds prose rather than only selecting lines, which is what Checkpoint 3 promised. Two safety mechanisms had to grow: **FR-26** (provenance gained a case, because neither the support nor the fidelity check can see a number the model *invented* into a sentence) and **FR-27** (FR-19's first invariant inverts for a document-shaped beat — it was transplanted from typed fields to grounded prose). Three silent bugs found and fixed en route: `published` stored in the publisher's own UTC offset while the window filter compared strings; "all sources failed" tested as "no entries", so a quiet night read as an outage; a cold corpus raised instead of returning empty, making the first-ever run report itself broken. FR-2's seam held — `git diff dev...HEAD` touches none of `planner.py`, `synthesizer.py`, `delivery/`. |
 | 2026-08-04 | **AI news beat decomposed into build prompts.** [docs/prd/ai-news-beat/BUILD-PROMPTS.md](docs/prd/ai-news-beat/BUILD-PROMPTS.md) — **Steps 23–34**, continuing the parent ledger. Full coverage of FR-20 … FR-29; no FR withheld, unusually for this project (Q2/Q5/Q6 constrain *how* steps build, not *whether*). Found a prerequisite the PRD missed: the fixture harness is JSON-only (`load_fixture`, `mock_transport`, `capture_fixture.py` all assume JSON), so Step 23 widens it to XML/HTML/text or the no-network rule can't hold for the new adapters. |
 | 2026-08-04 | **AI news beat specced.** [docs/prd/ai-news-beat/PRD.md](docs/prd/ai-news-beat/PRD.md) — FR-20 … FR-29, RSS discovery plus article-body fetch (free and keyless; no news API returns full article text at any price, so paying would not have bought the feature). Parent FR-17 amended to point here for the news beat only. Two findings: FR-11's provenance check must grow a case for model-synthesized item text, and **FR-19's first invariant inverts for a document-shaped beat** — any per-artifact field in a news item's `fields` silently disables dedup for that beat. Child FR-27 transplants the invariant to grounded prose. |
 | 2026-08-02 | **Module 3 increment.** §9 Q3 answered → FR-9b unblocked and built (Steps 20–22) on `feature/fr-9b-retrieval`: model2vec embeddings + a sqlite-vec index inside `ledger.db`, retrieval-narrows/model-judges dedup, and FR-19's five safety invariants. **256 tests green**, no torch, no paid service. Drafted Checkpoint 3 against the shipped code. Found and fixed a silent bug: numeric fields that round-tripped through JSON compared unequal, which would have disabled suppression invisibly. |

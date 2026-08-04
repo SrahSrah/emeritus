@@ -9,6 +9,15 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [x] **Submit Assignment 3.** Done 2026-08-02. Submitted text logged verbatim at
       [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md).
+- [ ] **Merge the AI news beat PR into `dev`.** Branch `feature/ai-news-beat`, Steps 23–34,
+      **419 tests green**. Yours to merge, same as PR #1. Two things to read before you do:
+      - [docs/prd/ai-news-beat/BUILD-PROGRESS.md](docs/prd/ai-news-beat/BUILD-PROGRESS.md) lists
+        four deviations from the build prompts and three silent bugs found en route.
+      - PRD **FR-27** was amended mid-build: it shipped **stronger** than specced. Worth knowing
+        before a checkpoint describes it.
+- [ ] **Review the news feed list and topic queries** in `forecaster/config.toml`. Five feeds and
+      three topics ship as defaults; nothing in the code knows those ids. This is taste, not design.
+
 - [x] **Merge the FR-9b PR into `dev`.** Done 2026-08-04: PR #1 merged as `f452153`
       (merge commit, not squash, so BUILD-PROGRESS's per-step SHAs stay reachable).
       265 tests green on `dev`. `main` untouched.
@@ -78,6 +87,17 @@ Four things below are **blocking a first real run** — everything else is done.
       Expect `subscription_oauth` three times. Then note the delivery metric in STATUS.md.
       A sleeping laptop at 7 pm produces no digest and no error — the runner records those
       slots as `missed_run` so the metric stays honest.
+
+      **④ is now the gate on more than FR-14.** The news beat's §2(c) — at least one suppression on
+      **organically accumulated** history over 14 consecutive nights — is what retires DIVERGENCES
+      row 4, and only real nights can produce it. Check progress any time:
+      ```powershell
+      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
+      uv run python -m forecaster.cli --news-metric
+      ```
+      It reports "N of 14 nights" and will not claim the condition early. It also states plainly
+      that it cannot tell organic history from a hand-seeded ledger — that part is your judgement,
+      not the checker's.
 
 
 ### Design decisions the build deliberately did not make
