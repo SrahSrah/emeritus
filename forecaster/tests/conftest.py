@@ -3,11 +3,24 @@
 Two jobs:
 
 1. **Fixtures over the wire.** ``load_fixture`` reads a recorded JSON payload from
-   ``tests/fixtures/``; ``mock_transport`` turns a list of routes into an
-   ``httpx.MockTransport`` so an adapter under test sees a real ``httpx.Client``
-   serving recorded bytes.
+   ``tests/fixtures/``; ``load_text_fixture`` reads a recorded XML/HTML/text one;
+   ``mock_transport`` turns a list of routes into an ``httpx.MockTransport`` so an
+   adapter under test sees a real ``httpx.Client`` serving recorded bytes.
 2. **No live network, ever.** An ``autouse`` fixture patches ``socket.socket.connect``
    so a test that reaches for the network fails loudly and immediately.
+
+## Why there are two loaders
+
+Through Steps 1–22 every adapter spoke JSON, so the harness did too: ``load_fixture``
+parsed JSON, and ``mock_transport`` built ``httpx.Response(json=...)``. The news beat's
+sources are **RSS/Atom (XML), article pages (HTML), and robots.txt (plain text)**, none
+of which survive a round trip through ``json.loads``. Without the text path, Step 25's
+adapter could not have a recorded fixture at all, and the no-live-network rule would have
+to bend for it. It does not bend.
+
+The two loaders are kept separate rather than merged so the distinction stays explicit:
+``load_fixture`` takes a bare name and adds ``.json``; ``load_text_fixture`` **requires**
+the extension, because that extension is what picks the response's content type.
 """
 
 from __future__ import annotations
@@ -41,12 +54,48 @@ def load_fixture(name: str) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+#: Extension → content type, for text fixtures. The extension is the whole signal.
+CONTENT_TYPES = {
+    ".xml": "application/xml",
+    ".html": "text/html",
+    ".txt": "text/plain",
+}
+
+
+def load_text_fixture(name: str) -> str:
+    """Load ``tests/fixtures/<name>`` verbatim as UTF-8. The extension is **required**.
+
+    Unlike :func:`load_fixture`, nothing is parsed — an RSS feed, an article page, and a
+    ``robots.txt`` are all served exactly as recorded, because the adapter under test is
+    the thing that is supposed to do the parsing.
+    """
+    suffix = Path(name).suffix
+    if suffix not in CONTENT_TYPES:
+        raise ValueError(
+            f"Text fixture {name!r} needs one of {sorted(CONTENT_TYPES)} — the extension "
+            "is what selects the response content type. For JSON use load_fixture()."
+        )
+    path = FIXTURE_DIR / name
+    if not path.exists():
+        raise FileNotFoundError(
+            f"No fixture {name!r} in {FIXTURE_DIR}. "
+            "Record it with scripts/capture_fixture.py --raw."
+        )
+    return path.read_text(encoding="utf-8")
+
+
 @dataclass
 class Route:
     """One URL pattern → canned response.
 
-    ``pattern`` is a regex matched against the full request URL. Exactly one of
-    ``fixture`` / ``json_body`` supplies the payload; ``status`` defaults to 200.
+    ``pattern`` is a regex matched against the full request URL. ``status`` defaults to
+    200. The payload comes from exactly one of:
+
+    - ``fixture`` naming a ``.json`` file (or no extension) → a JSON response;
+    - ``fixture`` naming a ``.xml`` / ``.html`` / ``.txt`` file → a text response;
+    - ``json_body`` → a JSON response built inline;
+    - ``text`` → a text response built inline (``content_type`` defaults to
+      ``text/plain``).
     """
 
     pattern: str
@@ -54,11 +103,30 @@ class Route:
     json_body: Any = None
     status: int = 200
     exc: Exception | None = None
+    text: str | None = None
+    content_type: str | None = None
+
+    @property
+    def is_text(self) -> bool:
+        if self.text is not None:
+            return True
+        return bool(self.fixture) and Path(self.fixture or "").suffix in CONTENT_TYPES
 
     def payload(self) -> Any:
         if self.fixture is not None:
             return load_fixture(self.fixture)
         return self.json_body
+
+    def text_payload(self) -> str:
+        if self.text is not None:
+            return self.text
+        return load_text_fixture(self.fixture or "")
+
+    def resolved_content_type(self) -> str:
+        if self.content_type is not None:
+            return self.content_type
+        suffix = Path(self.fixture or "").suffix
+        return CONTENT_TYPES.get(suffix, "text/plain")
 
 
 @dataclass
@@ -86,6 +154,13 @@ def mock_transport(routes: Sequence[Route | tuple[str, str]]) -> RecordingTransp
             if re.search(route.pattern, str(request.url)):
                 if route.exc is not None:
                     raise route.exc
+                if route.is_text:
+                    return httpx.Response(
+                        route.status,
+                        text=route.text_payload(),
+                        headers={"content-type": route.resolved_content_type()},
+                        request=request,
+                    )
                 return httpx.Response(
                     route.status, json=route.payload(), request=request
                 )
@@ -155,11 +230,13 @@ def fixtures_dir() -> Path:
 
 
 __all__ = [
+    "CONTENT_TYPES",
     "FIXTURE_DIR",
     "NetworkAccessError",
     "Route",
     "RecordingTransport",
     "load_fixture",
+    "load_text_fixture",
     "mock_transport",
     "fixture_client",
 ]

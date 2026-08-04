@@ -131,6 +131,65 @@ class RetrievalConfig:
 
 
 @dataclass(frozen=True)
+class ChunkingConfig:
+    """FR-22. Character counts, not tokens — the PRD specifies characters."""
+
+    target_chars: int
+    max_chars: int
+    overlap_chars: int
+
+
+@dataclass(frozen=True)
+class CorpusConfig:
+    """FR-23. A **separate** file from `ledger.db`; see the PRD's rationale."""
+
+    path: str
+    ttl_days: int
+
+
+@dataclass(frozen=True)
+class NewsRetrievalConfig:
+    """FR-24. Deliberately **not** the same numbers as :class:`RetrievalConfig`.
+
+    Matching a topic query against an article chunk is a different retrieval problem from
+    comparing a candidate line against past lines, so it has a different natural floor.
+    Both sets are reasoned rather than measured — parent PRD §9 Q5 and child §9 Q6.
+    """
+
+    k: int
+    similarity_floor: float
+    window_days: int
+    max_chunks_per_article: int
+
+
+@dataclass(frozen=True)
+class FeedConfig:
+    name: str
+    url: str
+
+
+@dataclass(frozen=True)
+class TopicConfig:
+    """One retrieval query. Nothing in the code knows any particular `id`."""
+
+    id: str
+    query: str
+
+
+@dataclass(frozen=True)
+class NewsConfig:
+    user_agent: str
+    fetch_delay_seconds: float
+    timeout_seconds: float
+    min_body_chars: int
+    feeds: list[FeedConfig]
+    chunking: ChunkingConfig
+    corpus: CorpusConfig
+    retrieval: NewsRetrievalConfig
+    topics: list[TopicConfig]
+
+
+@dataclass(frozen=True)
 class Config:
     run: RunConfig
     beats: dict[str, bool]
@@ -139,6 +198,7 @@ class Config:
     escalation: EscalationConfig
     team: TeamConfig
     retrieval: RetrievalConfig
+    news: NewsConfig | None = None
     source_path: Path | None = None
     raw: Mapping[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
@@ -215,6 +275,8 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
     if not 0.0 <= retrieval.similarity_floor <= 1.0:
         raise ConfigError("config.toml: [retrieval].similarity_floor must be within 0.0–1.0")
 
+    news = _parse_news(data, news_enabled=beats.get("news", False))
+
     return Config(
         run=run,
         beats=beats,
@@ -223,9 +285,155 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         escalation=escalation,
         team=team,
         retrieval=retrieval,
+        news=news,
         source_path=source_path,
         raw=dict(data),
     )
+
+
+def _parse_news(data: Mapping[str, Any], *, news_enabled: bool) -> NewsConfig | None:
+    """Parse `[news]` if present. Absent is fine **unless** `[beats].news` is on.
+
+    Optional rather than required because every config that predates the news beat — the
+    test builders included — is still a valid config. What is not valid is enabling the
+    beat with nothing to configure it from, and that fails loudly here rather than at
+    2 am inside a nightly run.
+    """
+    if "news" not in data:
+        if news_enabled:
+            raise ConfigError(
+                "config.toml: [beats].news is true but there is no [news] section. "
+                "The beat has no feeds, no topics, and no corpus settings to run with."
+            )
+        return None
+
+    news_table = _require_table(data, "news")
+
+    chunk_table = _require_table(news_table, "chunking")
+    chunking = ChunkingConfig(
+        target_chars=_require_int(chunk_table, "target_chars", "news.chunking"),
+        max_chars=_require_int(chunk_table, "max_chars", "news.chunking"),
+        overlap_chars=_require_int(chunk_table, "overlap_chars", "news.chunking"),
+    )
+    if chunking.overlap_chars < 0:
+        raise ConfigError("config.toml: [news.chunking].overlap_chars must not be negative")
+    if chunking.overlap_chars >= chunking.target_chars:
+        raise ConfigError(
+            "config.toml: [news.chunking].overlap_chars must be less than target_chars — "
+            "an overlap at or above the target never advances and chunking would not "
+            "terminate"
+        )
+    if chunking.target_chars > chunking.max_chars:
+        raise ConfigError(
+            "config.toml: [news.chunking].target_chars must not exceed max_chars"
+        )
+    if chunking.target_chars < 1:
+        raise ConfigError("config.toml: [news.chunking].target_chars must be at least 1")
+
+    corpus_table = _require_table(news_table, "corpus")
+    corpus = CorpusConfig(
+        path=_require_str(corpus_table, "path", "news.corpus"),
+        ttl_days=_require_int(corpus_table, "ttl_days", "news.corpus"),
+    )
+    if corpus.ttl_days < 1:
+        raise ConfigError("config.toml: [news.corpus].ttl_days must be at least 1")
+
+    retrieval_table = _require_table(news_table, "retrieval")
+    news_retrieval = NewsRetrievalConfig(
+        k=_require_int(retrieval_table, "k", "news.retrieval"),
+        similarity_floor=_require_float(
+            retrieval_table, "similarity_floor", "news.retrieval"
+        ),
+        window_days=_require_int(retrieval_table, "window_days", "news.retrieval"),
+        max_chunks_per_article=_require_int(
+            retrieval_table, "max_chunks_per_article", "news.retrieval"
+        ),
+    )
+    if news_retrieval.k < 1:
+        raise ConfigError("config.toml: [news.retrieval].k must be at least 1")
+    if not 0.0 <= news_retrieval.similarity_floor <= 1.0:
+        raise ConfigError(
+            "config.toml: [news.retrieval].similarity_floor must be within 0.0–1.0"
+        )
+    if news_retrieval.window_days < 1:
+        raise ConfigError("config.toml: [news.retrieval].window_days must be at least 1")
+    if news_retrieval.max_chunks_per_article < 1:
+        raise ConfigError(
+            "config.toml: [news.retrieval].max_chunks_per_article must be at least 1"
+        )
+    if news_retrieval.window_days > corpus.ttl_days:
+        raise ConfigError(
+            f"config.toml: [news.retrieval].window_days ({news_retrieval.window_days}) "
+            f"exceeds [news.corpus].ttl_days ({corpus.ttl_days}) — the run would retrieve "
+            "over articles the purge has already deleted"
+        )
+
+    feeds: list[FeedConfig] = []
+    raw_feeds = news_table.get("feeds", [])
+    if not isinstance(raw_feeds, list):
+        raise ConfigError("config.toml: [news].feeds must be a list of tables")
+    for index, raw in enumerate(raw_feeds):
+        if not isinstance(raw, Mapping):
+            raise ConfigError(f"config.toml: [news].feeds #{index} must be a table")
+        feeds.append(
+            FeedConfig(
+                name=_require_str(raw, "name", f"news.feeds#{index}"),
+                url=_require_str(raw, "url", f"news.feeds#{index}"),
+            )
+        )
+    _reject_duplicates([feed.name for feed in feeds], "news.feeds", "name")
+
+    topics: list[TopicConfig] = []
+    raw_topics = news_table.get("topics", [])
+    if not isinstance(raw_topics, list):
+        raise ConfigError("config.toml: [[news.topics]] must be a list of tables")
+    for index, raw in enumerate(raw_topics):
+        if not isinstance(raw, Mapping):
+            raise ConfigError(f"config.toml: [[news.topics]] #{index} must be a table")
+        topics.append(
+            TopicConfig(
+                id=_require_str(raw, "id", f"news.topics#{index}"),
+                query=_require_str(raw, "query", f"news.topics#{index}"),
+            )
+        )
+    _reject_duplicates([topic.id for topic in topics], "news.topics", "id")
+
+    if news_enabled and not feeds:
+        raise ConfigError(
+            "config.toml: [beats].news is true but [news].feeds is empty — there is "
+            "nothing to read"
+        )
+    if news_enabled and not topics:
+        raise ConfigError(
+            "config.toml: [beats].news is true but [[news.topics]] is empty — retrieval "
+            "has no query, so the beat would produce nothing"
+        )
+
+    return NewsConfig(
+        user_agent=_require_str(news_table, "user_agent", "news"),
+        fetch_delay_seconds=_require_float(
+            news_table, "fetch_delay_seconds", "news"
+        ),
+        timeout_seconds=_require_float(news_table, "timeout_seconds", "news"),
+        min_body_chars=_require_int(news_table, "min_body_chars", "news"),
+        feeds=feeds,
+        chunking=chunking,
+        corpus=corpus,
+        retrieval=news_retrieval,
+        topics=topics,
+    )
+
+
+def _reject_duplicates(values: list[str], section: str, key: str) -> None:
+    """A duplicate name makes a trace record ambiguous — same reasoning as suppression ids."""
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            raise ConfigError(
+                f"config.toml: duplicate {key} {value!r} in [{section}] — {key}s must be "
+                "unique so a trace entry is unambiguous"
+            )
+        seen.add(value)
 
 
 def load_config(path: str | Path | None = None) -> Config:
@@ -253,14 +461,20 @@ def config_digest(config: Config) -> str:
 
 __all__ = [
     "DEFAULT_CONFIG_PATH",
+    "ChunkingConfig",
     "Config",
     "ConfigError",
+    "CorpusConfig",
     "DeliveryConfig",
     "EscalationConfig",
+    "FeedConfig",
     "LocationConfig",
+    "NewsConfig",
+    "NewsRetrievalConfig",
     "RetrievalConfig",
     "RunConfig",
     "TeamConfig",
+    "TopicConfig",
     "config_digest",
     "enabled_beats",
     "load_config",

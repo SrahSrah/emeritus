@@ -169,7 +169,26 @@ class BeatResult:
 
 @dataclass
 class BeatContext:
-    """Everything a beat is handed. Nothing is reached for globally."""
+    """Everything a beat is handed. Nothing is reached for globally.
+
+    ``embedder``, ``corpus``, and ``agent_client`` are optional and only a document-shaped
+    beat uses them (FR-23/FR-24/FR-25). They are handed *in* rather than constructed by the
+    beat, for the reason this project always injects: the real embedder fetches model
+    weights on first use and the real agent client makes a model call, so a beat that built
+    its own would reach for the network inside the test suite — and would load the model a
+    second time in production when the run already has one.
+
+    ``agent_client`` is the first crack in "beats do not talk to the model". Through FR-25
+    every beat turned a typed API response into a sentence *in code*, so only the
+    synthesizer needed a client. A beat that summarizes retrieved passages cannot. FR-11's
+    guarantee is unchanged and is what makes this safe: the model phrases, and
+    :func:`forecaster.trace.check_provenance` fails the run if a figure it wrote is not in
+    a passage the item points at.
+
+    Adding these here is not an FR-2 seam violation. FR-2's zero-edit clause names
+    `planner.py`, `synthesizer.py`, and `delivery/`; this module *is* the contract, and a
+    new optional field on it breaks no existing beat.
+    """
 
     config: Config
     preferences: Preferences
@@ -177,6 +196,9 @@ class BeatContext:
     scratchpad: ScratchpadLike
     trace: TraceWriter
     http_client: Any = None
+    embedder: Any = None
+    corpus: Any = None
+    agent_client: Any = None
 
 
 @runtime_checkable
@@ -289,7 +311,7 @@ def load_builtin_beats() -> None:
     Kept as a function rather than an import at module scope: `base.py` must not depend
     on any concrete beat, or the seam this module exists to protect stops being a seam.
     """
-    from forecaster.beats import astros, weather  # noqa: F401
+    from forecaster.beats import astros, news, weather  # noqa: F401
 
 
 __all__ = [

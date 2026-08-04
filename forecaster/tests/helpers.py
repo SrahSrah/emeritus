@@ -50,6 +50,33 @@ BASE_CONFIG: dict[str, Any] = {
 }
 
 
+#: Opt-in news settings, mirroring how `retrieval` stays off by default. A test that
+#: needs the news beat passes `make_config(beats={"news": True}, news=NEWS_CONFIG)`.
+#: Deliberately small — two feeds, two topics — so a fixture set stays readable.
+NEWS_CONFIG: dict[str, Any] = {
+    "user_agent": "forecaster-test/0.1 (tests@example.test)",
+    "fetch_delay_seconds": 0.0,
+    "timeout_seconds": 5,
+    "min_body_chars": 600,
+    "feeds": [
+        {"name": "Ars Technica", "url": "https://feeds.arstechnica.test/index"},
+        {"name": "The Verge", "url": "https://www.theverge.test/rss/index.xml"},
+    ],
+    "chunking": {"target_chars": 900, "max_chars": 1200, "overlap_chars": 150},
+    "corpus": {"path": "data/corpus.db", "ttl_days": 7},
+    "retrieval": {
+        "k": 6,
+        "similarity_floor": 0.35,
+        "window_days": 3,
+        "max_chunks_per_article": 2,
+    },
+    "topics": [
+        {"id": "claude", "query": "Anthropic Claude model releases and pricing"},
+        {"id": "agents", "query": "AI agents, tool use, and agent frameworks"},
+    ],
+}
+
+
 def make_config(**overrides: Any) -> Config:
     """Deep-ish merge of section overrides onto the base config."""
     data = {section: dict(values) for section, values in BASE_CONFIG.items()}
@@ -75,7 +102,11 @@ def make_context(
     preferences: Preferences | None = None,
     now: datetime = NOW,
     scratchpad: Scratchpad | None = None,
+    embedder: Any = None,
+    corpus: Any = None,
+    agent_client: Any = None,
 ) -> BeatContext:
+    """The last three are only used by a document-shaped beat (FR-23/24/25)."""
     return BeatContext(
         config=config or make_config(),
         preferences=preferences or make_preferences(),
@@ -83,6 +114,9 @@ def make_context(
         scratchpad=scratchpad if scratchpad is not None else Scratchpad(trace=trace),
         trace=trace,
         http_client=http_client,
+        embedder=embedder,
+        corpus=corpus,
+        agent_client=agent_client,
     )
 
 

@@ -37,18 +37,52 @@ So the safety rules below are not tuning parameters. They are invariants, each w
 Rule 1 is the load-bearing one, and it is why the ledger stores `checkable_fields`
 alongside the rendered text: without the neighbour's *observed values* there is no way to
 tell a genuine repeat from a near-identical sentence about a different fact.
+
+## Rule 1 does not generalize to a document-shaped beat (FR-27)
+
+Rule 1 assumes a **recurring status item**, where identical wording on a different day
+means a genuinely different fact. A score and a forecast are new every night, so the date
+in `fields` is what keeps them alive.
+
+News inverts that. The same story on a different day **is** the repeat, and is exactly
+what should be suppressed. Any per-artifact field in a news item's `fields` therefore
+disables dedup for that beat, permanently and invisibly:
+
+- a run date differs every night, so rule 1 fires on every item and nothing is suppressed;
+- `published` differs whenever tonight's top article is newer than last night's, the
+  normal case;
+- `url` differs whenever a second publisher picks up the story — which is precisely the
+  "three days of *Fable rocks but is expensive*" case the news beat exists to fix.
+
+So for an item declaring `text_origin="synthesized"`, rule 1 is **transplanted from typed
+fields to grounded prose**: the veto fires when the candidate introduces a **number**, a
+**quoted phrase**, or a **proper noun** that appears in none of its neighbours. Those are
+the things that mean the reader is learning something. A genuine repeat of the same story
+reuses its figures and its entities, so it stays suppressible, which is what keeps the
+feature's own success metric satisfiable.
+
+If the veto over-fires the digest repeats itself, which the trace records and which is the
+**correct-side error**: going quiet is worse than repeating, and much harder to notice.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Sequence
 
 from forecaster.agent import AgentClientLike, DEFAULT_EFFORT
 from forecaster.memory.retrieval import Neighbour, RetrievalError
+from forecaster.trace import SYNTHESIZED
 
 Action = Literal["include", "reframe", "suppress"]
+
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+_QUOTED = re.compile(r'"([^"]{4,})"')
+#: A capitalized token of three or more characters. Sentence-initial ones are excluded
+#: separately — "Anthropic" mid-sentence is a name; "Today" opening one is not.
+_CAPITALIZED = re.compile(r"\b([A-Z][A-Za-z0-9][A-Za-z0-9.&+-]{1,})\b")
 
 SYSTEM_PROMPT = (
     "You decide whether a new digest line tells the reader anything they do not already "
@@ -122,6 +156,52 @@ def _new_checkable_key(item: Any, neighbour: Neighbour) -> str | None:
     return None
 
 
+def _proper_nouns(text: str) -> list[str]:
+    """Capitalized tokens that are not sentence-initial.
+
+    Sentence-initial words are excluded because every sentence starts with a capital and
+    treating "Today" as a new entity would make the veto fire on everything — which is
+    the failure mode opposite to the one it exists to prevent.
+    """
+    found: list[str] = []
+    for match in _CAPITALIZED.finditer(text):
+        preceding = text[: match.start()].rstrip()
+        if not preceding or preceding[-1] in ".!?":
+            continue
+        found.append(match.group(1))
+    return found
+
+
+def _mentions(blob: str, token: str) -> bool:
+    return re.search(rf"\b{re.escape(token)}\b", blob, re.IGNORECASE) is not None
+
+
+def _new_grounded_values(item: Any, neighbours: Sequence[Neighbour]) -> list[str]:
+    """What this item says that no neighbour said. FR-27's veto reads this.
+
+    Returns human-readable descriptions rather than a bool, because the reason goes into
+    the trace and "a figure changed" is not an auditable explanation.
+    """
+    text = str(getattr(item, "text", "") or "")
+    blob = "\n".join(neighbour.rendered_text for neighbour in neighbours)
+    lowered = blob.lower()
+    new: list[str] = []
+
+    for number in dict.fromkeys(_NUMBER.findall(text)):
+        if number not in blob:
+            new.append(f"the figure {number}")
+
+    for quoted in dict.fromkeys(_QUOTED.findall(text)):
+        if quoted.lower() not in lowered:
+            new.append(f"the quotation {quoted!r}")
+
+    for noun in dict.fromkeys(_proper_nouns(text)):
+        if not _mentions(blob, noun):
+            new.append(f"the name {noun!r}")
+
+    return new
+
+
 def assess_item(
     item: Any,
     neighbours: Sequence[Neighbour],
@@ -160,6 +240,31 @@ def assess_item(
 
     nearest = neighbours[0]
 
+    # Invariant 1, transplanted (FR-27). For an item whose text the model wrote from
+    # retrieved passages, the veto reads the prose rather than typed fields — see this
+    # module's docstring for why the typed-field version inverts for a news beat.
+    if (getattr(item, "fields", None) or {}).get("text_origin") == SYNTHESIZED:
+        introduced = _new_grounded_values(item, neighbours)
+        if introduced:
+            joined = ", ".join(introduced[:3])
+            more = "" if len(introduced) <= 3 else f" (and {len(introduced) - 3} more)"
+            return DedupDecision(
+                "reframe",
+                (
+                    f"near-duplicate wording (cosine {nearest.similarity:.4f}) but the "
+                    f"candidate introduces {joined}{more}, which no retrieved neighbour "
+                    "carried; suppression is not permitted"
+                ),
+                neighbours,
+                forced=True,
+            )
+        # Nothing new was introduced. Now it is a genuine judgment call, so ask — the
+        # typed-field invariants below are meaningless here (a news item declares only
+        # its topic and its origin) and would just wave everything through.
+        return _ask_model(
+            item, neighbours, nearest, agent_client=agent_client, effort=effort
+        )
+
     # Invariant 1 — the one that makes the 0.97 numeral collision harmless.
     differs, detail = _checkable_values_differ(item, nearest)
     if differs:
@@ -183,6 +288,18 @@ def assess_item(
         )
 
     # No checkable value moved. Now it is a genuine judgment call, so ask.
+    return _ask_model(item, neighbours, nearest, agent_client=agent_client, effort=effort)
+
+
+def _ask_model(
+    item: Any,
+    neighbours: Sequence[Neighbour],
+    nearest: Neighbour,
+    *,
+    agent_client: AgentClientLike,
+    effort: str = DEFAULT_EFFORT,
+) -> DedupDecision:
+    """The judgment step, reached only once every mechanical veto has declined to fire."""
     structured = {
         "candidate": getattr(item, "text", str(item)),
         "candidate_fields": dict(getattr(item, "fields", None) or {}),
@@ -203,10 +320,10 @@ def assess_item(
         )
     except Exception as exc:  # noqa: BLE001 - invariant 4
         return DedupDecision(
-            "include", f"dedup judgment unavailable ({exc}); defaulting to include", neighbours
+            "include", f"dedup judgment unavailable ({exc}); defaulting to include", list(neighbours)
         )
 
-    return _parse_judgment(response.text, neighbours, nearest)
+    return _parse_judgment(response.text, list(neighbours), nearest)
 
 
 def _parse_judgment(
@@ -245,6 +362,7 @@ def _parse_judgment(
 
 
 __all__ = [
+    "SYNTHESIZED",
     "SYSTEM_PROMPT",
     "Action",
     "DedupDecision",
