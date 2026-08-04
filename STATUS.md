@@ -9,7 +9,7 @@ _Last updated: 2026-08-02_
 
 ## Where things stand
 
-Checkpoints 1.1 and 2.x **submitted**. Checkpoint 3 **drafted, not yet submitted**. The capstone
+Checkpoints 1.1, 2.x and **3.1 submitted** (3.1 on 2026-08-02). The capstone
 is built through **increment 2**: 23 build steps, **265 tests green**. The pipeline has never made
 a live model call — `CLAUDE_CODE_OAUTH_TOKEN` isn't minted yet, which is still the one blocker on a
 first real run. See [HUMAN-TODO.md](HUMAN-TODO.md) items ①–④.
@@ -32,7 +32,7 @@ with personalized escalation and dedup against past reports.
 | Deliverable | Written design update, 600–900 words, **plus a working agent update** |
 | Draft | [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md) |
 | Build | FR-9b + FR-19 on `feature/fr-9b-retrieval`, 265 tests green, PR open into `dev` |
-| State | **drafted 2026-08-02 — not yet submitted** |
+| State | **submitted 2026-08-02** |
 
 ### Module 3's architectural decision (locked)
 
@@ -113,6 +113,7 @@ game in progress; `"In Progress"` is the `detailedState`. The adapter exposes bo
 | 2026-07-27 | Assignment 2 submitted. Wrote the Forecaster PRD (v1, 18 FRs) and locked the build decisions above. |
 | 2026-07-27 | Decomposed the PRD into BUILD-PROMPTS.md — 19 steps, all MVP FRs covered, 3 spec gaps + 2 human gates flagged. |
 | 2026-07-27 | **Built all 19 steps** on `feature/forecaster` (one commit per step), 221 tests green, PR opened into `dev`. Live run blocked on the OAuth token; FR-12's send and FR-14's three nights left at their human gates. Added `tzdata` (Windows has no tz database) and corrected the `abstractGameState` value for live games. |
+| 2026-08-02 | **Checkpoint 3 submitted.** Final text logged verbatim at [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md). It commits to document-shaped RAG landing with the AI news beat, recorded as DIVERGENCES row 6 and now the top build priority. |
 | 2026-08-02 | Fixed a silent-suppression bug FR-19 was supposed to prevent: three Astros items carried no date, so two off days in a row, or two different games sharing a scoreline, reached the model as suppression candidates. Dates added to `BeatItem.fields`; `tests/test_time_scoped_items.py` guards it. 265 tests green. |
 | 2026-08-02 | **Module 3 increment.** §9 Q3 answered → FR-9b unblocked and built (Steps 20–22) on `feature/fr-9b-retrieval`: model2vec embeddings + a sqlite-vec index inside `ledger.db`, retrieval-narrows/model-judges dedup, and FR-19's five safety invariants. **256 tests green**, no torch, no paid service. Drafted Checkpoint 3 against the shipped code. Found and fixed a silent bug: numeric fields that round-tripped through JSON compared unequal, which would have disabled suppression invisibly. |
 
@@ -143,7 +144,7 @@ with them or explicitly note the revision.
 |---|---|---|---|---|
 | 1 | Agent concept | — | Forecaster concept | submitted |
 | 2 | Agent architecture | — | [text](assignments/assignment-2-agent-architecture.md) | submitted |
-| 3 | RAG / vector databases | Wants a **working agent update**, not just prose | [text](assignments/assignment-3-retrieval.md) | **drafted, not submitted** |
+| 3 | RAG / vector databases | Wants a **working agent update**, not just prose | [text](assignments/assignment-3-retrieval.md) | submitted |
 | — | _rest of syllabus TBD_ | | | |
 
 ## Open questions
