@@ -37,8 +37,8 @@ repair this file, and say so.
 | 28 | Article chunk corpus | **done** | `1919b26` | 347 tests (+7). `create_vector_schema`/`index_item` parameterized by table; `similarity_from_distance` extracted so there is exactly one of it. AST guard asserts `corpus.py` never opens the ledger in live code. |
 | 29 | Topic-query retrieval | **done** | `42925f8` | 358 tests (+11). Found and fixed a real bug while writing it: `published` was stored in whatever offset the feed gave, and FR-24 compares those **as strings** in SQL. Now normalized to UTC on write. |
 | 30 | Grounded-text provenance check | **done** | `da1d098` | 369 tests (+11). Added `ungrounded_item` beyond the spec's two kinds — a synthesized item pointing at no observation is the emptiest version of the failure. Word-form mapping is closed at 20. |
-| 31 | Grounded-value suppression veto | **done** | — | 385 tests (+16). Built **stronger than specced** — see the deviation below; PRD FR-27 amended to match. `test_time_scoped_items.py` gains a coverage test that fails when a registered beat is not exercised there. |
-| 32 | News beat worker | todo | — | — |
+| 31 | Grounded-value suppression veto | **done** | `e35e098` | 385 tests (+16). Built **stronger than specced** — see the deviation below; PRD FR-27 amended to match. `test_time_scoped_items.py` gains a coverage test that fails when a registered beat is not exercised there. |
+| 32 | News beat worker | **done** | — | 398 tests (+13). `BeatContext` gains `embedder`, `corpus`, **and `agent_client`** (the PRD anticipated the first two). Seam verified: `git diff dev...HEAD` touches none of `planner.py`, `synthesizer.py`, `delivery/`. Step 31's coverage test fired on cue and forced the news case into the time-scoped guard. |
 | 33 | Per-source failure handling | todo | — | — |
 | 34 | News-beat metric checker | todo | — | — |
 

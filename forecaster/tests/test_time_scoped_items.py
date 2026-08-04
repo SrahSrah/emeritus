@@ -62,7 +62,7 @@ ARTIFACT_KEYS = DATE_KEYS | {"published", "url", "source"}
 
 #: Beat names this file drives through real fixtures. The coverage test below fails when
 #: a registered beat is missing from it, so a new beat cannot land unexamined.
-COVERED_BEATS = {"astros", "weather"}
+COVERED_BEATS = {"astros", "weather", "news"}
 
 WEATHER_ROUTES = [
     Route(POINTS_URL, fixture="nws_points_austin"),
@@ -83,13 +83,37 @@ class Suppressor:
         return AgentResponse(text="SUPPRESS adds nothing", input_tokens=0, output_tokens=0)
 
 
-def _run(beat, routes, tmp_path: Path, now=NOW):
+def _run(beat, routes, tmp_path: Path, now=NOW, **context_kwargs):
     client, _ = fixture_client(routes)
     with client:
         trace = trace_in(tmp_path, "time-scoped")
-        result = run_beat_safely(beat, make_context(trace=trace, http_client=client, now=now))
+        result = run_beat_safely(
+            beat,
+            make_context(trace=trace, http_client=client, now=now, **context_kwargs),
+        )
         trace.close()
     return result
+
+
+def _run_news(tmp_path: Path):
+    """The news beat needs three collaborators the structured beats do not."""
+    from tests.test_beat_news import NOW as NEWS_NOW, PassageClient, _routes
+
+    from forecaster.beats.news import NewsBeat
+    from forecaster.memory import corpus as corpus_module
+    from forecaster.memory.retrieval import HashingEmbedder
+    from tests.helpers import NEWS_CONFIG, make_config
+
+    return _run(
+        NewsBeat(),
+        _routes(),
+        tmp_path,
+        now=NEWS_NOW,
+        config=make_config(beats={"news": True}, news=NEWS_CONFIG),
+        embedder=HashingEmbedder(),
+        corpus=corpus_module.connect(tmp_path / "corpus.db"),
+        agent_client=PassageClient(),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -151,10 +175,13 @@ def test_no_synthesized_item_carries_a_per_artifact_key(label, beat, routes, tmp
     """The inverse of the exemption, checked on real beat output.
 
     Vacuous for the two structured beats, which is correct — they declare no
-    ``text_origin``. It starts biting the moment a document-shaped beat ships, and the
-    coverage test above is what guarantees that beat gets added here.
+    ``text_origin``. The news case below is where it bites.
     """
-    for item in _run(beat(), routes, tmp_path).items:
+    _assert_no_artifact_keys(label, _run(beat(), routes, tmp_path).items)
+
+
+def _assert_no_artifact_keys(label: str, items) -> None:
+    for item in items:
         if item.fields.get("text_origin") != SYNTHESIZED:
             continue
         offenders = ARTIFACT_KEYS & set(item.fields)
@@ -163,6 +190,49 @@ def test_no_synthesized_item_carries_a_per_artifact_key(label, beat, routes, tmp
             "differs between two articles about the same story, so FR-19's first "
             "invariant would fire every night and dedup would never suppress anything."
         )
+
+
+# --------------------------------------------------------------------------- #
+# The news beat — the exemption's only current user
+# --------------------------------------------------------------------------- #
+
+
+def test_news_items_take_the_exemption_and_declare_no_artifact_key(tmp_path: Path) -> None:
+    """The document-shaped case: exempt from the date rule, and it must earn that."""
+    result = _run_news(tmp_path)
+    assert result.items, "the news fixtures should produce at least one item"
+
+    for item in result.items:
+        assert item.fields.get("text_origin") == SYNTHESIZED, (
+            "a news item with no text_origin would fall under the date rule, which "
+            "inverts for a document-shaped beat"
+        )
+        assert not DATE_KEYS & set(item.fields)
+
+    _assert_no_artifact_keys("news", result.items)
+
+
+def test_two_news_runs_of_the_same_story_are_suppressible(tmp_path: Path) -> None:
+    """The failure mode the whole increment exists for, through the real beat.
+
+    Checkpoint 1 named it: several days of AI news collapsing into "Fable rocks but is
+    expensive". The item must reach the judgment rather than being vetoed by a field.
+    """
+    item = _run_news(tmp_path).items[0]
+
+    client = Suppressor()
+    neighbour = Neighbour(
+        sent_item_id=1,
+        beat="news",
+        sent_at="2026-08-03T19:00:00",
+        rendered_text=item.text,
+        checkable_fields=dict(item.fields),
+        similarity=1.0,
+    )
+    decision = assess_item(item, [neighbour], agent_client=client, beat="news")
+
+    assert decision.action == "suppress"
+    assert client.asked == 1, "no field may decide this — the prose has nothing new in it"
 
 
 def test_a_stray_date_cannot_disable_dedup_for_a_synthesized_item() -> None:

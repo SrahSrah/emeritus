@@ -13,9 +13,7 @@ run_window_end = "08:00"
 # One flag per beat. Adding a beat = one class + one entry here (FR-2).
 astros = true
 weather = true
-# Flipped on in Step 32, once NewsBeat is registered. Enabling a beat nobody registered
-# is a LookupError by design, not a silent skip.
-news = false
+news = true
 
 [location]
 city = "Austin"

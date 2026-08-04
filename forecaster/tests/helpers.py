@@ -102,7 +102,11 @@ def make_context(
     preferences: Preferences | None = None,
     now: datetime = NOW,
     scratchpad: Scratchpad | None = None,
+    embedder: Any = None,
+    corpus: Any = None,
+    agent_client: Any = None,
 ) -> BeatContext:
+    """The last three are only used by a document-shaped beat (FR-23/24/25)."""
     return BeatContext(
         config=config or make_config(),
         preferences=preferences or make_preferences(),
@@ -110,6 +114,9 @@ def make_context(
         scratchpad=scratchpad if scratchpad is not None else Scratchpad(trace=trace),
         trace=trace,
         http_client=http_client,
+        embedder=embedder,
+        corpus=corpus,
+        agent_client=agent_client,
     )
 
 

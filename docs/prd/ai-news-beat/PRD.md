@@ -194,11 +194,17 @@ Module 3 named and the one Checkpoint 3 promised to demonstrate next.
     record in the same trace; and disabling `[beats] news` returns the digest to its two-beat shape
     with no other change.
   - **Touches:** `forecaster/beats/news.py`, `config.toml`, plus two wiring edits that are **not**
-    seam violations: `beats/base.py` gains an optional `BeatContext.embedder` field (the context
-    carries no embedder today, and having the beat construct its own would load the model twice per
-    run and reach for the network inside the test suite), and `cli.py` opens `corpus.db` and passes
-    the same `StaticEmbedder` instance it already builds for FR-9b. FR-2's zero-edit clause names
-    `planner.py`, `synthesizer.py`, and `delivery/` specifically, and none of those change.
+    seam violations: `beats/base.py` gains optional `BeatContext` fields, and `cli.py` opens
+    `corpus.db` and passes the same `StaticEmbedder` instance it already builds for FR-9b. FR-2's
+    zero-edit clause names `planner.py`, `synthesizer.py`, and `delivery/` specifically, and none of
+    those change — verified on the branch with `git diff --name-only dev...HEAD` over those paths.
+  - **Amended 2026-08-04, during the build (Step 32).** `BeatContext` needed a third field this
+    spec did not anticipate: **`agent_client`**. Through FR-25 every beat turned a typed API
+    response into a sentence *in code*, so only the synthesizer ever held a client; a beat that
+    summarizes retrieved passages cannot. This is the first crack in "beats do not talk to the
+    model", and it is worth naming rather than burying. What makes it safe is that FR-11's
+    guarantee is unchanged and FR-26 now extends it: the model phrases, and the run fails if a
+    figure it wrote is absent from a passage the item points at.
 
 - **FR-26 — Grounded-text provenance check (extends FR-11)** `[MVP]`
   - **Requirement:** `check_provenance` gains one case, scoped to items declaring

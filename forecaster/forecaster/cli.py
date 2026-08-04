@@ -131,6 +131,7 @@ def run_pipeline(
     auth_mode: str | None = None,
     write_ledger: bool = True,
     embedder: Any = None,
+    corpus_path: str | Path | None = None,
 ) -> RunReport:
     """One complete run. Returns a report; raises only on a provenance failure.
 
@@ -147,6 +148,7 @@ def run_pipeline(
     # path indexes into it afterwards. Opening it twice would mean two vector schemas.
     ledger_conn = None
     retriever = None
+    corpus_conn = None
     if config.retrieval.enabled:
         try:
             from forecaster.memory.retrieval import LedgerRetriever, StaticEmbedder
@@ -167,6 +169,20 @@ def run_pipeline(
                 f"retrieval unavailable ({exc}); running without the ledger check",
                 file=sys.stderr,
             )
+
+    # FR-23. A **separate** file from the ledger, opened only when the news beat is on.
+    # It shares the run's one embedder, so the model loads once.
+    if config.news is not None and config.beats.get("news", False):
+        try:
+            from forecaster.memory import corpus as corpus_module
+            from forecaster.memory.retrieval import StaticEmbedder
+
+            if embedder is None:
+                embedder = StaticEmbedder(config.retrieval.model)
+            corpus_conn = corpus_module.connect(corpus_path or config.news.corpus.path)
+        except Exception as exc:  # noqa: BLE001 - FR-18 turns this into an honest line
+            corpus_conn = None
+            print(f"news corpus unavailable ({exc})", file=sys.stderr)
 
     # Computed before the trace is opened, so tonight's own file isn't "the last run".
     skipped = missed_slots(last_run_at(trace_dir), moment, config.run.send_time)
@@ -211,6 +227,9 @@ def run_pipeline(
                 scratchpad=Scratchpad(trace=trace),  # a fresh one per beat
                 trace=trace,
                 http_client=client,
+                embedder=embedder,
+                corpus=corpus_conn,
+                agent_client=agent_client,
             )
             result = run_beat_safely(beat, context)
             trace.beat_result(result)
@@ -274,6 +293,8 @@ def run_pipeline(
             client.close()
         if ledger_conn is not None:
             ledger_conn.close()
+        if corpus_conn is not None:
+            corpus_conn.close()
 
     return report
 

@@ -181,11 +181,16 @@ def test_the_real_config_parses_its_news_section() -> None:
     assert [topic.id for topic in config.news.topics] == ["claude", "agents", "evals"]
 
 
-def test_the_news_beat_ships_disabled_until_it_is_registered() -> None:
-    """Enabling a beat nobody registered is a LookupError; Step 32 flips this."""
+def test_the_news_beat_is_enabled_and_registered() -> None:
+    """Flipped on in Step 32. Enabling a beat nobody registered is a LookupError."""
+    from forecaster.beats.base import load_builtin_beats, registered_beats
+
+    load_builtin_beats()
     config = load_config(REAL_CONFIG)
-    assert config.beats["news"] is False
-    assert "news" not in enabled_beats(config)
+
+    assert config.beats["news"] is True
+    assert "news" in enabled_beats(config)
+    assert "news" in registered_beats()
 
 
 def test_a_config_with_no_news_section_is_still_valid() -> None:
