@@ -455,6 +455,14 @@ def retrieve_for_topic(
             """,
             (payload, max(k * 8, 40), cutoff),
         ).fetchall()
+    except sqlite3.OperationalError as exc:
+        # No vec table yet means nothing has ever been indexed. That is a cold corpus,
+        # not a broken one, and reporting it as a failure would tell Sarah the news beat
+        # was down on a night when it simply had nothing to read — the exact confusion
+        # FR-18 exists to prevent. Any other operational error is still a failure.
+        if "no such table" in str(exc).lower():
+            return []
+        raise RetrievalError(f"corpus search failed: {exc}") from exc
     except sqlite3.Error as exc:
         raise RetrievalError(f"corpus search failed: {exc}") from exc
 

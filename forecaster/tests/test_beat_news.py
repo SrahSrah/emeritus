@@ -328,3 +328,141 @@ def test_the_beat_is_unavailable_when_news_is_unconfigured(tmp_path: Path) -> No
 
     assert result.available is False
     assert "[news]" in result.error
+
+
+# --------------------------------------------------------------------------- #
+# Step 33 — FR-28: a partial outage may not read like a complete picture
+# --------------------------------------------------------------------------- #
+
+
+def _routes_with_failures(dead: int):
+    """Routes where the first `dead` of two feeds return 500."""
+    routes = _routes()
+    if dead >= 1:
+        routes = [Route(ARS_FEED, json_body={"e": 1}, status=500)] + [
+            r for r in routes if r.pattern != ARS_FEED
+        ]
+    if dead >= 2:
+        routes = [Route(VERGE_FEED, json_body={"e": 1}, status=500)] + [
+            r for r in routes if r.pattern != VERGE_FEED
+        ]
+    return routes
+
+
+def test_one_dead_feed_of_two_still_delivers_the_other(tmp_path: Path) -> None:
+    result, trace, _, _ = _run(tmp_path, routes=_routes_with_failures(1))
+
+    assert result.available is True
+    texts = [item.text for item in result.items]
+    assert any("Couldn't reach Ars Technica" in text for text in texts)
+    assert len(_decisions(trace, "source_unavailable")) == 1
+
+
+def test_a_dead_feed_contributes_no_substitute_content(tmp_path: Path) -> None:
+    """FR-18 at feed granularity. Nothing stands in for what could not be read."""
+    result, _, agent, _ = _run(tmp_path, routes=_routes_with_failures(1))
+
+    dead_lines = [item for item in result.items if item.text.startswith("Couldn't reach")]
+    assert len(dead_lines) == 1
+    assert dead_lines[0].fields == {"source": "Ars Technica", "as_of": "2026-08-04"}
+
+    # Nothing the model was shown came from the source that failed. A passage attributed
+    # to a feed that returned 500 would be fabrication with a byline.
+    shown = {
+        passage["source"] for call in agent.calls for passage in call.get("passages", [])
+    }
+    assert "Ars Technica" not in shown
+
+
+def test_a_digest_that_omits_a_failed_source_fails_the_check(tmp_path: Path) -> None:
+    """The checker case. A partial outage that reads complete is the failure."""
+    http, _ = fixture_client(_routes_with_failures(1))
+    trace = trace_in(tmp_path, "news-omitted")
+    corpus = corpus_module.connect(tmp_path / "corpus.db")
+    with http:
+        context = BeatContext(
+            config=make_config(beats={"news": True}, news=NEWS_CONFIG),
+            preferences=make_preferences(),
+            now=NOW,
+            scratchpad=__import__(
+                "forecaster.memory.scratchpad", fromlist=["Scratchpad"]
+            ).Scratchpad(trace=trace),
+            trace=trace,
+            http_client=http,
+            embedder=HashingEmbedder(),
+            corpus=corpus,
+            agent_client=PassageClient(),
+        )
+        result = run_beat_safely(NewsBeat(), context)
+        trace.beat_result(result)
+    # A digest that drops the unavailability line — what a careless synthesizer would do.
+    trace.digest("Everything is fine in AI today.", order=["news"])
+    trace.close()
+
+    report = check_provenance(trace.path)
+
+    assert not report.ok
+    assert [v.kind for v in report.violations].count("unnamed_failed_source") == 1
+
+
+def test_a_digest_naming_the_failed_source_passes(tmp_path: Path) -> None:
+    result, trace, _, _ = _run(tmp_path, routes=_routes_with_failures(1))
+    assert result.items
+
+    report = check_provenance(trace.path)
+
+    assert report.ok, report.summary()
+
+
+def test_every_feed_failing_takes_the_existing_fr18_path(tmp_path: Path) -> None:
+    """No new mechanism for the total-failure case."""
+    result, _, _, _ = _run(tmp_path, routes=_routes_with_failures(2))
+
+    assert result.available is False
+    assert "every configured news source failed" in result.error
+    assert result.items == []
+    assert result.checkable_fields == {}
+
+
+def test_a_quiet_night_is_not_an_outage(tmp_path: Path) -> None:
+    """Working feeds that return nothing must not be mistaken for dead ones."""
+    empty_feed = (
+        '<?xml version="1.0"?><rss version="2.0"><channel><title>Quiet</title>'
+        "</channel></rss>"
+    )
+    routes = [
+        Route(r"/robots\.txt", text="User-agent: *\nDisallow:\n"),
+        Route(ARS_FEED, text=empty_feed, content_type="application/xml"),
+        Route(VERGE_FEED, text=empty_feed, content_type="application/xml"),
+    ]
+    result, _, _, _ = _run(tmp_path, routes=routes)
+
+    assert result.available is True, "no entries is not the same as no sources"
+    assert result.items == []
+
+
+def test_a_failed_source_line_can_never_be_suppressed(tmp_path: Path) -> None:
+    """It carries a date, so FR-19's original invariant governs it — by design."""
+    from forecaster.memory.dedup import assess_item
+    from forecaster.memory.retrieval import Neighbour
+
+    result, _, _, _ = _run(tmp_path, routes=_routes_with_failures(1))
+    line = next(item for item in result.items if item.text.startswith("Couldn't reach"))
+
+    yesterday = dict(line.fields)
+    yesterday["as_of"] = "2026-08-03"
+    neighbour = Neighbour(
+        sent_item_id=1,
+        beat="news",
+        sent_at="2026-08-03T19:00:00",
+        rendered_text=line.text,
+        checkable_fields=yesterday,
+        similarity=1.0,
+    )
+    client = PassageClient()
+
+    decision = assess_item(line, [neighbour], agent_client=client, beat="news")
+
+    assert decision.action != "suppress"
+    assert decision.forced is True
+    assert client.calls == [], "a rule decides this, not the model"

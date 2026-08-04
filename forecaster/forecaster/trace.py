@@ -493,6 +493,43 @@ def _number_is_grounded(number: str, blob: str) -> bool:
     return False
 
 
+def _check_failed_sources(
+    records: Sequence[Mapping[str, Any]],
+    digest_text: str,
+    report: "ProvenanceReport",
+) -> None:
+    """FR-28. A beat that reads many sources can fail *partly*, and FR-18 cannot see that.
+
+    ``missing_unavailability_line`` only fires for a beat that is wholly unavailable. A
+    news beat with two of five feeds down is `available=True`, so without this check the
+    digest could quietly carry three feeds' worth of news and never mention the two it
+    could not reach — which reads exactly like a complete picture.
+    """
+    lowered = digest_text.lower()
+    named: set[str] = set()
+
+    for record in records_of(records, "decision"):
+        if record.get("decision") != "source_unavailable":
+            continue
+        source = str(record.get("source") or "")
+        if not source or source in named:
+            continue
+        named.add(source)
+        if source.lower() not in lowered:
+            report.violations.append(
+                ProvenanceViolation(
+                    kind="unnamed_failed_source",
+                    beat=str(record.get("beat", "")),
+                    field_name=source,
+                    detail=(
+                        f"{source} could not be reached but the digest never names it; a "
+                        "partial outage that reads like a complete picture is the failure "
+                        "FR-18 exists to prevent"
+                    ),
+                )
+            )
+
+
 def _check_grounded_text(
     result: Mapping[str, Any],
     observations: Mapping[str, Mapping[str, Any]],
@@ -583,6 +620,8 @@ def check_provenance(
         observations[str(record.get("observation_id"))] = record
 
     report = ProvenanceReport(run_id=run_id)
+
+    _check_failed_sources(records, digest_text, report)
 
     for result in records_of(records, "beat_result"):
         beat = str(result.get("beat", ""))

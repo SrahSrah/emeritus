@@ -99,7 +99,11 @@ class NewsBeat:
 
         entries, failed_sources = self._collect(context, settings)
 
-        if failed_sources and not entries:
+        # Every source down is the FR-18 case and takes the existing path. Note this is
+        # counted against the configured feeds, not against whether any entry came back:
+        # three working feeds on a quiet news day return nothing, and that is not an
+        # outage.
+        if failed_sources and len(failed_sources) == len(settings.feeds):
             return BeatResult.unavailable(
                 self.name,
                 "every configured news source failed: "
@@ -108,6 +112,11 @@ class NewsBeat:
 
         self._index(context, settings, entries)
         items, observations = self._items_for_topics(context, settings)
+
+        # FR-28. A partial failure is invisible to FR-18, whose check only fires for a
+        # beat that is wholly unavailable. So each dead source becomes its own item, and
+        # `check_provenance` fails the run if the digest does not name it.
+        items = self._unavailability_items(context, failed_sources) + items
 
         return BeatResult(
             beat=self.name,
@@ -167,6 +176,29 @@ class NewsBeat:
             entries.extend(fetched)
 
         return entries, failed
+
+    def _unavailability_items(
+        self, context: BeatContext, failed: list[tuple[str, str]]
+    ) -> list[BeatItem]:
+        """One line per dead source. Deliberately a **status** item, not a synthesized one.
+
+        Carrying a date means FR-19's original invariant governs it: the date differs
+        every night, so retrieval may reframe the line but can never suppress it. A feed
+        that has been down for a week says so on the seventh night as loudly as the first,
+        which is the whole point of FR-18 — going quiet about a failure is the failure.
+
+        The two mechanisms compose exactly as they should: a recurring status line wants
+        the date rule, and a document-shaped summary wants FR-27's prose veto.
+        """
+        stamp = context.now.date().isoformat()
+        return [
+            BeatItem(
+                beat=self.name,
+                text=f"Couldn't reach {source} tonight ({error}).",
+                fields={"source": source, "as_of": stamp},
+            )
+            for source, error in failed
+        ]
 
     def _index(
         self, context: BeatContext, settings: Any, entries: list[feeds.FeedEntry]
