@@ -30,8 +30,8 @@ repair this file, and say so.
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
 | 23 | Text/bytes fixtures in the harness | **done** | `407afbf` | 271 tests (+6). `load_text_fixture` requires the extension; `Route.text`/`content_type`; `capture_fixture.py --raw`. Regression case asserts all three JSON route shapes unchanged. |
-| 24 | News config schema | **done** | — | 289 tests (+18). `[news]` is **optional** — every pre-news config (including `tests/helpers.BASE_CONFIG`) is still valid; enabling the beat without the section is what raises. `[beats] news = false` until Step 32. |
-| 25 | RSS/Atom feed adapter | todo | — | — |
+| 24 | News config schema | **done** | `5f1ed7b` | 289 tests (+18). `[news]` is **optional** — every pre-news config (including `tests/helpers.BASE_CONFIG`) is still valid; enabling the beat without the section is what raises. `[beats] news = false` until Step 32. |
+| 25 | RSS/Atom feed adapter | **done** | — | 303 tests (+14). Stdlib `xml.etree`, no `feedparser`. Real fixtures captured: Ars = RSS 2.0/20 items, Verge = Atom/10 entries. `within_window` lives here so FR-21 can filter before fetching. |
 | 26 | Article body fetch and extraction | todo | — | — |
 | 27 | Paragraph-aware chunking | todo | — | — |
 | 28 | Article chunk corpus | todo | — | — |

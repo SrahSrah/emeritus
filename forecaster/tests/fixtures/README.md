@@ -24,6 +24,12 @@ serve the fixture with.
 | `mlb_no_game.json` | same endpoint, `date=2026-07-02` — a real off day; `dates` is empty | 2026-07-27 |
 | `nws_points_austin.json` | `api.weather.gov/points/30.2672,-97.7431` — resolves to grid **EWX 156,91** | 2026-07-27 |
 | `nws_hourly_austin.json` | `api.weather.gov/gridpoints/EWX/156,91/forecast/hourly` | 2026-07-27 |
+| `feed_arstechnica.xml` | `feeds.arstechnica.com/arstechnica/index` — **RSS 2.0**, 20 `<item>`, RFC 822 `<pubDate>`, body in `<content:encoded>` | 2026-08-04 |
+| `feed_theverge.xml` | `www.theverge.com/rss/index.xml` — **Atom**, 10 `<entry>`, ISO 8601 `<published>`, url in a `link` href | 2026-08-04 |
+
+The two feeds are kept as full recordings rather than trimmed, because the point of the
+pair is that RSS 2.0 and Atom really do differ in three places — the item element, where
+the link lives, and the date format — and a hand-trimmed feed would stop proving that.
 
 `sample.json`, `sample.xml`, and `sample.html` are not recordings — they are tiny files
 that exist only to prove the fixture harness itself serves JSON, XML, and HTML through an
@@ -46,6 +52,21 @@ Edited:
 
 Why synthetic: no Astros game was in progress at capture time. This is the only way to
 exercise FR-5's "tonight in progress" branch off a fixture.
+
+### `feed_malformed.xml`
+
+Hand-built, not derived from a recording — the shape is a minimal RSS 2.0 channel. Four
+items on purpose:
+
+- one complete entry (the only one that survives parsing);
+- one with **no `<pubDate>`**;
+- one with **no `<link>` and no http `<guid>`**;
+- one whose `<pubDate>` is `"sometime last Thursday"` — unparseable.
+
+Why synthetic: real publishers mostly emit well-formed entries, so the drop path would
+otherwise be untested. FR-20 drops rather than defaults, because a substituted date files
+an article in the wrong retrieval window and a substituted url is not a thing that can be
+fetched.
 
 ### `nws_hourly_austin_freezing.json`
 
