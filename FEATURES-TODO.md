@@ -41,8 +41,10 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
   - [~] **AI / Claude news — specced 2026-08-04, not built.**
         [docs/prd/ai-news-beat/PRD.md](docs/prd/ai-news-beat/PRD.md), FR-20 … FR-29. RSS discovery
         plus article-body fetch (free, keyless — no news API returns full article text at any price).
-        Pays DIVERGENCES row 6 and gives FR-9b its first organic test (row 4). Next step:
-        `build-build-prompts` over that PRD.
+        Pays DIVERGENCES row 6 and gives FR-9b its first organic test (row 4). Decomposed into
+        **Steps 23–34** in [docs/prd/ai-news-beat/BUILD-PROMPTS.md](docs/prd/ai-news-beat/BUILD-PROMPTS.md).
+        Next step: `drive-the-build`. Note row 4 does **not** close at merge — it needs 14 organic
+        nights, which needs the scheduled task (④).
   - [ ] r/WallStreetBets mention volume
   - [ ] "need-to-know" news (the bar is higher than daily drudgery)
   - [ ] Austin live music and theatre

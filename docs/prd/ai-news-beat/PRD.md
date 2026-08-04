@@ -193,7 +193,12 @@ Module 3 named and the one Checkpoint 3 promised to demonstrate next.
     non-empty topic; every item's `observations` are non-empty and every id resolves to an observation
     record in the same trace; and disabling `[beats] news` returns the digest to its two-beat shape
     with no other change.
-  - **Touches:** `forecaster/beats/news.py`, `config.toml`
+  - **Touches:** `forecaster/beats/news.py`, `config.toml`, plus two wiring edits that are **not**
+    seam violations: `beats/base.py` gains an optional `BeatContext.embedder` field (the context
+    carries no embedder today, and having the beat construct its own would load the model twice per
+    run and reach for the network inside the test suite), and `cli.py` opens `corpus.db` and passes
+    the same `StaticEmbedder` instance it already builds for FR-9b. FR-2's zero-edit clause names
+    `planner.py`, `synthesizer.py`, and `delivery/` specifically, and none of those change.
 
 - **FR-26 — Grounded-text provenance check (extends FR-11)** `[MVP]`
   - **Requirement:** `check_provenance` gains one case, scoped to items declaring
