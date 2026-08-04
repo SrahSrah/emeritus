@@ -243,9 +243,20 @@ def connect(path: str | Path | None = None) -> sqlite3.Connection:
     return connection
 
 
-def _iso(value: Any) -> str:
+def _iso_utc(value: Any) -> str:
+    """Normalize a timestamp to UTC ISO before it is stored.
+
+    FR-24's window filter compares these **as strings** in SQL, and a lexicographic
+    comparison across mixed UTC offsets is simply wrong — an article stamped `-05:00`
+    would sort against one stamped `+00:00` by its local wall clock. Normalizing on write
+    is the cheap fix; the alternative is remembering the hazard at every read site.
+
+    A naive timestamp is treated as UTC, which is the same assumption the feed adapter
+    makes when a publisher omits an offset.
+    """
     if isinstance(value, datetime):
-        return value.isoformat()
+        stamped = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return stamped.astimezone(timezone.utc).isoformat()
     return str(value)
 
 
@@ -277,7 +288,7 @@ def index_article(
             entry.url,
             entry.source,
             entry.headline,
-            _iso(entry.published),
+            _iso_utc(entry.published),
             stamp,
             getattr(entry, "text_source", "unfetched"),
             body_chars,
@@ -360,6 +371,119 @@ def purge_expired(
     return len(urls)
 
 
+# --------------------------------------------------------------------------- #
+# FR-24 — topic retrieval. A query goes in, passages come out.
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class RetrievedChunk:
+    """One passage the corpus returned for a topic query."""
+
+    chunk_id: int
+    url: str
+    source: str
+    headline: str
+    published: str
+    text: str
+    similarity: float
+
+    def as_record(self) -> dict[str, Any]:
+        """The shape written into the run trace."""
+        return {
+            "chunk_id": self.chunk_id,
+            "url": self.url,
+            "source": self.source,
+            "published": self.published,
+            "similarity": round(self.similarity, 4),
+        }
+
+
+def retrieve_for_topic(
+    connection: sqlite3.Connection,
+    query_vector: Any,
+    *,
+    k: int,
+    similarity_floor: float,
+    window_days: int,
+    max_chunks_per_article: int,
+    now: datetime | None = None,
+) -> list[RetrievedChunk]:
+    """The ``k`` nearest chunks to a topic query, inside the publication window.
+
+    Order of operations matters and is not the obvious one:
+
+    1. over-fetch by distance from the vector index;
+    2. drop anything published outside the window, **in SQL**, so a busy week cannot
+       crowd out this week;
+    3. apply the similarity floor;
+    4. cap per article;
+    5. take the top ``k``.
+
+    Capping *before* the floor would let a weak second chunk from a strong article
+    displace a strong chunk from another article. Capping *after* the top-k would make
+    the cap decorative.
+
+    An empty result is a normal outcome — the topic was quiet — and the caller records it
+    rather than treating it as an error or filling the gap.
+    """
+    import numpy as np
+
+    from forecaster.memory.retrieval import RetrievalError, similarity_from_distance
+
+    if k <= 0:
+        return []
+
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=window_days)).astimezone(
+        timezone.utc
+    ).isoformat()
+    payload = np.asarray(query_vector, dtype=np.float32).reshape(-1).tobytes()
+
+    try:
+        rows = connection.execute(
+            f"""
+            SELECT c.id, c.url, c.text, a.source, a.headline, a.published, v.distance
+            FROM (
+                SELECT {VEC_KEY}, distance
+                FROM {VEC_TABLE}
+                WHERE embedding MATCH ? AND k = ?
+            ) AS v
+            JOIN chunks   AS c ON c.id = v.{VEC_KEY}
+            JOIN articles AS a ON a.url = c.url
+            WHERE a.published >= ?
+            ORDER BY v.distance ASC
+            """,
+            (payload, max(k * 8, 40), cutoff),
+        ).fetchall()
+    except sqlite3.Error as exc:
+        raise RetrievalError(f"corpus search failed: {exc}") from exc
+
+    per_article: dict[str, int] = {}
+    results: list[RetrievedChunk] = []
+    for row in rows:
+        similarity = similarity_from_distance(float(row[6]))
+        if similarity < similarity_floor:
+            continue
+        url = str(row[1])
+        if per_article.get(url, 0) >= max_chunks_per_article:
+            continue
+        per_article[url] = per_article.get(url, 0) + 1
+        results.append(
+            RetrievedChunk(
+                chunk_id=int(row[0]),
+                url=url,
+                source=str(row[3]),
+                headline=str(row[4]),
+                published=str(row[5]),
+                text=str(row[2]),
+                similarity=similarity,
+            )
+        )
+        if len(results) >= k:
+            break
+    return results
+
+
 def article_count(connection: sqlite3.Connection) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM articles").fetchone()[0])
 
@@ -381,6 +505,7 @@ __all__ = [
     "VEC_KEY",
     "VEC_TABLE",
     "Chunk",
+    "RetrievedChunk",
     "article_count",
     "chunk_article",
     "chunk_count",
@@ -388,5 +513,6 @@ __all__ = [
     "index_article",
     "purge_expired",
     "reconstruct",
+    "retrieve_for_topic",
     "vector_count",
 ]

@@ -363,3 +363,170 @@ def test_an_article_with_no_chunks_still_records_the_article(tmp_path) -> None:
     assert written == 0
     assert article_count(conn) == 1
     assert chunk_count(conn) == 0
+
+
+def test_published_is_normalized_to_utc_on_write(tmp_path) -> None:
+    """The window filter compares these as strings; mixed offsets would sort by wall clock."""
+    from forecaster.memory.corpus import index_article
+
+    conn = _corpus(tmp_path)
+    entry = _entry("https://a.test/tz", published="2026-08-03T09:30:00-05:00")
+    index_article(conn, entry, _chunk(entry.body), _embedder())
+
+    stored = conn.execute("SELECT published FROM articles").fetchone()[0]
+    assert stored.startswith("2026-08-03T14:30:00")
+    assert stored.endswith("+00:00")
+
+
+# --------------------------------------------------------------------------- #
+# Step 29 — FR-24: topic retrieval
+# --------------------------------------------------------------------------- #
+
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz  # noqa: E402
+
+RETRIEVE_NOW = _dt(2026, 8, 4, 19, 0, tzinfo=_tz.utc)
+
+RETRIEVAL_SETTINGS = {
+    "k": 6,
+    "similarity_floor": 0.35,
+    "window_days": 3,
+    "max_chunks_per_article": 2,
+}
+
+
+def _seed(conn, url: str, headline: str, body: str, *, days_ago: float = 0.5):
+    """Index one article whose chunking is driven by the body it is given."""
+    from forecaster.memory.corpus import index_article
+    from forecaster.tools.feeds import SOURCE_ARTICLE, FeedEntry
+
+    entry = FeedEntry(
+        url=url,
+        source="Seeded",
+        headline=headline,
+        published=RETRIEVE_NOW - _td(days=days_ago),
+        summary="",
+        body=body,
+        text_source=SOURCE_ARTICLE,
+    )
+    chunks = chunk_article(headline, body, target_chars=TARGET, max_chars=MAX, overlap_chars=OVERLAP)
+    index_article(conn, entry, chunks, _embedder(), fetched_at=RETRIEVE_NOW)
+    return chunks
+
+
+def _query(conn, text: str, **overrides):
+    from forecaster.memory.corpus import retrieve_for_topic
+
+    settings = {**RETRIEVAL_SETTINGS, **overrides}
+    vector = _embedder().encode([text])[0]
+    return retrieve_for_topic(conn, vector, now=RETRIEVE_NOW, **settings)
+
+
+def test_an_identical_query_scores_about_one(tmp_path) -> None:
+    """The backwards-conversion canary. Backwards means everything is a match."""
+    conn = _corpus(tmp_path)
+    headline = "Anthropic ships a new Claude model"
+    body = "Anthropic ships a new Claude model today and it is faster than before."
+    _seed(conn, "https://a.test/claude", headline, body)
+
+    results = _query(conn, f"{headline}\n{body}")
+
+    assert results
+    assert results[0].similarity == pytest.approx(1.0, abs=1e-4)
+
+
+def test_results_come_back_in_descending_similarity(tmp_path) -> None:
+    conn = _corpus(tmp_path)
+    _seed(conn, "https://a.test/1", "Claude model pricing", "Claude model pricing changed today.")
+    _seed(conn, "https://a.test/2", "Robotics funding", "A robotics startup raised money.")
+    _seed(conn, "https://a.test/3", "Claude agents tools", "Claude agents gained new tools.")
+
+    results = _query(conn, "Claude model pricing")
+
+    assert results
+    scores = [r.similarity for r in results]
+    assert scores == sorted(scores, reverse=True)
+    assert results[0].url == "https://a.test/1"
+
+
+def test_nothing_below_the_floor_is_returned(tmp_path) -> None:
+    conn = _corpus(tmp_path)
+    _seed(conn, "https://a.test/1", "Claude model pricing", "Claude model pricing changed today.")
+
+    assert _query(conn, "Claude model pricing", similarity_floor=0.0)
+    assert _query(conn, "Claude model pricing", similarity_floor=0.999999) == []
+
+
+def test_never_more_than_k(tmp_path) -> None:
+    conn = _corpus(tmp_path)
+    for index in range(10):
+        _seed(
+            conn,
+            f"https://a.test/{index}",
+            f"Claude story {index}",
+            f"Claude model news number {index} about pricing and capabilities.",
+        )
+
+    results = _query(conn, "Claude model pricing", k=3, max_chunks_per_article=5)
+
+    assert len(results) == 3
+
+
+def test_never_more_than_max_chunks_per_article(tmp_path) -> None:
+    """One long article must not fill the whole context for a topic."""
+    conn = _corpus(tmp_path)
+    paragraph = "Claude model pricing and capabilities are discussed at length here. " * 14
+    body = "\n\n".join(paragraph.strip() for _ in range(5))
+    chunks = _seed(conn, "https://a.test/long", "Claude model pricing", body)
+    assert len(chunks) >= 5, "the fixture needs to actually produce five-plus chunks"
+
+    results = _query(conn, "Claude model pricing", similarity_floor=0.0)
+
+    from collections import Counter
+
+    per_article = Counter(r.url for r in results)
+    assert per_article["https://a.test/long"] == 2
+
+
+def test_articles_outside_the_window_are_never_returned(tmp_path) -> None:
+    conn = _corpus(tmp_path)
+    _seed(conn, "https://a.test/fresh", "Claude model pricing", "Claude model pricing today.", days_ago=1)
+    _seed(conn, "https://a.test/stale", "Claude model pricing", "Claude model pricing today.", days_ago=9)
+
+    results = _query(conn, "Claude model pricing", similarity_floor=0.0)
+
+    assert {r.url for r in results} == {"https://a.test/fresh"}
+
+
+def test_a_topic_matching_nothing_returns_empty_rather_than_raising(tmp_path) -> None:
+    """A quiet topic is a normal outcome. The caller records it; it does not fill the gap."""
+    conn = _corpus(tmp_path)
+    _seed(conn, "https://a.test/1", "Baseball scores", "The Astros beat the Rangers.")
+
+    assert _query(conn, "quantum cryptography lattice") == []
+
+
+def test_an_empty_corpus_returns_empty(tmp_path) -> None:
+    conn = _corpus(tmp_path)
+    from forecaster.memory.corpus import VEC_KEY, VEC_TABLE
+    from forecaster.memory.retrieval import create_vector_schema
+
+    create_vector_schema(conn, 512, table=VEC_TABLE, key=VEC_KEY)
+
+    assert _query(conn, "anything at all") == []
+
+
+def test_retrieved_chunks_carry_what_the_trace_needs(tmp_path) -> None:
+    """FR-25 links items to chunk observations; the record shape is what makes that work."""
+    conn = _corpus(tmp_path)
+    _seed(conn, "https://a.test/1", "Claude model pricing", "Claude model pricing changed today.")
+
+    record = _query(conn, "Claude model pricing")[0].as_record()
+
+    assert set(record) == {"chunk_id", "url", "source", "published", "similarity"}
+    assert record["url"] == "https://a.test/1"
+
+
+def test_k_of_zero_returns_empty_rather_than_everything(tmp_path) -> None:
+    conn = _corpus(tmp_path)
+    _seed(conn, "https://a.test/1", "Claude", "Claude model pricing changed today.")
+    assert _query(conn, "Claude", k=0) == []
