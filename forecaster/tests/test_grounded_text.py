@@ -225,3 +225,107 @@ def test_an_item_carrying_no_fields_at_all_is_untouched(tmp_path: Path) -> None:
     )
 
     assert check_provenance(path).ok
+
+
+# --------------------------------------------------------------------------- #
+# Typography: a curly apostrophe is not a fabrication (found live 2026-08-04)
+# --------------------------------------------------------------------------- #
+#
+# The news beat's first real run failed on:
+#
+#   [ungrounded_quote] news.text: item text quotes "didn't publish a safety framework,
+#   pre-deployment testing commitments, or risk assessment", which appears verbatim in
+#   none of the passages it was grounded in
+#
+# It did appear. The passage read `Z.ai didn\u2019t publish ...` with a curly apostrophe;
+# the model quoted it back with an ASCII one. Every word matched, in order. Folding a
+# publisher's typography to ASCII is what quoting correctly looks like.
+
+CURLY_PASSAGE = (
+    "In GLM-5.2\u2019s case, SaferAI says Z.ai didn\u2019t publish a safety framework, "
+    "pre-deployment testing commitments, or risk assessment for the model."
+)
+
+
+def test_a_quote_that_differs_only_in_apostrophe_style_is_grounded(tmp_path: Path) -> None:
+    """The live regression, verbatim from the run that failed."""
+    path = _trace_with_item(
+        tmp_path,
+        item_text=(
+            'SaferAI found Z.ai "didn\'t publish a safety framework, pre-deployment '
+            'testing commitments, or risk assessment" for GLM-5.2.'
+        ),
+        fields=SYNTH,
+        payload=CURLY_PASSAGE,
+    )
+
+    report = check_provenance(path)
+
+    assert report.ok, report.summary()
+
+
+def test_curly_double_quotes_around_the_span_are_also_found(tmp_path: Path) -> None:
+    """Without normalizing the item text, the quote pattern would not even match."""
+    path = _trace_with_item(
+        tmp_path,
+        item_text="SaferAI said \u201cdidn\u2019t publish a safety framework\u201d today.",
+        fields=SYNTH,
+        payload=CURLY_PASSAGE,
+    )
+
+    assert check_provenance(path).ok
+
+
+def test_en_and_em_dashes_and_nbsp_fold_too(tmp_path: Path) -> None:
+    path = _trace_with_item(
+        tmp_path,
+        item_text='The report says "2024-2026 was the gap" here.',
+        fields=SYNTH,
+        payload="The report says 2024\u20132026\u00a0was the gap, roughly.",
+    )
+
+    assert check_provenance(path).ok
+
+
+def test_normalizing_punctuation_does_not_let_a_changed_word_through(
+    tmp_path: Path,
+) -> None:
+    """The fix may not buy its relief by going blind. Words are still verbatim."""
+    path = _trace_with_item(
+        tmp_path,
+        item_text=(
+            'SaferAI found Z.ai "did publish a safety framework, pre-deployment '
+            'testing commitments, or risk assessment" for GLM-5.2.'
+        ),
+        fields=SYNTH,
+        payload=CURLY_PASSAGE,
+    )
+
+    report = check_provenance(path)
+
+    assert not report.ok
+    assert [v.kind for v in report.violations] == ["ungrounded_quote"]
+
+
+def test_a_wholly_invented_quotation_is_still_caught(tmp_path: Path) -> None:
+    path = _trace_with_item(
+        tmp_path,
+        item_text='SaferAI called it "the most reckless launch of the year".',
+        fields=SYNTH,
+        payload=CURLY_PASSAGE,
+    )
+
+    assert not check_provenance(path).ok
+
+
+def test_the_normalizer_touches_punctuation_and_whitespace_only() -> None:
+    """Stated as a test so a later edit cannot quietly widen it to words."""
+    from forecaster.trace import normalize_typography
+
+    assert normalize_typography("didn\u2019t") == "didn't"
+    assert normalize_typography("\u201cquoted\u201d") == '"quoted"'
+    assert normalize_typography("a\u2014b") == "a-b"
+    assert normalize_typography("a\u00a0 \n b") == "a b"
+    assert normalize_typography("\u2026") == "..."
+    # Letters, digits, and word order are untouched.
+    assert normalize_typography("Z.ai 71.5 GLM-5.2") == "Z.ai 71.5 GLM-5.2"

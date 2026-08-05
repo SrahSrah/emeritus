@@ -464,6 +464,33 @@ _NUMBER_WORDS = {
 #: Quoted spans of four characters or more. Shorter is punctuation, not a quotation.
 _QUOTED = re.compile(r'"([^"]{4,})"')
 
+#: Typographic variants that mean the same character. Publishers emit the curly forms;
+#: a model quoting them back in ASCII is quoting correctly, not paraphrasing.
+_TYPOGRAPHY = {
+    "‘": "'", "’": "'", "‚": "'", "′": "'",
+    "“": '"', "”": '"', "„": '"', "″": '"',
+    "–": "-", "—": "-", "−": "-",
+    " ": " ", " ": " ", " ": " ",
+    "…": "...",
+}
+_TYPOGRAPHY_RE = re.compile("|".join(re.escape(key) for key in _TYPOGRAPHY))
+
+
+def normalize_typography(text: str) -> str:
+    """Fold Unicode punctuation to its ASCII equivalent and collapse whitespace.
+
+    Verbatim quotation has to survive the one difference that is not a difference. An
+    article says ``didn’t`` with a curly apostrophe; a model quoting it writes
+    ``didn't``. Every word matches, in order — flagging that as an ungrounded quote
+    accuses the model of fabricating a sentence it copied faithfully.
+
+    Found live 2026-08-04 on the news beat's first real run. This normalizes **punctuation
+    and whitespace only**, so it cannot let a changed word through: the check still
+    requires every word, in order, verbatim.
+    """
+    folded = _TYPOGRAPHY_RE.sub(lambda match: _TYPOGRAPHY[match.group(0)], text)
+    return re.sub(r"\s+", " ", folded).strip()
+
 
 def _payload_text(payload: Any) -> str:
     """Everything in an observation, as one searchable string."""
@@ -579,9 +606,13 @@ def _check_grounded_text(
                     )
                 )
 
-        lowered = blob.lower()
-        for quoted in _QUOTED.findall(text):
-            if quoted.lower() not in lowered:
+        # Normalized on both sides: the model may fold a publisher's curly punctuation to
+        # ASCII and still be quoting verbatim. Words are untouched, so a changed word
+        # still fails. Normalizing the item text also lets the quote pattern find a span
+        # the model wrapped in curly double quotes.
+        normalized_blob = normalize_typography(blob).lower()
+        for quoted in _QUOTED.findall(normalize_typography(text)):
+            if quoted.lower() not in normalized_blob:
                 report.violations.append(
                     ProvenanceViolation(
                         kind="ungrounded_quote",
@@ -768,6 +799,7 @@ __all__ = [
     "Trace",
     "TraceError",
     "check_provenance",
+    "normalize_typography",
     "new_run_id",
     "read_trace",
     "records_of",

@@ -74,7 +74,7 @@ from typing import Any, Literal, Sequence
 
 from forecaster.agent import AgentClientLike, DEFAULT_EFFORT
 from forecaster.memory.retrieval import Neighbour, RetrievalError
-from forecaster.trace import SYNTHESIZED
+from forecaster.trace import SYNTHESIZED, normalize_typography
 
 Action = Literal["include", "reframe", "suppress"]
 
@@ -184,14 +184,18 @@ def _new_grounded_values(item: Any, neighbours: Sequence[Neighbour]) -> list[str
     """
     text = str(getattr(item, "text", "") or "")
     blob = "\n".join(neighbour.rendered_text for neighbour in neighbours)
-    lowered = blob.lower()
+    # Same normalization FR-26 uses, for the same reason: a quotation that differs only
+    # in curly-versus-straight punctuation is the same quotation, so it is not "new"
+    # information and must not veto a suppression.
+    normalized_text = normalize_typography(text)
+    lowered = normalize_typography(blob).lower()
     new: list[str] = []
 
     for number in dict.fromkeys(_NUMBER.findall(text)):
         if number not in blob:
             new.append(f"the figure {number}")
 
-    for quoted in dict.fromkeys(_QUOTED.findall(text)):
+    for quoted in dict.fromkeys(_QUOTED.findall(normalized_text)):
         if quoted.lower() not in lowered:
             new.append(f"the quotation {quoted!r}")
 
