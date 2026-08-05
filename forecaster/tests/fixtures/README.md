@@ -22,6 +22,8 @@ serve the fixture with.
 | `mlb_doubleheader.json` | `statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=117&date=2026-04-30` — a real Astros doubleheader | 2026-07-27 |
 | `mlb_final.json` | same endpoint, `date=2026-07-26` — one completed game (Astros 3, White Sox 12) | 2026-07-27 |
 | `mlb_no_game.json` | same endpoint, `date=2026-07-02` — a real off day; `dates` is empty | 2026-07-27 |
+| `mlb_series_today.json` | same endpoint, `date=2026-08-04` — one game **Live / Warmup**, Toronto Blue Jays 0 @ Houston Astros 0 | 2026-08-04 |
+| `mlb_series_lookback.json` | same endpoint, `startDate=2026-07-21&endDate=2026-08-03` — 12 finals, the last being Toronto Blue Jays 3 @ Houston Astros 1 | 2026-08-04 |
 | `nws_points_austin.json` | `api.weather.gov/points/30.2672,-97.7431` — resolves to grid **EWX 156,91** | 2026-07-27 |
 | `nws_hourly_austin.json` | `api.weather.gov/gridpoints/EWX/156,91/forecast/hourly` | 2026-07-27 |
 | `feed_arstechnica.xml` | `feeds.arstechnica.com/arstechnica/index` — **RSS 2.0**, 20 `<item>`, RFC 822 `<pubDate>`, body in `<content:encoded>` | 2026-08-04 |
@@ -36,6 +38,20 @@ the link lives, and the date format — and a hand-trimmed feed would stop provi
 `sample.json`, `sample.xml`, and `sample.html` are not recordings — they are tiny files
 that exist only to prove the fixture harness itself serves JSON, XML, and HTML through an
 `httpx.Client`.
+
+### Why the series pair is recorded rather than derived
+
+`mlb_series_today.json` and `mlb_series_lookback.json` are the **two calls the Astros beat
+actually makes** on a night mid-series, captured verbatim from the run that failed the
+provenance check on 2026-08-04.
+
+They exist because every other MLB fixture here descends from **one** captured game —
+`mlb_in_progress.json` is a hand-edited copy of `mlb_final.json`. That meant no test could
+ever produce two games against the **same opponent** with different states and different
+scores, which is precisely the shape that made a fidelity template from one score match
+the other score's sentence. 265 green tests and a live end-to-end run missed it.
+
+Hand-editing a third copy would have reproduced the blind spot. These are recordings.
 
 ## Recorded, then hand-edited — **synthetic**
 

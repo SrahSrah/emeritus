@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -219,3 +220,97 @@ def test_should_run_follows_config(tmp_path: Path) -> None:
         )
     assert AstrosBeat().should_run(on) is True
     assert AstrosBeat().should_run(off) is False
+
+
+# --------------------------------------------------------------------------- #
+# A real series: two true scores that share a sentence shape (live 2026-08-04)
+# --------------------------------------------------------------------------- #
+#
+# The first live run to hit a series failed the provenance check on two mirrored
+# `altered_claim` violations. Both scores were true and observation-backed — 0-0 tonight
+# in Warmup, 3-1 last night Final, same two teams. A numbers-are-wildcards fidelity
+# template built from either matched the other's sentence.
+#
+# The whole fixture set missed it because every prior MLB fixture descends from ONE
+# captured game: `mlb_in_progress.json` is a hand-edited copy of `mlb_final.json`. Only
+# the live endpoint produces two same-opponent games with different states and different
+# scores, so these two payloads are recorded verbatim rather than derived.
+#
+# This test drives the real beat through the real two-call sequence the beat actually
+# makes, then runs the real provenance check over the trace it produced. Nothing here is
+# synthetic except the clock.
+
+SERIES_ROUTES = [
+    Route(r"[?&]date=2026-08-04", fixture="mlb_series_today"),
+    Route(r"startDate=", fixture="mlb_series_lookback"),
+]
+SERIES_NOW = datetime(2026, 8, 4, 19, 0)
+
+
+def test_a_live_game_and_a_final_against_the_same_opponent_both_survive(
+    tmp_path: Path,
+) -> None:
+    """The beat's half: two items, two distinct dates, both scores intact."""
+    result, _, _, _ = _run(tmp_path, SERIES_ROUTES, now=SERIES_NOW)
+
+    assert result.available is True
+    assert result.checkable_fields["live_score"] == "Toronto Blue Jays 0, Houston Astros 0"
+    assert (
+        result.checkable_fields["last_completed_score"]
+        == "Toronto Blue Jays 3, Houston Astros 1"
+    )
+
+    dates = [item.fields.get("game_date") for item in result.items]
+    assert dates == ["2026-08-04", "2026-08-03"], (
+        "the two items must be pinned to different days — FR-19's invariant needs it, "
+        "and it is what tells a reader which game is which"
+    )
+
+
+def test_the_real_series_digest_passes_the_provenance_check(tmp_path: Path) -> None:
+    """The regression. This exact shape failed live on 2026-08-04.
+
+    Asserted through `check_provenance` over a real trace rather than on the report's
+    internals, because the thing that broke was the check, not the beat.
+    """
+    from forecaster.trace import check_provenance
+
+    client, _ = fixture_client(SERIES_ROUTES)
+    trace = trace_in(tmp_path, "series-live")
+    with client:
+        context = make_context(trace=trace, http_client=client, now=SERIES_NOW)
+        result = AstrosBeat().run(context)
+        trace.beat_result(result)
+    digest = "\n".join(item.text for item in result.items)
+    trace.digest(digest, order=["astros"])
+    trace.close()
+
+    report = check_provenance(trace.path)
+
+    assert report.ok, report.summary()
+    assert "Toronto Blue Jays 0, Houston Astros 0" in digest
+    assert "Toronto Blue Jays 3, Houston Astros 1" in digest
+
+
+def test_altering_one_score_of_the_pair_still_fails(tmp_path: Path) -> None:
+    """The catch must survive the fix, on the very payloads that exposed the false alarm."""
+    from forecaster.trace import check_provenance
+
+    client, _ = fixture_client(SERIES_ROUTES)
+    trace = trace_in(tmp_path, "series-tampered")
+    with client:
+        context = make_context(trace=trace, http_client=client, now=SERIES_NOW)
+        result = AstrosBeat().run(context)
+        trace.beat_result(result)
+    tampered = "\n".join(item.text for item in result.items).replace(
+        "Toronto Blue Jays 3, Houston Astros 1",
+        "Toronto Blue Jays 5, Houston Astros 1",
+    )
+    trace.digest(tampered, order=["astros"])
+    trace.close()
+
+    report = check_provenance(trace.path)
+
+    assert not report.ok
+    assert {v.kind for v in report.violations} == {"altered_claim"}
+    assert all("5, Houston Astros 1" in v.detail for v in report.violations)
