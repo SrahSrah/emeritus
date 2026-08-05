@@ -9,14 +9,22 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [x] **Submit Assignment 3.** Done 2026-08-02. Submitted text logged verbatim at
       [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md).
-- [ ] **Merge the AI news beat PR into `dev`.** Branch `feature/ai-news-beat`, Steps 23–34,
-      **419 tests green**. Yours to merge, same as PR #1. Two things to read before you do:
-      - [docs/prd/ai-news-beat/BUILD-PROGRESS.md](docs/prd/ai-news-beat/BUILD-PROGRESS.md) lists
-        four deviations from the build prompts and three silent bugs found en route.
-      - PRD **FR-27** was amended mid-build: it shipped **stronger** than specced. Worth knowing
-        before a checkpoint describes it.
+- [x] **Merge the AI news beat.** Done 2026-08-04 (PRs #2–#6). **442 tests green**, first green
+      end-to-end run with all three beats.
+- [ ] **Decide whether `--news-metric` should count runs that never delivered.** Condition (a)
+      currently reads violations out of *every* trace, including the three runs that failed
+      provenance and sent nothing. §2(a)'s own wording is about claims that "appear in any digest",
+      and an undelivered digest was never a digest — so scoping (a) to delivered runs is arguably
+      the faithful reading, not a loosening. Left alone deliberately: I have already changed the
+      provenance checks three times tonight and this one is yours.
+- [ ] **Read [docs/DIVERGENCES.md](docs/DIVERGENCES.md) row 8 before writing Checkpoint 4.** The
+      check was loosened three times and its fail-response narrowed once, all on false alarms. The
+      guarantee held; it has not yet been *tested* by a real fabrication. That distinction is the
+      honest thing to write.
 - [ ] **Review the news feed list and topic queries** in `forecaster/config.toml`. Five feeds and
       three topics ship as defaults; nothing in the code knows those ids. This is taste, not design.
+      Worth knowing: **OpenAI's feed blocks the article fetch**, so all five of its entries fall back
+      to ~150-char summaries. It is contributing headlines, not documents.
 
 - [x] **Merge the FR-9b PR into `dev`.** Done 2026-08-04: PR #1 merged as `f452153`
       (merge commit, not squash, so BUILD-PROGRESS's per-step SHAs stay reachable).
