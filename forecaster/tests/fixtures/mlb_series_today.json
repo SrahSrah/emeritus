@@ -1,0 +1,95 @@
+{
+  "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+  "totalItems": 1,
+  "totalEvents": 0,
+  "totalGames": 1,
+  "totalGamesInProgress": 0,
+  "dates": [
+    {
+      "date": "2026-08-04",
+      "totalItems": 1,
+      "totalEvents": 0,
+      "totalGames": 1,
+      "totalGamesInProgress": 0,
+      "games": [
+        {
+          "gamePk": 824161,
+          "gameGuid": "c3e031db-f614-4d40-b37b-6738119845dd",
+          "link": "/api/v1.1/game/824161/feed/live",
+          "gameType": "R",
+          "season": "2026",
+          "gameDate": "2026-08-05T00:10:00Z",
+          "officialDate": "2026-08-04",
+          "status": {
+            "abstractGameState": "Live",
+            "codedGameState": "P",
+            "detailedState": "Warmup",
+            "statusCode": "PW",
+            "startTimeTBD": false,
+            "abstractGameCode": "L"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 141,
+                "name": "Toronto Blue Jays",
+                "link": "/api/v1/teams/141"
+              },
+              "leagueRecord": {
+                "wins": 53,
+                "losses": 60,
+                "ties": 0,
+                "pct": ".469"
+              },
+              "score": 0,
+              "splitSquad": false,
+              "seriesNumber": 37
+            },
+            "home": {
+              "team": {
+                "id": 117,
+                "name": "Houston Astros",
+                "link": "/api/v1/teams/117"
+              },
+              "leagueRecord": {
+                "wins": 58,
+                "losses": 56,
+                "ties": 0,
+                "pct": ".509"
+              },
+              "score": 0,
+              "splitSquad": false,
+              "seriesNumber": 37
+            }
+          },
+          "venue": {
+            "id": 2392,
+            "name": "Daikin Park",
+            "link": "/api/v1/venues/2392"
+          },
+          "content": {
+            "link": "/api/v1/game/824161/content"
+          },
+          "gameNumber": 1,
+          "publicFacing": true,
+          "doubleHeader": "N",
+          "gamedayType": "P",
+          "tiebreaker": "N",
+          "calendarEventID": "14-824161-2026-08-04",
+          "seasonDisplay": "2026",
+          "dayNight": "night",
+          "scheduledInnings": 9,
+          "reverseHomeAwayStatus": false,
+          "inningBreakLength": 120,
+          "gamesInSeries": 3,
+          "seriesGameNumber": 2,
+          "seriesDescription": "Regular Season",
+          "recordSource": "S",
+          "ifNecessary": "N",
+          "ifNecessaryDescription": "Normal Game"
+        }
+      ],
+      "events": []
+    }
+  ]
+}
