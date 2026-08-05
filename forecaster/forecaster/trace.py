@@ -348,15 +348,29 @@ def records_of(records: Iterable[Mapping[str, Any]], record_type: str) -> Iterat
 # --------------------------------------------------------------------------- #
 
 
+#: Violation kinds attributable to **one item** rather than to the run as a whole. FR-30
+#: quarantines these; everything else still fails the run outright.
+ITEM_LEVEL_KINDS = frozenset(
+    {"ungrounded_number", "ungrounded_quote", "ungrounded_item"}
+)
+
+
 @dataclass(frozen=True)
 class ProvenanceViolation:
     kind: str
     beat: str
     field_name: str
     detail: str
+    #: The text of the item this violation belongs to, when it belongs to one. FR-30
+    #: needs it to drop the offending line and keep the rest of the digest.
+    item_text: str | None = None
 
     def __str__(self) -> str:
         return f"[{self.kind}] {self.beat}.{self.field_name}: {self.detail}"
+
+    @property
+    def is_item_level(self) -> bool:
+        return self.kind in ITEM_LEVEL_KINDS and self.item_text is not None
 
 
 @dataclass
@@ -371,6 +385,24 @@ class ProvenanceReport:
     @property
     def ok(self) -> bool:
         return not self.violations
+
+    @property
+    def item_violations(self) -> list[ProvenanceViolation]:
+        """Violations FR-30 can quarantine by dropping a single item."""
+        return [violation for violation in self.violations if violation.is_item_level]
+
+    @property
+    def fatal_violations(self) -> list[ProvenanceViolation]:
+        """Violations that still fail the whole run — nothing smaller can be dropped."""
+        return [violation for violation in self.violations if not violation.is_item_level]
+
+    def quarantinable_texts(self) -> list[str]:
+        """The item texts that would have to go for this run to become clean."""
+        seen: list[str] = []
+        for violation in self.item_violations:
+            if violation.item_text and violation.item_text not in seen:
+                seen.append(violation.item_text)
+        return seen
 
     def __bool__(self) -> bool:
         return self.ok
@@ -492,6 +524,30 @@ def normalize_typography(text: str) -> str:
     return re.sub(r"\s+", " ", folded).strip()
 
 
+#: Punctuation a quoter supplies at the end of a quotation. Its presence or absence says
+#: nothing about whether the words inside are the source's.
+_QUOTE_TAIL = ".,;:!? "
+
+
+def _quote_is_grounded(quoted: str, blob: str) -> bool:
+    """Is this quotation's wording present in the passage?
+
+    A quotation's **terminal** punctuation is conventionally the quoter's; its internal
+    words are the source's. A model that truncates a sentence and ends the quote with a
+    period where the article has a comma has changed no word — found live 2026-08-04 on
+    ``"the frontier of capability is not the frontier of risk."``, where the source
+    continues ``…risk, and so we do have to…``.
+
+    Only the **trailing** run is forgiven. Interior punctuation still has to match, so a
+    model cannot join two separate remarks into one invented sentence.
+    """
+    candidate = quoted.lower()
+    if candidate in blob:
+        return True
+    trimmed = candidate.rstrip(_QUOTE_TAIL)
+    return bool(trimmed) and trimmed in blob
+
+
 def _payload_text(payload: Any) -> str:
     """Everything in an observation, as one searchable string."""
     if isinstance(payload, str):
@@ -561,6 +617,7 @@ def _check_grounded_text(
     result: Mapping[str, Any],
     observations: Mapping[str, Mapping[str, Any]],
     report: "ProvenanceReport",
+    excluded: frozenset[str] = frozenset(),
 ) -> None:
     """FR-26. Every number and quote in a model-written item must trace to a passage."""
     beat = str(result.get("beat", ""))
@@ -571,6 +628,12 @@ def _check_grounded_text(
             continue
 
         text = str(item.get("text", ""))
+        if text in excluded:
+            report.notes.append(
+                f"{beat}: an item was withheld from the digest (FR-30), so its prose is "
+                "not policed — the reader was never shown it"
+            )
+            continue
         linked = [str(oid) for oid in (item.get("observations") or [])]
         blob = "\n".join(
             _payload_text(observations[oid].get("payload"))
@@ -584,6 +647,7 @@ def _check_grounded_text(
                     kind="ungrounded_item",
                     beat=beat,
                     field_name="observations",
+                    item_text=text,
                     detail=(
                         "item declares text_origin='synthesized' but points at no "
                         "observation, so nothing it says can be traced to a passage"
@@ -599,6 +663,7 @@ def _check_grounded_text(
                         kind="ungrounded_number",
                         beat=beat,
                         field_name="text",
+                        item_text=text,
                         detail=(
                             f"item text states {number!r}, which appears in none of the "
                             f"passages it was grounded in ({', '.join(linked)})"
@@ -612,12 +677,13 @@ def _check_grounded_text(
         # the model wrapped in curly double quotes.
         normalized_blob = normalize_typography(blob).lower()
         for quoted in _QUOTED.findall(normalize_typography(text)):
-            if quoted.lower() not in normalized_blob:
+            if not _quote_is_grounded(quoted, normalized_blob):
                 report.violations.append(
                     ProvenanceViolation(
                         kind="ungrounded_quote",
                         beat=beat,
                         field_name="text",
+                        item_text=text,
                         detail=(
                             f"item text quotes {quoted!r}, which appears verbatim in none "
                             f"of the passages it was grounded in ({', '.join(linked)})"
@@ -627,12 +693,21 @@ def _check_grounded_text(
 
 
 def check_provenance(
-    trace_path: str | Path, digest_text: str | None = None
+    trace_path: str | Path,
+    digest_text: str | None = None,
+    *,
+    excluded_items: Iterable[str] = (),
 ) -> ProvenanceReport:
     """Compute PRD §2(a) over one run.
 
     ``digest_text`` defaults to the digest the trace recorded, so the check needs the
     trace file and nothing else.
+
+    ``excluded_items`` is FR-30's hook: item texts the synthesizer withheld from the
+    digest. An item the reader was never shown states nothing to them, so policing its
+    prose would fail a run over a sentence nobody received. Passed explicitly rather than
+    inferred by searching the digest, because the model may rephrase and a substring miss
+    would silently disable the check.
     """
     records = read_trace(trace_path)
     run_id = next((record.get("run_id", "") for record in records), "")
@@ -651,6 +726,7 @@ def check_provenance(
         observations[str(record.get("observation_id"))] = record
 
     report = ProvenanceReport(run_id=run_id)
+    excluded = frozenset(excluded_items)
 
     _check_failed_sources(records, digest_text, report)
 
@@ -661,7 +737,7 @@ def check_provenance(
         # FR-26. Runs for available beats only: an unavailable one has no items, and its
         # honesty is policed by the unavailability checks below.
         if available:
-            _check_grounded_text(result, observations, report)
+            _check_grounded_text(result, observations, report, excluded)
 
         checkable = dict(result.get("checkable_fields") or {})
         linked_ids = [str(oid) for oid in (result.get("observations") or [])]

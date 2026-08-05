@@ -65,6 +65,23 @@ class ProvenanceError(RuntimeError):
         self.report = report
 
 
+#: What the reader is told, per violation kind. Deliberately does **not** echo the
+#: offending text: repeating an ungrounded phrase inside the notice that withholds it
+#: would put the unverifiable words in front of the reader anyway, which is the one thing
+#: the withholding exists to prevent. The full detail goes to the trace.
+QUARANTINE_REASONS = {
+    "ungrounded_number": "a figure in it could not be traced to a retrieved passage",
+    "ungrounded_quote": "a quoted phrase in it could not be traced to a retrieved passage",
+    "ungrounded_item": "it pointed at no retrieved passage",
+}
+
+
+def quarantine_line(beat: str, kind: str) -> str:
+    """The FR-30 line. Names the beat and the kind of failure, never the failing words."""
+    reason = QUARANTINE_REASONS.get(kind, "it failed the provenance check")
+    return f"One {beat} item was withheld: {reason}."
+
+
 @dataclass
 class Digest:
     """The rendered message plus everything needed to explain how it got that way."""
@@ -76,6 +93,7 @@ class Digest:
     provenance: ProvenanceReport | None = None
     usage: AgentResponse | None = None
     dedup: list[tuple[str, DedupDecision]] = field(default_factory=list)
+    quarantined: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def beat_order(self) -> list[str]:
@@ -250,20 +268,111 @@ def synthesize(
         dedup=dedup_decisions,
     )
 
-    if trace is not None:
-        trace.digest(text, order=ordered.beat_order)
-        report = check_provenance(trace.path, text)
-        digest.provenance = report
-        trace.decision(
-            beat="synthesizer",
-            decision="provenance_checked",
-            reason=report.summary(),
-            violations=[str(violation) for violation in report.violations],
+    if trace is None:
+        return digest
+
+    trace.digest(text, order=ordered.beat_order)
+    report = check_provenance(trace.path, text)
+    trace.decision(
+        beat="synthesizer",
+        decision="provenance_checked",
+        reason=report.summary(),
+        violations=[str(violation) for violation in report.violations],
+    )
+
+    # FR-30. A violation the checker can pin to one item costs that item, not the night.
+    # Failing the whole run over one ungrounded sentence means no Astros score, no
+    # forecast, and an empty inbox at 7 pm — which is the quietest failure there is, and
+    # FR-18's whole position is that going quiet is worse than saying less.
+    if not report.ok and report.item_violations and not report.fatal_violations:
+        text, report = _quarantine_and_recompose(
+            digest,
+            report,
+            ordered,
+            unavailable_lines,
+            trace,
+            agent_client=agent_client,
+            effort=effort,
         )
-        if enforce_provenance and not report.ok:
-            raise ProvenanceError(report)
+
+    digest.provenance = report
+    if enforce_provenance and not report.ok:
+        raise ProvenanceError(report)
 
     return digest
+
+
+def _quarantine_and_recompose(
+    digest: Digest,
+    report: ProvenanceReport,
+    ordered: OrderedItems,
+    unavailable_lines: Sequence[str],
+    trace: Any,
+    *,
+    agent_client: AgentClientLike,
+    effort: str,
+) -> tuple[str, ProvenanceReport]:
+    """Drop the items the checker pinned, recompose once, and re-check.
+
+    Exactly one retry. If the recomposed digest still fails, the run fails — a loop that
+    kept dropping items until something passed would be a machine for producing an empty,
+    confident digest, which is the opposite of the point.
+    """
+    doomed = set(report.quarantinable_texts())
+    kinds = {
+        violation.item_text: violation.kind
+        for violation in report.item_violations
+        if violation.item_text
+    }
+    details = {
+        violation.item_text: violation.detail
+        for violation in report.item_violations
+        if violation.item_text
+    }
+
+    kept = [entry for entry in ordered.items if getattr(entry.item, "text", "") not in doomed]
+    if len(kept) == len(ordered.items):
+        return digest.text, report
+
+    for entry in ordered.items:
+        item_text = getattr(entry.item, "text", "")
+        if item_text not in doomed:
+            continue
+        beat = getattr(entry, "beat", "") or getattr(entry.item, "beat", "")
+        kind = kinds.get(item_text, "")
+        digest.quarantined.append((beat, kind))
+        trace.decision(
+            beat=beat,
+            decision="item_quarantined",
+            reason=f"withheld from the digest: {details.get(item_text, kind)}",
+            kind=kind,
+            item_text=item_text,
+        )
+
+    ordered.items = kept
+    quarantine_lines = [quarantine_line(beat, kind) for beat, kind in digest.quarantined]
+
+    structured = _structured_payload(ordered, list(unavailable_lines) + quarantine_lines)
+    response = agent_client.complete(
+        PROMPT, structured=structured, system=SYSTEM_PROMPT, effort=effort
+    )
+    text = response.text
+    for line in list(unavailable_lines) + quarantine_lines:
+        if line not in text:
+            text = f"{text}\n{line}" if text else line
+
+    digest.text = text
+    digest.usage = response
+    trace.digest(text, order=ordered.beat_order)
+    recheck = check_provenance(trace.path, text, excluded_items=doomed)
+    trace.decision(
+        beat="synthesizer",
+        decision="provenance_rechecked",
+        reason=recheck.summary(),
+        violations=[str(violation) for violation in recheck.violations],
+        quarantined=len(digest.quarantined),
+    )
+    return text, recheck
 
 
 __all__ = [
