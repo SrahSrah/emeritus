@@ -143,6 +143,12 @@ class HashingEmbedder:
 # --------------------------------------------------------------------------- #
 
 
+#: How a same-run neighbour (FR-37) identifies itself in the trace. Real ledger ids
+#: start at 1, so 0 can never collide with a stored row.
+SAME_RUN_SENT_ITEM_ID = 0
+SAME_RUN_SENT_AT = "tonight, earlier in this digest"
+
+
 @dataclass(frozen=True)
 class Neighbour:
     """A previously delivered item that came back from the index."""
@@ -304,6 +310,46 @@ def retrieve_neighbours(
     return neighbours
 
 
+def same_run_neighbours(
+    embedder: Embedder,
+    text: str,
+    prior: Sequence[tuple[str, dict[str, Any]]],
+    *,
+    beat: str,
+    similarity_floor: float = DEFAULT_SIMILARITY_FLOOR,
+) -> list[Neighbour]:
+    """Items already kept in tonight's run, scored the way stored ones are (FR-37).
+
+    Two items in one run can cover the same story — observed live 2026-08-13, when the
+    `claude` and `agents` topics both wrote up one Anthropic finding — and the stored
+    index cannot see them because nothing is written until after delivery. So the kept
+    items are scored here, in memory, against the same floor, and handed to the decision
+    layer as ordinary neighbours. Nothing is stored: identity stays a read-time relation,
+    exactly as §9 Q3's answer prescribes.
+
+    `prior` must already be scoped to one beat by the caller — same-beat comparison is a
+    correctness guard (see :func:`retrieve_neighbours`), not this function's job to redo.
+    """
+    if not prior:
+        return []
+    vectors = embedder.encode([text, *[prior_text for prior_text, _ in prior]])
+    similarities = vectors[1:] @ vectors[0]
+    neighbours = [
+        Neighbour(
+            sent_item_id=SAME_RUN_SENT_ITEM_ID,
+            beat=beat,
+            sent_at=SAME_RUN_SENT_AT,
+            rendered_text=prior_text,
+            checkable_fields=dict(fields or {}),
+            similarity=float(similarity),
+        )
+        for (prior_text, fields), similarity in zip(prior, similarities)
+        if float(similarity) >= similarity_floor
+    ]
+    neighbours.sort(key=lambda neighbour: neighbour.similarity, reverse=True)
+    return neighbours
+
+
 # --------------------------------------------------------------------------- #
 # The bundle the synthesizer is handed — connection + embedder + settings
 # --------------------------------------------------------------------------- #
@@ -340,6 +386,14 @@ class LedgerRetriever:
             now=now,
         )
 
+    def same_run_neighbours(
+        self, text: str, prior: Sequence[tuple[str, dict[str, Any]]], *, beat: str
+    ) -> list[Neighbour]:
+        """FR-37 — score tonight's already-kept items with this retriever's own floor."""
+        return same_run_neighbours(
+            self.embedder, text, prior, beat=beat, similarity_floor=self.similarity_floor
+        )
+
 
 __all__ = [
     "DEFAULT_K",
@@ -347,6 +401,8 @@ __all__ = [
     "LedgerRetriever",
     "DEFAULT_SIMILARITY_FLOOR",
     "DEFAULT_WINDOW_DAYS",
+    "SAME_RUN_SENT_AT",
+    "SAME_RUN_SENT_ITEM_ID",
     "SENT_ITEM_VEC_KEY",
     "SENT_ITEM_VEC_TABLE",
     "Embedder",
@@ -358,5 +414,6 @@ __all__ = [
     "index_item",
     "load_vec",
     "retrieve_neighbours",
+    "same_run_neighbours",
     "similarity_from_distance",
 ]

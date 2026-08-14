@@ -21,7 +21,8 @@ Q3 is answered, so the check now runs, as step 2 of four:
 
 1. preference suppression;
 2. **retrieval-backed dedup** — for each surviving item, search the sent-item ledger for
-   near neighbours and decide include / reframe / suppress;
+   near neighbours — plus, since FR-37, the items already kept in this run, same beat —
+   and decide include / reframe / suppress;
 3. escalation ordering;
 4. composition through the injected client, then the provenance check.
 
@@ -146,23 +147,38 @@ def _apply_dedup(
     now: Any = None,
     effort: str = DEFAULT_EFFORT,
 ) -> list[tuple[str, DedupDecision]]:
-    """FR-9b. Mutates each result's `items` in place; returns every decision made.
+    """FR-9b, plus FR-37. Mutates each result's `items` in place; returns every decision.
 
     An unavailable beat is skipped entirely — it has no items, and FR-18's "couldn't
     reach X tonight" line is generated later and is never a dedup candidate.
+
+    FR-37: each candidate is also compared against the items already **kept in this
+    run**, same beat only, handed to `assess_item` as ordinary neighbours. Two topics
+    writing up one story used to survive because the stored index only knows previous
+    nights — and the model would note the duplication in prose, which is a guard's job
+    done in prose. Every FR-19 invariant applies to a same-run neighbour unchanged.
     """
     decisions: list[tuple[str, DedupDecision]] = []
+    kept_this_run: dict[str, list[tuple[str, dict[str, Any]]]] = {}
 
     for result in results:
         beat = getattr(result, "beat", "")
         if not getattr(result, "available", True):
             continue
 
+        prior = kept_this_run.setdefault(beat, [])
         surviving: list[Any] = []
         for item in getattr(result, "items", []) or []:
             text = getattr(item, "text", str(item))
             try:
                 neighbours = retriever.neighbours_for(text, beat=beat, now=now)
+                same_run = getattr(retriever, "same_run_neighbours", None)
+                if same_run is not None and prior:
+                    neighbours = sorted(
+                        [*neighbours, *same_run(text, prior, beat=beat)],
+                        key=lambda neighbour: neighbour.similarity,
+                        reverse=True,
+                    )
             except Exception as exc:  # noqa: BLE001 - invariant 4: never silence a digest
                 neighbours = []
                 if trace is not None:
@@ -172,6 +188,7 @@ def _apply_dedup(
                         reason=f"{type(exc).__name__}: {exc}; including the item unchecked",
                     )
                 surviving.append(item)
+                prior.append((text, dict(getattr(item, "fields", None) or {})))
                 continue
 
             decision = assess_item(
@@ -200,6 +217,10 @@ def _apply_dedup(
                 # the run if a number moved.
                 item.text = decision.reframed_text
             surviving.append(item)
+            # The delivered text (post-reframe) is what later candidates compare against.
+            prior.append(
+                (getattr(item, "text", str(item)), dict(getattr(item, "fields", None) or {}))
+            )
 
         result.items = surviving
 
