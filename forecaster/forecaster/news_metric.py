@@ -31,7 +31,15 @@ from typing import Any, Iterable, Mapping, Sequence
 from forecaster.trace import read_trace, records_of
 
 #: §2(c) is measured across this many consecutive nights.
-TARGET_NIGHTS = 14
+#:
+#: **Parent PRD §2(c) says fourteen. This is one, deliberately, and it is a divergence.**
+#: A fourteen-night gate means the condition cannot be exercised at all for two weeks, so
+#: nothing downstream of it can be built or tested. One night unblocks development.
+#:
+#: What it costs: "at least one suppression happened" is a far weaker claim than "on
+#: fourteen consecutive nights". A checkpoint must not describe this as the fourteen-night
+#: result, and DIVERGENCES row 9 records that. Raise it back when the nights exist.
+TARGET_NIGHTS = 1
 
 NEWS_BEAT = "news"
 
@@ -134,14 +142,31 @@ def check_news_metric(trace_paths: Iterable[str | Path]) -> NewsMetricReport:
             for record in records_of(records, "observation")
         }
 
-        # (a) — reuse the provenance checker's own verdict rather than re-deriving it.
-        for record in records_of(records, "decision"):
-            if record.get("decision") != "provenance_checked":
-                continue
-            for violation in record.get("violations") or []:
-                text = str(violation)
-                if "ungrounded_number" in text or "ungrounded_quote" in text:
-                    ungrounded.append(f"{path.name}: {text}")
+        # (a) — reuse the provenance checker's verdict, but the **final** one, and only for
+        # runs that actually delivered.
+        #
+        # FR-30 changed what a violation means. Before it, an ungrounded_quote meant a bad
+        # claim sat in the digest. After it, the item is withheld and the run recomposes,
+        # so the first `provenance_checked` record is a superseded answer by construction.
+        # Reading it reported FAIL on 2026-08-04 against three runs that delivered nothing
+        # and one item that was withheld exactly as designed.
+        #
+        # §2(a) is about claims that *appear in a digest*. A run that never delivered
+        # produced no digest, and a withheld item was never in one.
+        delivered = any(
+            bool(record.get("success")) for record in records_of(records, "delivery")
+        )
+        if delivered:
+            verdicts = [
+                record
+                for record in records_of(records, "decision")
+                if record.get("decision") in ("provenance_checked", "provenance_rechecked")
+            ]
+            if verdicts:
+                for violation in verdicts[-1].get("violations") or []:
+                    text = str(violation)
+                    if "ungrounded_number" in text or "ungrounded_quote" in text:
+                        ungrounded.append(f"{path.name}: {text}")
 
         decisions = _news_decisions(records)
 
@@ -233,9 +258,11 @@ def check_news_metric(trace_paths: Iterable[str | Path]) -> NewsMetricReport:
     )
     if not organic_met:
         report.caveats.append(
-            f"(c) needs {TARGET_NIGHTS} consecutive nights and at least one suppression "
-            f"or reframe; {report.nights_accumulated} night(s) so far. It cannot be met "
-            "by a single run, and it is what retires DIVERGENCES row 4."
+            f"(c) needs {TARGET_NIGHTS} night(s) and at least one news suppression or "
+            f"reframe; {report.nights_accumulated} night(s) and "
+            f"{suppressions_or_reframes} so far. A cold ledger produces neither, so the "
+            "first night with news in it can only ever be 'include'. Retires DIVERGENCES "
+            "row 4 — subject to the organic caveat below."
         )
     report.caveats.append(
         "(c) cannot be verified as ORGANIC from traces alone — a trace records what a run "

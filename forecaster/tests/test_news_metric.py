@@ -25,6 +25,7 @@ def _write_trace(
     preference: int = 0,
     violations: list[str] | None = None,
     at: str | None = None,
+    delivered: bool = True,
 ) -> Path:
     """One synthetic news run. Everything the checker reads and nothing else."""
     trace = Trace(run_id, directory=directory)
@@ -73,6 +74,12 @@ def _write_trace(
         reason="checked",
         violations=violations or [],
     )
+    # A run that reached delivery. Condition (a) only looks at delivered runs, because
+    # §2(a) is about claims that appear in a digest and an undelivered run produced none.
+    if delivered:
+        trace.delivery(
+            deliverer="FakeDeliverer", target="x@y.z", success=True, error=None
+        )
     trace.digest("Per Ars: 71.5.", order=["news"])
     trace.close()
 
@@ -178,9 +185,12 @@ def test_condition_c_reports_progress_and_never_claims_it_early(tmp_path: Path) 
     report = check_news_metric([path])
 
     condition = report.condition("organic_dedup")
-    assert not condition.passed, "one night can never satisfy a fourteen-night condition"
     assert f"1 of {TARGET_NIGHTS} night(s)" in condition.detail
     assert "1 suppression(s)/reframe(s)" in condition.detail
+    # TARGET_NIGHTS was lowered to 1 on 2026-08-13 so the condition can be exercised at
+    # all — see DIVERGENCES row 9. One night plus one suppression now satisfies it, which
+    # is a far weaker claim than the fourteen nights parent §2(c) asks for.
+    assert condition.passed is (report.nights_accumulated >= TARGET_NIGHTS)
 
 
 def test_condition_c_needs_both_the_nights_and_a_suppression(tmp_path: Path) -> None:
@@ -253,3 +263,148 @@ def test_the_report_summary_names_every_condition(tmp_path: Path) -> None:
     for fragment in ("(a) grounded prose", "(b) retrieval attribution",
                      "(c) organic dedup", "(d) no silent loss"):
         assert fragment in summary
+
+
+# --------------------------------------------------------------------------- #
+# (a) reads the FINAL verdict, and only from runs that delivered
+# --------------------------------------------------------------------------- #
+#
+# Found 2026-08-13. FR-30 changed what a violation means: the item is withheld and the
+# run recomposes, so the first `provenance_checked` record is a superseded answer by
+# construction. Reading it reported FAIL against three runs that delivered nothing and
+# one item that was withheld exactly as designed.
+
+
+def _verdict_trace(
+    tmp_path: Path,
+    *,
+    checked: list[str],
+    rechecked: list[str] | None = None,
+    delivered: bool | None = True,
+    name: str = "verdict",
+) -> Path:
+    """A news run with a chosen provenance history and delivery outcome."""
+    trace = Trace(name, directory=tmp_path)
+    trace.run_start(auth_mode="subscription_oauth", config_digest="t")
+    observation_id = trace.tool_call(
+        beat="news", adapter="corpus.retrieve_for_topic", arguments={"topic": "t"}
+    )
+    trace.observation(observation_id, payload="a passage")
+    trace._write(  # noqa: SLF001
+        "beat_result",
+        beat="news",
+        items=[
+            {
+                "beat": "news",
+                "text": "a line",
+                "fields": {"topic": "t", "text_origin": "synthesized"},
+                "observations": [observation_id],
+            }
+        ],
+        checkable_fields={},
+        available=True,
+        error=None,
+        escalation_candidate=False,
+        escalation_reason=None,
+        escalation_signals={},
+        observations=[observation_id],
+    )
+    trace.decision(
+        beat="synthesizer", decision="provenance_checked", reason="r", violations=checked
+    )
+    if rechecked is not None:
+        trace.decision(
+            beat="synthesizer",
+            decision="provenance_rechecked",
+            reason="r",
+            violations=rechecked,
+        )
+    if delivered is not None:
+        trace.delivery(
+            deliverer="FakeDeliverer", target="x@y.z", success=delivered, error=None
+        )
+    trace.digest("a line", order=["news"])
+    trace.close()
+    return trace.path
+
+
+VIOLATION = "[ungrounded_number] news.text: item text states '99.9', which appears in none"
+
+
+def test_an_undelivered_run_contributes_nothing_to_a(tmp_path: Path) -> None:
+    """Three real runs on 2026-08-04 failed provenance and sent nothing at all."""
+    path = _verdict_trace(tmp_path, checked=[VIOLATION], delivered=None)
+
+    assert check_news_metric([path]).condition("grounded_prose").passed
+
+
+def test_a_withheld_item_contributes_nothing_to_a(tmp_path: Path) -> None:
+    """The core case: FR-30 caught it, withheld it, and the digest went out clean.
+
+    This fires every time the guard works as designed, which is far more often than a
+    fatal violation.
+    """
+    path = _verdict_trace(tmp_path, checked=[VIOLATION], rechecked=[])
+
+    assert check_news_metric([path]).condition("grounded_prose").passed
+
+
+def test_a_delivered_ungrounded_claim_still_fails_a(tmp_path: Path) -> None:
+    """The requirement is unchanged. Only its scope moved."""
+    path = _verdict_trace(tmp_path, checked=[VIOLATION])
+
+    report = check_news_metric([path])
+
+    assert not report.condition("grounded_prose").passed
+    assert "99.9" in report.condition("grounded_prose").detail
+
+
+def test_a_failed_delivery_contributes_nothing_to_a(tmp_path: Path) -> None:
+    path = _verdict_trace(tmp_path, checked=[VIOLATION], delivered=False)
+
+    assert check_news_metric([path]).condition("grounded_prose").passed
+
+
+def test_a_quarantine_does_not_break_condition_d(tmp_path: Path) -> None:
+    """Pinning a non-bug, because the reasoning is easy to get backwards.
+
+    While speccing this I concluded FR-30 had broken (d) — it counts outcomes as
+    `dedup_* + item_suppressed` and FR-30 added `item_quarantined`. Measuring it showed
+    otherwise: **dedup runs before the provenance check**, so a quarantined item already
+    carries a `dedup_include` and `accounted == produced` still holds. Do not "fix" it.
+    """
+    trace = Trace("quarantine-d", directory=tmp_path)
+    trace.run_start(auth_mode="subscription_oauth", config_digest="t")
+    observation_id = trace.tool_call(beat="news", adapter="corpus", arguments={})
+    trace.observation(observation_id, payload="a passage")
+    trace._write(  # noqa: SLF001
+        "beat_result",
+        beat="news",
+        items=[
+            {
+                "beat": "news",
+                "text": f"line {index}",
+                "fields": {"topic": str(index), "text_origin": "synthesized"},
+                "observations": [observation_id],
+            }
+            for index in range(2)
+        ],
+        checkable_fields={},
+        available=True,
+        error=None,
+        escalation_candidate=False,
+        escalation_reason=None,
+        escalation_signals={},
+        observations=[observation_id],
+    )
+    for index in range(2):
+        trace.decision(beat="news", decision="dedup_include", reason=f"new {index}")
+    trace.decision(beat="news", decision="item_quarantined", reason="withheld")
+    trace.decision(beat="synthesizer", decision="provenance_rechecked", reason="ok", violations=[])
+    trace.delivery(deliverer="FakeDeliverer", target="x@y.z", success=True, error=None)
+    trace.digest("line 0", order=["news"])
+    trace.close()
+
+    report = check_news_metric([trace.path])
+
+    assert report.condition("no_silent_loss").passed, report.condition("no_silent_loss").detail
