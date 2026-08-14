@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" media="screen" href="/~files/feed-premium.xsl"?>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+<rss xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" xmlns:slash="http://purl.org/rss/1.0/modules/slash/" xmlns:feedpress="https://feed.press/xmlns" xmlns:media="http://search.yahoo.com/mrss/" xmlns:podcast="https://podcastindex.org/namespace/1.0" version="2.0">
+  <channel>
+    <feedpress:locale>en</feedpress:locale>
+    <atom:link rel="hub" href="https://feedpress.superfeedr.com/"/>
+    <title>The Texas Tribune</title>
+    <atom:link href="https://feeds.texastribune.org/feeds/main/" rel="self" type="application/rss+xml"/>
+    <link>https://www.texastribune.org/</link>
+    <description>Independent news. Trusted by Texans.</description>
+    <lastBuildDate>Fri, 14 Aug 2026 19:18:59 +0000</lastBuildDate>
+    <language>en-US</language>
+    <sy:updatePeriod>
+hourly</sy:updatePeriod>
+    <sy:updateFrequency>
+1</sy:updateFrequency>
+    <image>
+      <url>https://www.texastribune.org/wp-content/uploads/2025/09/cropped-cropped-texas-tribune-favicon-32x32.png</url>
+      <title>The Texas Tribune</title>
+      <link>https://www.texastribune.org/</link>
+      <width>32</width>
+      <height>32</height>
+    </image>
+    <site xmlns="com-wordpress:feed-additions:1">249301168</site>
+    <item>
+      <title>As the only Texas district to trigger potential state takeover, Austin ISD’s future now in TEA’s hands</title>
+      <link>https://feeds.texastribune.org/link/16799/17418472/austin-isd-ratings-texas-school-takeover-trigger</link>
+      <dc:creator><![CDATA[By Andrea Ball, Austin Current]]></dc:creator>
+      <pubDate>Fri, 14 Aug 2026 19:18:59 +0000</pubDate>
+      <category><![CDATA[Public Education]]></category>
+      <category><![CDATA[Austin ISD]]></category>
+      <category><![CDATA[education]]></category>
+      <category><![CDATA[Houston]]></category>
+      <category><![CDATA[Houston ISD]]></category>
+      <category><![CDATA[Mike Miles]]></category>
+      <category><![CDATA[Mike Morath]]></category>
+      <category><![CDATA[school accountability]]></category>
+      <category><![CDATA[Texas Education Agency]]></category>
+      <category><![CDATA[Texas public schools]]></category>
+      <category><![CDATA[Texas school ratings]]></category>
+      <category><![CDATA[Wichita Falls]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=240021</guid>
+      <description><![CDATA[Two middle schools received their fifth consecutive F grades from the Texas Education Agency.<img src="https://feeds.texastribune.org/link/16799/17418472.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260808_LS_Anti-takeover-Rally_25-scaled-1.jpeg?fit=1024%2C768&amp;ssl=1">
+        <media:description><![CDATA[Austin residents rally against the state takeover of public schools at Brentwood Neighborhood Park on Aug. 8, 2026. ]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260808_LS_Anti-takeover-Rally_25-scaled-1.jpeg?fit=1024%2C768&amp;ssl=1" width="1024" height="768"/>
+        <media:credit><![CDATA[Leila Saidane for The Austin Current]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">240021</post-id>
+    </item>
+    <item>
+      <title>Texas’ school A-F grades relatively flat as Austin ISD inches closer to takeover</title>
+      <link>https://feeds.texastribune.org/link/16799/17417991/texas-school-accountability-ratings-2026</link>
+      <dc:creator><![CDATA[By Sneha Dey, Jaden Edison, and Data analysis by Rob Reid]]></dc:creator>
+      <pubDate>Fri, 14 Aug 2026 10:00:00 +0000</pubDate>
+      <category><![CDATA[Public Education]]></category>
+      <category><![CDATA[State Government]]></category>
+      <category><![CDATA[Austin ISD]]></category>
+      <category><![CDATA[Ector County]]></category>
+      <category><![CDATA[Greenville, Texas]]></category>
+      <category><![CDATA[Texas education]]></category>
+      <category><![CDATA[Texas Education Agency]]></category>
+      <category><![CDATA[Texas Legislature]]></category>
+      <category><![CDATA[Texas public schools]]></category>
+      <category><![CDATA[Texas school ratings]]></category>
+      <category><![CDATA[Well A Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239920</guid>
+      <description><![CDATA[Austin ISD had two campuses failing state ratings for five consecutive years.<img src="https://feeds.texastribune.org/link/16799/17417991.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>beside</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/02/20250909-Cell-Phone-Ban-SF-08.jpg?fit=1024%2C681&amp;ssl=1">
+        <media:description><![CDATA[Students walk through the hallway at Lago Vista High School on Sept. 9, 2025 in Lago Vista.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/02/20250909-Cell-Phone-Ban-SF-08.jpg?fit=1024%2C681&amp;ssl=1" width="1024" height="681"/>
+        <media:credit><![CDATA[Sergio Flores for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239920</post-id>
+    </item>
+    <item>
+      <title>Limits on certain firearms, silencers lifted for some in Texas after judge’s order takes effect</title>
+      <link>https://feeds.texastribune.org/link/16799/17417632/texas-national-firearms-act-ruling-doj-no-emergency-appeal</link>
+      <dc:creator><![CDATA[Alex Nguyen]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 23:36:55 +0000</pubDate>
+      <category><![CDATA[Courts]]></category>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[Chip Roy]]></category>
+      <category><![CDATA[Congress]]></category>
+      <category><![CDATA[Lubbock]]></category>
+      <category><![CDATA[Republicans]]></category>
+      <category><![CDATA[Well C Homepage]]></category>
+      <category><![CDATA[Wes Virdell]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239939</guid>
+      <description><![CDATA[The Trump administration declined to immediately appeal a ruling by a federal judge in Lubbock that invalidated parts of the 1934 National Firearms Act.<img src="https://feeds.texastribune.org/link/16799/17417632.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/0501-Paxton-Frisco-AS-37.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Rifles line the walls of the Frisco Gun Club in Frisco on May 1, 2024.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/0501-Paxton-Frisco-AS-37.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Azul Sordo for the Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239939</post-id>
+    </item>
+    <item>
+      <title>Look up your Texas school’s A-F accountability grade, STAAR performance</title>
+      <link>https://feeds.texastribune.org/link/16799/17418225/look-up-texas-school-accountability-grades-2026-ratings-search</link>
+      <dc:creator><![CDATA[By Jaden Edison, graphic by Hien An Ngo, data analysis by Rob Reid ]]></dc:creator>
+      <pubDate>Fri, 14 Aug 2026 15:27:56 +0000</pubDate>
+      <category><![CDATA[Public Education]]></category>
+      <category><![CDATA[Mike Morath]]></category>
+      <category><![CDATA[Texas education]]></category>
+      <category><![CDATA[Texas Education Agency]]></category>
+      <category><![CDATA[Texas public schools]]></category>
+      <category><![CDATA[Texas school ratings]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239978</guid>
+      <description><![CDATA[Texas grades public schools largely on how well students perform on the STAAR tests.<img src="https://feeds.texastribune.org/link/16799/17418225.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Blanco-Vista-Elementary-JV-05.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Students backpacks hang off the back of their chairs in an empty classroom at Blanco Vista Elementary School in San Marcos on Aug. 23, 2021.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Blanco-Vista-Elementary-JV-05.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Jordan Vonderhaar for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239978</post-id>
+    </item>
+    <item>
+      <title>Lawsuit seeks to stop Big Bend border wall construction</title>
+      <link>https://feeds.texastribune.org/link/16799/17418172/texas-big-bend-border-wall-lawsuit-lipan-apache</link>
+      <dc:creator><![CDATA[Ayden Runnels and Gabby Birenbaum]]></dc:creator>
+      <pubDate>Fri, 14 Aug 2026 14:20:18 +0000</pubDate>
+      <category><![CDATA[Courts]]></category>
+      <category><![CDATA[Immigration]]></category>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[Dawn Buckingham]]></category>
+      <category><![CDATA[Democrats]]></category>
+      <category><![CDATA[Department of Homeland Security]]></category>
+      <category><![CDATA[Greg Abbott]]></category>
+      <category><![CDATA[John Cornyn]]></category>
+      <category><![CDATA[Well C Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239950</guid>
+      <description><![CDATA[A tribal nonprofit and an outdoor recreation company filed the federal lawsuit, arguing the work threatens archeological sites and sacred grounds.<img src="https://feeds.texastribune.org/link/16799/17418172.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Greenlee-Big-Bend-Clearing-21C.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Excavation and bulldozing equipment as seen through vegetation near the Santa Elena Canyon trailhead parking lot and next to Ross Maxwell Scenic Drive in Big Bend National Park on Aug. 13, 2026.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Greenlee-Big-Bend-Clearing-21C.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Kaylee Greenlee for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239950</post-id>
+    </item>
+    <item>
+      <title>Data center audit lacks specifics even as Gov. Abbott, industry leaders tout it</title>
+      <link>https://feeds.texastribune.org/link/16799/17417992/data-center-texas-audit-moratorium</link>
+      <dc:creator><![CDATA[Paul Cobler]]></dc:creator>
+      <pubDate>Fri, 14 Aug 2026 10:00:00 +0000</pubDate>
+      <category><![CDATA[Economy]]></category>
+      <category><![CDATA[Energy]]></category>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[State Government]]></category>
+      <category><![CDATA[Democrats]]></category>
+      <category><![CDATA[Electric Reliability Council of Texas]]></category>
+      <category><![CDATA[energy]]></category>
+      <category><![CDATA[environment]]></category>
+      <category><![CDATA[ERCOT]]></category>
+      <category><![CDATA[Fox News]]></category>
+      <category><![CDATA[Gina Hinojosa]]></category>
+      <category><![CDATA[Greg Abbott]]></category>
+      <category><![CDATA[Jim Henson]]></category>
+      <category><![CDATA[Republicans]]></category>
+      <category><![CDATA[Well B Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239924</guid>
+      <description><![CDATA[Without key details on the audits but the eagerness to support them, policy watchers question how impactful these audits will be in curbing data center growth.<img src="https://feeds.texastribune.org/link/16799/17417992.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260727-Red-River-Roll-Call-Data-ST-013.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Gov. Greg Abbott speaks at the Red River Roll Call, a Republican rally hosted by state Rep. Shelley Luther, in Sherman on July 27, 2026. Nearly 100 people showed up as part of the Save Rural Texas group traveling from all over the state to show their state leaders that they want to pause further development of data centers.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260727-Red-River-Roll-Call-Data-ST-013.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Shelby Tauber for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239924</post-id>
+    </item>
+    <item>
+      <title>UT-Austin overhauling core classes but hasn’t detailed how new center relates to the courses</title>
+      <link>https://feeds.texastribune.org/link/16799/17417633/ut-austin-core-curriculum-humanities-center</link>
+      <dc:creator><![CDATA[Jessica Priest]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 23:01:25 +0000</pubDate>
+      <category><![CDATA[Higher Education]]></category>
+      <category><![CDATA[state agencies]]></category>
+      <category><![CDATA[texas higher education]]></category>
+      <category><![CDATA[Texas Legislature]]></category>
+      <category><![CDATA[Texas State University System]]></category>
+      <category><![CDATA[University of Texas Board of Regents]]></category>
+      <category><![CDATA[University of Texas System]]></category>
+      <category><![CDATA[University of Texas-Austin]]></category>
+      <category><![CDATA[Well B Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239917</guid>
+      <description><![CDATA[UT-Austin proposes big changes to how future students meet graduation requirements as questions persist about a new Center for Humanities. <img src="https://feeds.texastribune.org/link/16799/17417633.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20250919-UT-File-MS-55.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Students walk by the UT Tower on Sept. 19, 2025.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20250919-UT-File-MS-55.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Manoo Sirivelu/The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239917</post-id>
+    </item>
+    <item>
+      <title>Federal judge extends pause on border wall construction at South Texas wildlife refuge</title>
+      <link>https://feeds.texastribune.org/link/16799/17417588/border-wall-construction-paused-santa-ana-refuge</link>
+      <dc:creator><![CDATA[Berenice Garcia]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 21:45:24 +0000</pubDate>
+      <category><![CDATA[Environment]]></category>
+      <category><![CDATA[Immigration]]></category>
+      <category><![CDATA[border wall]]></category>
+      <category><![CDATA[environment]]></category>
+      <category><![CDATA[Hidalgo County]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239912</guid>
+      <description><![CDATA[An irrigation district claims border wall construction is damaging its property and canal.<img src="https://feeds.texastribune.org/link/16799/17417588.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260708-Cuellar-RGV-Border-Wall-GVC-39.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[The levee is seen at Santa Ana National Wildlife Refuge in Alamo, Texas on July 8, 2026. The current proposed border wall would replace the levee with a concrete wall as high as it is now to then erect the bollard metal wall on top of it. Activists argue that this will have a negative impact on wildlife.
+]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260708-Cuellar-RGV-Border-Wall-GVC-39.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Gabriel V. Cárdenas for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239912</post-id>
+    </item>
+    <item>
+      <title>Houston law firm with Trump ties declines $150 million contract to represent migrant children</title>
+      <link>https://feeds.texastribune.org/link/16799/17417589/texas-burke-law-group-declines-immigrant-children-contract</link>
+      <dc:creator><![CDATA[By VALERIE GONZALEZ and RYAN J. FOLEY,  Associated Press ]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 21:14:04 +0000</pubDate>
+      <category><![CDATA[Immigration]]></category>
+      <category><![CDATA[Houston]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239903</guid>
+      <description><![CDATA[The administration had offered the contract to the Burke Law Group, which has little experience in immigration.<img src="https://feeds.texastribune.org/link/16799/17417589.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260630-Roca-De-Refugio-JAJ-18.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Children of migrants and asylum seekers rest at a church in San Antonio on June 30, 2026.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260630-Roca-De-Refugio-JAJ-18.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Joel Angel Juarez for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239903</post-id>
+    </item>
+    <item>
+      <title>Gov. Greg Abbott proposes further limiting screen time in K-12 classrooms</title>
+      <link>https://feeds.texastribune.org/link/16799/17417590/texas-greg-abbott-screen-limits-classrooms-public-education</link>
+      <dc:creator><![CDATA[Kayla Guo]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 21:01:56 +0000</pubDate>
+      <category><![CDATA[Public Education]]></category>
+      <category><![CDATA[Artificial intelligence]]></category>
+      <category><![CDATA[Corpus Christi]]></category>
+      <category><![CDATA[Democrats]]></category>
+      <category><![CDATA[education]]></category>
+      <category><![CDATA[Greg Abbott]]></category>
+      <category><![CDATA[Republicans]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239897</guid>
+      <description><![CDATA[The proposal, which would have to be passed by the Legislature, follows a ban on cellphone use in K-12 schools approved by lawmakers last year.<img src="https://feeds.texastribune.org/link/16799/17417590.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/0429-National-Board-Review-IM-04.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Kimani Mitchell, left, stands next to Danielle Minnis as they give a lesson to their eighth grade students at Legacy Middle School in San Antonio on April 29, 2026. ]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/0429-National-Board-Review-IM-04.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Isaiah Moseley for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239897</post-id>
+    </item>
+    <item>
+      <title>Which families are using ESAs? Here’s what we know about Texas’ first school vouchers</title>
+      <link>https://feeds.texastribune.org/link/16799/17402678/esa-students-texas-school-vouchers-first-year</link>
+      <dc:creator><![CDATA[Jaden Edison and Sneha Dey]]></dc:creator>
+      <pubDate>Mon, 03 Aug 2026 17:18:59 +0000</pubDate>
+      <category><![CDATA[Public Education]]></category>
+      <category><![CDATA[education savings accounts]]></category>
+      <category><![CDATA[Greg Abbott]]></category>
+      <category><![CDATA[school vouchers]]></category>
+      <category><![CDATA[state agencies]]></category>
+      <category><![CDATA[Texas Comptroller Of Public Accounts]]></category>
+      <category><![CDATA[Texas Legislature]]></category>
+      <category><![CDATA[Texas private schools]]></category>
+      <category><![CDATA[Texas public schools]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=238735</guid>
+      <description><![CDATA[The number of Texas students using taxpayer money for private school or home-school could increase as more families accept invites. <img src="https://feeds.texastribune.org/link/16799/17402678.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/0503-Abbott-Voucher-Signing-BD-08.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Gov. Greg Abbott signs SB2, a bill authorizing educational savings accounts (ESA&#039;s) to help parents pay private school tuition for their children, during a ceremony at the Texas Governor&#039;s Mansion in Austin on May 3, 2025.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/0503-Abbott-Voucher-Signing-BD-08.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Bob Daemmrich for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">238735</post-id>
+    </item>
+    <item>
+      <title>U.S. attorney confirms that FBI tests didn’t find meth in van driven by man fatally shot by ICE in Houston</title>
+      <link>https://feeds.texastribune.org/link/16799/17417502/texas-houston-ice-shooting-fbi-testing-meth-search-warrant-salgado</link>
+      <dc:creator><![CDATA[Alejandro Santos Cid]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 19:40:52 +0000</pubDate>
+      <category><![CDATA[Immigration]]></category>
+      <category><![CDATA[FBI]]></category>
+      <category><![CDATA[Houston]]></category>
+      <category><![CDATA[Immigration and Customs Enforcement]]></category>
+      <category><![CDATA[Well A Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239879</guid>
+      <description><![CDATA[Aaron Reitz did not reveal what FBI testing found in bags taken from Lorenzo Salgado Araujo’s van after his July 7 shooting death. Other men in the van said the bags contained salt.<img src="https://feeds.texastribune.org/link/16799/17417502.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/LorenzoSalgadoVigil_009.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Vigil attendees hold up signs at a memorial for Lorenzo Salgado Araujo on the one month anniversary of his death, in Houston on Aug. 7, 2026.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/LorenzoSalgadoVigil_009.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Mark Felix for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239879</post-id>
+    </item>
+    <item>
+      <title>Austin ISD moves closer to state takeover after 2 schools receive fifth failing ratings</title>
+      <link>https://feeds.texastribune.org/link/16799/17417446/texas-school-takeover-austin-schools-f-rating-burnet-webb</link>
+      <dc:creator><![CDATA[By Acacia Coronado, Austin Current]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 18:47:14 +0000</pubDate>
+      <category><![CDATA[Public Education]]></category>
+      <category><![CDATA[Austin ISD]]></category>
+      <category><![CDATA[education]]></category>
+      <category><![CDATA[Houston ISD]]></category>
+      <category><![CDATA[Mike Morath]]></category>
+      <category><![CDATA[Texas Education Agency]]></category>
+      <category><![CDATA[Well B Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239860</guid>
+      <description><![CDATA[Thursday’s announcement, which comes a day before TEA publicly releases accountability ratings statewide, moves Austin ISD one step closer to potential state intervention after months of district efforts to avoid it.<img src="https://feeds.texastribune.org/link/16799/17417446.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260808_LS_Anti-takeover-Rally_18-LS.jpeg?fit=780%2C520&amp;ssl=1">
+        <media:description><![CDATA[Organizer Laya Diamond Waldman Austin drums at the rally against the state takeover of public schools at Brentwood Neighborhood Park on Aug. 8, 2026. ]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260808_LS_Anti-takeover-Rally_18-LS.jpeg?fit=780%2C520&amp;ssl=1" width="780" height="520"/>
+        <media:credit><![CDATA[Leila Saidane for The Austin Current]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239860</post-id>
+    </item>
+    <item>
+      <title>Rio Grande Valley residents are feeling more negative about their lives. That could spill into the voting booth.</title>
+      <link>https://feeds.texastribune.org/link/16799/17417349/texas-rio-grande-valley-life-satisfaction-survey</link>
+      <dc:creator><![CDATA[Berenice Garcia]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 16:00:16 +0000</pubDate>
+      <category><![CDATA[Demographics]]></category>
+      <category><![CDATA[Economy]]></category>
+      <category><![CDATA[Health care]]></category>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[State Government]]></category>
+      <category><![CDATA[Democrats]]></category>
+      <category><![CDATA[Henry Cuellar]]></category>
+      <category><![CDATA[Monica De La Cruz]]></category>
+      <category><![CDATA[Republicans]]></category>
+      <category><![CDATA[Rio Grande Valley]]></category>
+      <category><![CDATA[University of Texas Rio Grande Valley]]></category>
+      <category><![CDATA[Vicente Gonzalez]]></category>
+      <category><![CDATA[Well C Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239816</guid>
+      <description><![CDATA[Rio Grande Valley residents are unhappy with the economy, salaries, and other factors. That could sway their political views, according to political watchdogs.<img src="https://feeds.texastribune.org/link/16799/17417349.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/LUPE-Cumbre-VGC-52.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[People dance at La Pulga de Alamo  on Sept. 14, 2024. Between 2009 and 2018, life evaluation in the Rio Grande Valley peaked in 2014 before declining overall, according to an analysis by Blue Zones, a think tank that studies longevity and quality of life.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/LUPE-Cumbre-VGC-52.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Gabriel V. Cárdenas for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239816</post-id>
+    </item>
+    <item>
+      <title>Who’s leading in Texas’ U.S. Senate race? We’re tracking poll results between Ken Paxton and James Talarico.</title>
+      <link>https://feeds.texastribune.org/link/16799/17404964/texas-us-senate-james-talarico-ken-paxton-polls</link>
+      <dc:creator><![CDATA[Hien An Ngo]]></dc:creator>
+      <pubDate>Fri, 07 Aug 2026 10:00:00 +0000</pubDate>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[Beto O'Rourke]]></category>
+      <category><![CDATA[campaign finance]]></category>
+      <category><![CDATA[Congress]]></category>
+      <category><![CDATA[elections]]></category>
+      <category><![CDATA[James Talarico]]></category>
+      <category><![CDATA[Ken Paxton]]></category>
+      <category><![CDATA[Ted Cruz]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239110</guid>
+      <description><![CDATA[The latest survey has Paxton leading by one point, breaking a streak of several polls that showed Talarico with a slight advantage. <img src="https://feeds.texastribune.org/link/16799/17404964.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/png" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Artboard-1-copy.png?fit=1024%2C682&amp;ssl=1">
+        <media:description><![CDATA[Hien An Ngo]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Artboard-1-copy.png?fit=1024%2C682&amp;ssl=1" width="1024" height="682"/>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239110</post-id>
+    </item>
+    <item>
+      <title>Paxton, Talarico tap contrary versions of God and Christianity in appeal to Texas voters</title>
+      <link>https://feeds.texastribune.org/link/16799/17417114/texas-ken-paxton-james-talarico-religion-campaign-christianity</link>
+      <dc:creator><![CDATA[Ellie Ashby]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 10:00:00 +0000</pubDate>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[Christianity]]></category>
+      <category><![CDATA[Dan Patrick]]></category>
+      <category><![CDATA[Democrats]]></category>
+      <category><![CDATA[Donald Trump]]></category>
+      <category><![CDATA[James Talarico]]></category>
+      <category><![CDATA[Ken Paxton]]></category>
+      <category><![CDATA[Republicans]]></category>
+      <category><![CDATA[U.S. Senate]]></category>
+      <category><![CDATA[Well A Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239684</guid>
+      <description><![CDATA[Campaigning for the U.S. Senate, Paxton says he was “delivered by God” to protect Texas from leftists. Talarico’s focus: “You can’t love God and hate other people.”<img src="https://feeds.texastribune.org/link/16799/17417114.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Talarico-Paxton-Religion-EG.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[From left: Photo illustration with James Talarico and Ken Paxton, Democratic and Republican nominees for U.S. Senate, at their respective state conventions in June.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Talarico-Paxton-Religion-EG.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Source photos by Eddie Gaspar/The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239684</post-id>
+    </item>
+    <item>
+      <title>In San Antonio’s immigrant community, the fear of ICE weighs on every move</title>
+      <link>https://feeds.texastribune.org/link/16799/17417115/texas-undocumented-immigrants-ice-fear-san-antonio</link>
+      <dc:creator><![CDATA[Alejandro Santos Cid]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 10:00:00 +0000</pubDate>
+      <category><![CDATA[Immigration]]></category>
+      <category><![CDATA[Donald Trump]]></category>
+      <category><![CDATA[Immigration and Customs Enforcement]]></category>
+      <category><![CDATA[Photo Build]]></category>
+      <category><![CDATA[Photography]]></category>
+      <category><![CDATA[San Antonio]]></category>
+      <category><![CDATA[Well C Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239730</guid>
+      <description><![CDATA[Everyday tasks like buying groceries or taking kids to the park now bring life-changing risks. “We couldn’t go out because they were hunting us,” a Honduran mother said.<img src="https://feeds.texastribune.org/link/16799/17417115.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>beside</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260630-Roca-De-Refugio-JAJ-32-full.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Jossman, a former circus performer from Venezuela, at a church in San Antonio on June 30, 2026, shortly after his release from ICE custody.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260630-Roca-De-Refugio-JAJ-32-full.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Joel Angel Juarez for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239730</post-id>
+    </item>
+    <item>
+      <title>Texas’ mail ballot ID requirements restored by federal appeals court</title>
+      <link>https://feeds.texastribune.org/link/16799/17416905/texas-mail-ballot-voter-id-application-appeal-ruling</link>
+      <dc:creator><![CDATA[Ayden Runnels]]></dc:creator>
+      <pubDate>Thu, 13 Aug 2026 02:15:14 +0000</pubDate>
+      <category><![CDATA[Courts]]></category>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[State Government]]></category>
+      <category><![CDATA[Harris County]]></category>
+      <category><![CDATA[voter fraud]]></category>
+      <category><![CDATA[Well C Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239791</guid>
+      <description><![CDATA[The U.S. 5th Circuit Court of Appeals rebuked the lower court’s 2025 ruling that struck down nine provisions of a sweeping election law related to voter assistance. <img src="https://feeds.texastribune.org/link/16799/17416905.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Mail-In-Ballot-Drop-AI-16-.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[A mail-in ballot drop off location in Travis County on Oct. 2, 2020.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/Mail-In-Ballot-Drop-AI-16-.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Amna Ijaz/The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239791</post-id>
+    </item>
+    <item>
+      <title>Baby at center of surrogacy rights case is born in Dallas</title>
+      <link>https://feeds.texastribune.org/link/16799/17416802/texas-surrogacy-california-alaska-parental-rights</link>
+      <dc:creator><![CDATA[By Terri Langford and Katlyn Ma]]></dc:creator>
+      <pubDate>Wed, 12 Aug 2026 22:52:40 +0000</pubDate>
+      <category><![CDATA[Courts]]></category>
+      <category><![CDATA[Health care]]></category>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[State Government]]></category>
+      <category><![CDATA[Dallas]]></category>
+      <category><![CDATA[Ken Paxton]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239737</guid>
+      <description><![CDATA[The biological parents won a temporary restraining order against the surrogate, who tried to claim parental rights, and are with their baby, their attorneys say.<img src="https://feeds.texastribune.org/link/16799/17416802.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/UTSW-Genecis-ST-01.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[The Children’s Health Specialty Center in Dallas on June 22, 2022.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/UTSW-Genecis-ST-01.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Shelby Tauber for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239737</post-id>
+    </item>
+    <item>
+      <title>As Big Bend wall outcry builds, Paxton does not say whether construction should proceed</title>
+      <link>https://feeds.texastribune.org/link/16799/17416611/texas-big-bend-border-wall-paxton-talarico-cornyn-trump-senate-race</link>
+      <dc:creator><![CDATA[Gabby Birenbaum]]></dc:creator>
+      <pubDate>Wed, 12 Aug 2026 20:21:21 +0000</pubDate>
+      <category><![CDATA[Politics]]></category>
+      <category><![CDATA[Big Bend]]></category>
+      <category><![CDATA[Big Bend National Park]]></category>
+      <category><![CDATA[border]]></category>
+      <category><![CDATA[elections]]></category>
+      <category><![CDATA[Ken Paxton]]></category>
+      <category><![CDATA[Well B Homepage]]></category>
+      <guid isPermaLink="false">https://www.texastribune.org/?p=239700</guid>
+      <description><![CDATA[The attorney general’s campaign said he wants strong border security that considers Big Bend’s “unique characteristics” — but did not say whether he supports building a wall there.<img src="https://feeds.texastribune.org/link/16799/17416611.gif" height="1" width="1"/>]]></description>
+      <thumbnail_position>default</thumbnail_position>
+      <media:content type="image/jpeg" url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260524-Big-Bend-Aerials-KG-59.jpg?fit=1024%2C683&amp;ssl=1">
+        <media:description><![CDATA[Viewed from an airplane, the Rio Grande cuts through an area known as “the badlands” over Lajitas on May 24, 2026. The Lajitas Golf Course, also known as &quot;Black Jack&#039;s Crossing,&quot; is visible in the bottom right corner.]]></media:description>
+        <media:thumbnail url="https://i0.wp.com/www.texastribune.org/wp-content/uploads/2026/08/20260524-Big-Bend-Aerials-KG-59.jpg?fit=1024%2C683&amp;ssl=1" width="1024" height="683"/>
+        <media:credit><![CDATA[Kaylee Greenlee for The Texas Tribune]]></media:credit>
+      </media:content>
+      <post-id xmlns="com-wordpress:feed-additions:1">239700</post-id>
+    </item>
+  </channel>
+</rss>

@@ -357,10 +357,10 @@ def test_corpus_lifecycle_agreement_loads_fine() -> None:
 
 
 def test_the_real_config_parses_its_need_to_know_section() -> None:
-    """Ships present but off until Step 38, with Q7's values distinct from Q5's and Q6's."""
+    """Enabled as of Step 38, with Q7's values distinct from Q5's and Q6's."""
     config = load_config(REAL_CONFIG)
     assert config.need_to_know is not None
-    assert config.beats.get("need_to_know") is False
+    assert config.beats.get("need_to_know") is True
     assert config.news is not None
     floor = config.need_to_know.corroboration.floor
     assert floor != config.retrieval.similarity_floor

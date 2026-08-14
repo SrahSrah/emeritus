@@ -148,7 +148,6 @@ def run_pipeline(
     # path indexes into it afterwards. Opening it twice would mean two vector schemas.
     ledger_conn = None
     retriever = None
-    corpus_conn = None
     if config.retrieval.enabled:
         try:
             from forecaster.memory.retrieval import LedgerRetriever, StaticEmbedder
@@ -170,19 +169,48 @@ def run_pipeline(
                 file=sys.stderr,
             )
 
-    # FR-23. A **separate** file from the ledger, opened only when the news beat is on.
-    # It shares the run's one embedder, so the model loads once.
-    if config.news is not None and config.beats.get("news", False):
+    # FR-23/FR-32. A **separate** file from the ledger, opened for every enabled
+    # document-shaped beat — one whose config section carries a `corpus` block. The
+    # shipped default has both such beats naming the same file (one connection, shared);
+    # distinct paths get distinct connections, and every beat shares the run's one
+    # embedder so the model loads once. A beat's section is found by its own name
+    # (`config.news`, `config.need_to_know`), so this block never needs editing for the
+    # next document-shaped beat.
+    corpus_conns: dict[str, Any] = {}
+
+    def _corpus_path_for(beat_name: str) -> str | None:
+        section = getattr(config, beat_name, None)
+        section_corpus = getattr(section, "corpus", None)
+        if section_corpus is None:
+            return None
+        return str(corpus_path) if corpus_path is not None else str(section_corpus.path)
+
+    document_beats = [
+        name
+        for name, on in config.beats.items()
+        if on and _corpus_path_for(name) is not None
+    ]
+    if document_beats:
         try:
             from forecaster.memory import corpus as corpus_module
             from forecaster.memory.retrieval import StaticEmbedder
 
             if embedder is None:
                 embedder = StaticEmbedder(config.retrieval.model)
-            corpus_conn = corpus_module.connect(corpus_path or config.news.corpus.path)
+            for name in document_beats:
+                path = _corpus_path_for(name)
+                key = str(Path(path).resolve())
+                if key not in corpus_conns:
+                    corpus_conns[key] = corpus_module.connect(path)
         except Exception as exc:  # noqa: BLE001 - FR-18 turns this into an honest line
-            corpus_conn = None
-            print(f"news corpus unavailable ({exc})", file=sys.stderr)
+            corpus_conns = {}
+            print(f"article corpus unavailable ({exc})", file=sys.stderr)
+
+    def _corpus_for(beat_name: str) -> Any:
+        path = _corpus_path_for(beat_name)
+        if path is None:
+            return None
+        return corpus_conns.get(str(Path(path).resolve()))
 
     # Computed before the trace is opened, so tonight's own file isn't "the last run".
     skipped = missed_slots(last_run_at(trace_dir), moment, config.run.send_time)
@@ -228,7 +256,7 @@ def run_pipeline(
                 trace=trace,
                 http_client=client,
                 embedder=embedder,
-                corpus=corpus_conn,
+                corpus=_corpus_for(entry.beat),
                 agent_client=agent_client,
             )
             result = run_beat_safely(beat, context)
@@ -293,8 +321,8 @@ def run_pipeline(
             client.close()
         if ledger_conn is not None:
             ledger_conn.close()
-        if corpus_conn is not None:
-            corpus_conn.close()
+        for connection in corpus_conns.values():
+            connection.close()
 
     return report
 

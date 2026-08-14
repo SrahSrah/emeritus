@@ -14,8 +14,7 @@ run_window_end = "08:00"
 astros = true
 weather = true
 news = true
-# Off until the beat class lands (Step 38).
-need_to_know = false
+need_to_know = true
 
 [location]
 city = "Austin"

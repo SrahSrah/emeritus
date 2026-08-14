@@ -34,8 +34,8 @@ log**, repair this file, and say so.
 |---|---|---|---|---|
 | 35 | `[need_to_know]` config schema + TTL-equality rule | **done** | `23660d1` | 467 tests (+12). `[need_to_know]` optional like `[news]`; chunking/corpus/feeds parsing extracted into shared `_parse_*` helpers (news error messages unchanged, asserted by the existing suite). TTL rule fires only with both sections present. `need_to_know = false` until Step 38. |
 | 36 | Shared-corpus co-tenancy proof | **done** | `66c8ac0` | 470 tests (+3). No production change needed, as predicted — corpus.py is already url-keyed and path-agnostic. `_entry` helper gained a `source` kwarg. Purge proven cutoff-only and idempotent across tenants. |
-| 37 | Corroboration counter | **done** | — | 478 tests (+8). Probe is the stored ordinal-0 vector read back from vec0 — nothing re-embedded, no embedder param. Same-source and same-url excluded; source-list scoping proven against an AI-beat tenant. Schema-guard test asserts the SCHEMA string gained no identity storage. |
-| 38 | `NeedToKnowBeat` + silence accounting + fixtures | todo | — | |
+| 37 | Corroboration counter | **done** | `678bbe6` | 478 tests (+8). Probe is the stored ordinal-0 vector read back from vec0 — nothing re-embedded, no embedder param. Same-source and same-url excluded; source-list scoping proven against an AI-beat tenant. Schema-guard test asserts the SCHEMA string gained no identity storage. |
+| 38 | `NeedToKnowBeat` + silence accounting + fixtures | **done** | — | 489 tests (+11). Real fixtures captured for all four feeds; Texas Tribune article + robots captured; **NPR timed out the article fetch twice** — expect summary fallbacks from it in production, like OpenAI on the AI beat. cli corpus block generalized: any enabled beat whose config section has a `corpus` block gets a connection, keyed by resolved path (shared path = one connection). Coverage test satisfied with real fixtures. Seam verified: no edit to planner/synthesizer/delivery. Suite slowed to ~75s (ntk tests index ~560 real chunks per run). |
 | 39 | Observation metric checker + CLI | todo | — | |
 
 ## Log
