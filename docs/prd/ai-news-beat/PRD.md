@@ -289,6 +289,54 @@ Module 3 named and the one Checkpoint 3 promised to demonstrate next.
     one of them.
   - **Touches:** `forecaster/trace.py`, `forecaster/cli.py`
 
+- **FR-30 — Item-level provenance quarantine (narrows FR-11)** `[MVP]`
+  - **Recorded retroactively 2026-08-14.** This requirement shipped 2026-08-04 (PR #6, `25184f6`,
+    Sarah's call during the first live news runs) without ever being written into a spec — it was
+    logged in STATUS.md and DIVERGENCES row 8 at the time, but no PRD carried it until now. The text
+    below describes what shipped, written from `synthesizer.py`, `trace.py`, and
+    `tests/test_item_quarantine.py`, not from intent. FR-30 is the last number this spec owns; FR-31
+    onward are claimed by the need-to-know news spec.
+  - **Requirement:** A provenance violation the checker can pin to **one item** costs that item, not
+    the night. The item-level kinds are exactly `ungrounded_number`, `ungrounded_quote` (FR-26's two
+    cases), and `ungrounded_item` (a synthesized item that points at no observation at all); each
+    carries the offending item's text, and only items declaring `text_origin = "synthesized"` can
+    produce one, so the two structured beats cannot be quarantined. When a composed digest's
+    provenance report contains item-level violations **and nothing else**, the synthesizer, instead
+    of raising: (a) withholds each pinned item, recording an `item_quarantined` trace decision that
+    carries the full detail and the exact item text; (b) recomposes the digest **exactly once**,
+    with a withholding notice per item that names the beat and the kind of failure but **never
+    repeats the ungrounded words** — echoing the unverifiable phrase inside the notice would put it
+    in front of the reader anyway, so the specifics go to the trace only; (c) re-runs
+    `check_provenance` with the withheld texts passed as `excluded_items` — an item the reader was
+    never shown states nothing to them — and records the second verdict as `provenance_rechecked`.
+    Any violation that is *not* item-level (an unsupported or altered checkable field, a failed beat
+    missing from the digest, an unnamed failed source), alone or mixed in, still fails the run
+    outright, because nothing smaller can be dropped to fix it. If the single recomposition still
+    fails, the run fails.
+  - **Why this narrows FR-11 rather than weakening it:** the motivating failure was one punctuation
+    mark inside one quotation in one news item costing the Astros score, the forecast, and the entire
+    night's digest — and FR-18's whole position is that going quiet is worse than saying less. The
+    guarantee is unchanged: nothing unverifiable reaches the reader, and every withholding is named.
+    The one-recomposition cap is load-bearing — a loop that kept dropping items until something
+    passed would be a machine for producing an empty, confident digest.
+  - **Acceptance:** Done — asserted by `tests/test_item_quarantine.py`, shipped in the same change:
+    (i) of two news items with one ungrounded, the grounded item is delivered, the ungrounded one is
+    absent, and the final report is clean; (ii) the digest names the withholding and the beat;
+    (iii) the `item_quarantined` decision carries the offending value and the verbatim item text;
+    (iv) both `provenance_checked` and `provenance_rechecked` appear in the trace; (v) an unsupported
+    checkable field still raises `ProvenanceError`; (vi) when every item is ungrounded, every one is
+    withheld and each withholding is named; (vii) a client that fabricates on every call is called
+    exactly twice — one composition, one recomposition, no more; (viii) `check_provenance` with
+    `excluded_items` passes over a trace it fails without them, with an explanatory note; (ix) a
+    structured weather item quarantines nothing; (x) the withholding notice does not echo the
+    ungrounded phrase while the trace record keeps it in full.
+  - **Touches:** `forecaster/synthesizer.py`, `forecaster/trace.py`, `tests/test_item_quarantine.py`
+  - **Cross-reference:** DIVERGENCES row 8 records this as one of four narrowings of the provenance
+    check made before any checkpoint mentions them, and its constraint binds writing about this
+    requirement: a checkpoint may say the guarantee held; it may not yet say the guarantee was
+    tested, because nothing has yet tried to fabricate and been caught in the wild. FR-29's metric
+    reads a run's **final** provenance verdict, which after a quarantine is the recheck (PR #8).
+
 ## 6. Technical & data notes
 
 - **Source decision (Sarah, 2026-08-04): RSS discovery plus article-body fetch.** Free, keyless, no
@@ -484,3 +532,7 @@ Downstream must not invent answers to these.
   article-body fetch; no paid API, since none returns full article text). Item shape and grounded-summary
   provenance case also chosen by Sarah. FR-27 added during drafting after finding that FR-19's first
   invariant inverts for a document-shaped beat.
+- **v2 — 2026-08-14:** FR-30 recorded retroactively, ten days after it shipped (2026-08-04, PR #6,
+  `25184f6`). The requirement was Sarah's call during the first live news runs and went straight to
+  code; STATUS.md and DIVERGENCES row 8 carried it, no spec did. Written from the shipped code and
+  tests. No other section changed, and nothing was renumbered.
