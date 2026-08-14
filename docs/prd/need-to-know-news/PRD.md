@@ -1,4 +1,4 @@
-# PRD: Need-to-know news beat — observation first, the bar deferred
+# PRD: Need-to-know news beat — observation first, then the bar
 
 **Project:** emeritus (capstone) · **Status:** Draft · **Feature ID:** `need-to-know-news` · **Target path:** `forecaster/forecaster/beats/need_to_know.py`
 
@@ -40,6 +40,16 @@ from a taste argument into a decision made from data — which is this project's
 applied to its own design process. When Q2 is answered, FR-36 unblocks and the beat starts
 delivering; nothing built here is thrown away.
 
+**Amended 2026-08-14, same day — Q2 is answered for this beat.** Sarah decided by structured
+interview (eight decisions, recorded verbatim in §9 Q2) rather than waiting for the distribution
+data: the FR-9b split transfers to importance. Mechanical gates narrow (corroboration ≥ 2
+sources), a model judges, invariants bound the judgment, and the uncertainty default **inverts
+from dedup's**: suppress when unsure, with a mechanical watchlist carve-out that may never be
+suppressed. FR-36 is therefore no longer a placeholder — it and FR-37 … FR-40 spec the bar as
+buildable v5 requirements. The observation substrate (v4) still builds first and keeps measuring:
+the *mechanism* is now decided, but every number in it remains reasoned-not-measured (§9 Q1), and
+FR-35's distribution is what eventually tunes them.
+
 ## 2. Goal & success metric
 
 - **Goal:** Nightly, for every in-window story candidate from the configured general-news sources,
@@ -65,16 +75,33 @@ delivering; nothing built here is thrown away.
     recorded development concession (DIVERGENCES row 9), and only HUMAN-TODO ④ can produce real
     nights. No checkpoint may present accumulated evidence it does not have.
 
-Deliberately **not** a metric: anything about what *should* have cleared a bar. There is no bar.
-Also not a metric: the corroboration thresholds themselves — this feature generates the evidence
-for setting them; it does not set them (§9 Q1).
+Deliberately **not** a metric: anything about what *should* have cleared a bar. There is no bar
+in v4. Also not a metric: the corroboration thresholds themselves — this feature generates the
+evidence for setting them; it does not set them (§9 Q1).
+
+- **Amended 2026-08-14 — v5 (the bar) adds three conditions**, same trace-only standard:
+  - **(d) No unaccounted judgment.** Every candidate that reached the bar phase ends in exactly one
+    recorded outcome — `delivered`, `ntk_suppressed` (with the model's stated reason),
+    `ntk_deferred` (FR-39, naming the beat that carried it), or `ntk_judgment_unavailable` — and
+    the pulse line's counts (FR-38) match the outcome tally. The FR-25/FR-26 attribution and
+    grounded-prose conditions apply unchanged to any delivered item, since its text is
+    model-written.
+  - **(e) The carve-out held.** Zero watchlist-hit candidates with a `ntk_suppressed` or
+    `ntk_deferred` outcome, ever. A single violation fails the metric — this is the beat's FR-19
+    analogue.
+  - **(f) Calibration band, report-only.** Rolling delivering-nights per 14 reported against
+    Sarah's target of **2–3**. Explicitly not pass/fail: a genuinely loud or quiet fortnight is
+    reality, not a bug. Drifting outside the band is the signal to retune the gate and floor from
+    FR-35's distribution — with evidence, per §9 Q1.
 
 ## 3. Users & job-to-be-done
 
 One user: Sarah. The eventual job is "interrupt me only for the rare story I would regret not
-knowing." The job of *this increment* is narrower: "measure my sources so the bar, when I set it,
-is set from evidence." The subordinate capstone job: demonstrate that when a design question is
-open, the honest move is to instrument first and decide second — the same posture as §9 Q5/Q6.
+knowing." The job of the v4 increment is narrower: "measure my sources so the bar's numbers can be
+tuned from evidence." The subordinate capstone job: demonstrate that when a design question is
+open, the honest move is to instrument first and decide deliberately — as of 2026-08-14 the bar's
+*mechanism* is decided (by interview, §9 Q2) while its *numbers* stay measurement-owned (§9 Q1),
+and keeping those two apart is itself the design lesson worth writing about.
 
 ## 4. Scope
 
@@ -90,28 +117,34 @@ open, the honest move is to instrument first and decide second — the same post
   stored identity.
 - Positive trace accounting for quiet nights, and a metric checker over it.
 - Per-source failure handling via the shipped FR-28 path — unavailability status lines are the
-  **only** digest items this beat may produce in this increment.
+  **only** digest items this beat may produce in the v4 increment.
+
+**In scope as of the 2026-08-14 amendment (v5 — the bar):**
+
+- The importance judgment, FR-9b-split shape, suppress-when-unsure (FR-36).
+- A config-owned watchlist whose hits bypass the gate and the judgment and escalate via a new
+  deterministic FR-10 rule (FR-37) — rules-based, so escalation itself stays rules-only.
+- A nightly provenance-checked pulse line on quiet nights (FR-38).
+- One-way cross-beat deferral — this beat stays quiet about a story another beat already carries
+  (FR-39) — and the calibration band in the metric (FR-40).
+- Model calls, therefore, in v5 only. v4 still makes **zero**, and any v5 delivered item is
+  model-written, so FR-26 and FR-27 engage for it unchanged.
 
 **Out of scope / non-goals:**
 
-- **The bar, and all delivery.** Blocked on parent §9 Q2. See FR-36 — written as the decision
-  Sarah must make, not as a requirement anyone can build.
-- **Within-run cross-item dedup.** FR-9b compares candidates against the *ledger* (previous
-  nights) and has no concept of two items in the same run covering one story — observed live
-  2026-08-13, when two topics both wrote up the same Anthropic finding and the *model* patched it
-  in prose. This beat's overlapping feeds make that gap worse once it delivers, but the fix (pass
-  the run's already-kept items to `assess_item` as extra neighbours, reusing every FR-19 invariant)
-  is a defect fix for the beat that is live *today*, and coupling it to a Q2-blocked feature would
-  delay it. **Decision: its own small increment, sequenced independently.** This spec's FR-36
-  depends on it having landed.
-- **Story clustering / grouping.** Deciding which of five same-story articles is the
-  representative belongs with delivery (FR-36). The counter records per-article counts and stores
-  no identity, consistent with §9 Q3's answer.
-- **A personal watchlist.** Mechanically checkable, but what a match should *do* (bypass the bar?
-  escalate?) is Q2-shaped. §9 Q4.
-- **Model calls.** This increment makes **zero** — the whole beat is mechanical, so FR-26/FR-27
-  never engage and the nightly token cost of the increment is nil.
-- **Escalation, threshold tuning, paid or key-requiring sources.**
+- **Within-run cross-item dedup (same-beat).** FR-9b compares candidates against the *ledger*
+  (previous nights) and has no concept of two items in the same run covering one story — observed
+  live 2026-08-13, when two topics both wrote up the same Anthropic finding and the *model*
+  patched it in prose. The fix (pass the run's already-kept items to `assess_item` as extra
+  neighbours, reusing every FR-19 invariant) is a defect fix for the beat that is live *today*,
+  and is **its own small increment, sequenced independently** (in progress 2026-08-14). FR-36 and
+  FR-39 depend on it: same-beat within-run dedup is also what collapses five same-story articles
+  into one delivered representative, so this spec adds no separate clustering mechanism and still
+  stores no identity, consistent with §9 Q3's answer.
+- **Answering Q2 for escalation generally.** The watchlist rule is deterministic and *consistent
+  with* rules-only escalation; whether judgment ever enters escalation stays open at the parent.
+- **Threshold tuning** — every number below is a reasoned starting value with a measuring
+  instrument attached, not a tuned one (§9 Q1) — and **paid or key-requiring sources.**
 
 ## 5. Functional requirements
 
@@ -212,26 +245,112 @@ open, the honest move is to instrument first and decide second — the same post
     pass.
   - **Touches:** `forecaster/ntk_metric.py` (or a sibling module in the same shape), `forecaster/cli.py`
 
-- **FR-36 — The bar, and delivery** `[Later]` — **blocked on parent §9 Q2; do not build**
-  - **What it will owe when unblocked:** the importance decision itself; story grouping and
-    representative selection; the quiet-night digest line ("nothing cleared the bar tonight,"
-    with its counts provenance-checked, so quiet-vs-broken becomes inbox-visible and not just
-    trace-visible — Checkpoint 3's own words name this failure: *"a beat that never went out
-    looks, in my inbox, exactly like a slow night"*); cross-beat overlap precedence with the AI
-    news beat (§9 Q3); and FR-26/FR-27 engagement the moment any item text is model-written.
-  - **The blocker, stated precisely:** "the bar is higher than the daily drudgery" is a judgment
-    about importance. FR-9b resolved the same rules-vs-judgment tension for *dedup* by splitting
-    it — retrieval narrows mechanically, a model judges, invariants bound the judgment — and that
-    split is shipped, tested precedent. Whether it transfers to importance is untested and is
-    Sarah's call, for a reason the dedup case did not have: dedup's uncertainty default is
-    settled ("when uncertain, include — repeating is a smaller error than withholding"), and for
-    importance the default *inverts and has no backstop either way*. Include-when-uncertain
-    rebuilds the drudgery feed the beat exists to suppress; suppress-when-uncertain silently
-    drops the one story that mattered, and with social media gone there is no second channel to
-    catch it. Corroboration alone cannot substitute: wire syndication means ordinary stories are
-    multi-source *by construction* (§8), so a pure count is a weak bar — how weak is exactly what
-    FR-33/FR-35's distribution measures. This FR stays unbuildable until Q2 is answered; if a
-    build step appears to need an answer, stop and surface it.
+> **The v5 requirements below were unblocked on 2026-08-14, the day this spec first marked them
+> `[Later]`.** The original FR-36 placeholder laid out the Q2 blocker and the costs of each
+> uncertainty default; Sarah answered by structured interview the same day (decisions recorded in
+> §9 Q2) rather than waiting for FR-35's distribution. The blocker text is preserved in git and
+> summarized in §9; what follows is the buildable form. **Sequencing:** v5 builds only after v4
+> *and* the within-run dedup increment have landed.
+
+- **FR-36 — Importance judgment (the FR-9b split, transferred)** `[MVP — v5]`
+  - **Requirement:** A candidate that passes the mechanical gate — corroboration count from FR-33
+    at or above `corroboration.min_sources` (2) — and is not a watchlist hit (FR-37 delivers
+    those without consulting anyone) is assessed by the injected agent client against Sarah's
+    definition of the bar, which lives in config as two plain-language lists interpolated into
+    the system prompt: `bar.deliver` (local/personal safety for Austin and Texas; national and
+    world emergencies; market and economy shocks) and `bar.exclude` (election outcomes; deaths of
+    public figures — **deliberate exclusions, decided 2026-08-14**, so the prompt names them
+    rather than leaving them to inference). The verdict is DELIVER or PASS with a one-sentence
+    reason, and the system prompt states the inverted default: **when uncertain, PASS** — for
+    this beat, repeating the drudgery is the larger error, the opposite of dedup's rule.
+    Invariants are enforced **around** the model, per FR-19's doctrine: (i) a watchlist hit never
+    reaches this judgment; (ii) a judgment failure degrades to **named abstention, not include**
+    — nothing is delivered, and the FR-38 pulse line states how many candidates went unassessed
+    and why. This deliberately inverts FR-19 invariant (d): include-on-failure is safe for dedup
+    (worst case, a repeat) and unsafe here (worst case, the feed Sarah quit), and what makes the
+    inversion honest is that the abstention is never silent; (iii) every verdict, reason, and
+    outcome is traced (§2(d)). A delivered item's text is written by the model from the
+    candidate's own chunks only, declares `text_origin = "synthesized"` with topicless `fields`
+    per FR-27, and links every grounding chunk observation — FR-26 and FR-27 govern it with zero
+    modification.
+  - **Acceptance:** Done when, over fixtures with `FakeAgentClient`: a gate-passing candidate
+    judged DELIVER yields an item whose observations all resolve and whose text passes FR-26; one
+    judged PASS yields an `ntk_suppressed` decision carrying the model's reason and no item; a
+    candidate below the gate never reaches the client, asserted on call count; a client that
+    raises yields zero delivered items, an `ntk_judgment_unavailable` decision, and a pulse line
+    naming the unassessed count; and the bar lists are read from config, asserted by running the
+    same fixtures under two configs and observing the prompt change.
+  - **Touches:** `forecaster/beats/need_to_know.py`, `config.toml`
+
+- **FR-37 — Watchlist carve-out (mechanical, and rules-only escalation)** `[MVP — v5]`
+  - **Requirement:** `[need_to_know.watchlist] terms` is a config-owned list (seeded: Austin,
+    Texas, ERCOT, Austin Water, boil notice, evacuation, grid emergency), matched
+    case-insensitively as whole words against a candidate's headline and first chunk. A hit
+    **bypasses the corroboration gate and the FR-36 judgment entirely** — a story only Texas
+    Tribune carries still delivers — and sets `escalation_candidate = True` with a reason naming
+    the matched term, promoted by a new deterministic rule id `need_to_know_watchlist` in
+    `[escalation] rules`. This adds no judgment surface to escalation: the rule is as mechanical
+    as `freeze_alert`, so parent §9 Q2 *for escalation* stays untouched. Ledger dedup can never
+    suppress these items on later nights — FR-19 invariant 2 (escalation candidates are never
+    suppressed) already guarantees it, unmodified. The item text is still model-written from
+    chunks and FR-26-checked; the carve-out constrains suppression, never phrasing.
+  - **Acceptance:** Done when a fixture in which only one configured source carries a
+    watchlist-matching story produces a delivered, escalated item at the top of the ordered
+    digest with the matched term in the trace and the bar judgment never consulted (call count
+    zero for that candidate); the same story with the term absent is gated out; matching is
+    case-insensitive and whole-word ("ERCOT" matches, "supercot" does not); and §2(e) passes over
+    the run.
+  - **Touches:** `forecaster/beats/need_to_know.py`, `forecaster/escalation.py` (a new rule id —
+    editable; the FR-2 seam names `planner.py`, `synthesizer.py`, `delivery/`), `config.toml`
+
+- **FR-38 — Quiet-night pulse line** `[MVP — v5]`
+  - **Requirement:** On any run where the beat is available and delivers zero story items, it
+    emits exactly one code-assembled status item: *"Nothing cleared the need-to-know bar tonight
+    (N stories watched, max corroboration M)."* — with N and M copied from the run's own trace
+    tallies and declared in `checkable_fields`, so FR-11's existing support check polices them;
+    and with an `as_of` date in `fields`, so FR-19's date rule makes the line reframe-only, same
+    as the shipped failed-source lines. When FR-36's judgment was unavailable, the line instead
+    names the abstention and the unassessed count. This is what makes quiet-vs-broken
+    **inbox-visible** — Checkpoint 3's own complaint: *"a beat that never went out looks, in my
+    inbox, exactly like a slow night."*
+  - **Acceptance:** Done when a quiet fixture yields exactly one pulse item whose N and M equal
+    the trace tallies and pass provenance; a delivering fixture yields no pulse line; a
+    judgment-outage fixture yields the abstention wording; and the pulse line survives a
+    cosine-similar prior night's pulse line as a reframe, never a suppression.
+  - **Touches:** `forecaster/beats/need_to_know.py`
+
+- **FR-39 — Cross-beat deferral, one-way** `[MVP — v5]` — **depends on the within-run dedup increment**
+  - **Requirement:** A need-to-know candidate that cleared FR-36 is additionally assessed against
+    the run's **already-kept items from other beats** before delivery, by handing them to
+    `assess_item` as extra neighbours — the same-beat within-run mechanism extended, for this
+    beat only and in one direction only (no other beat ever sees need-to-know candidates as
+    neighbours). If the model judges it adds nothing over, say, the AI beat's Anthropic item, the
+    outcome is `ntk_deferred`, and the trace decision must name the covering beat and item. Every
+    FR-19/FR-27 bound applies unchanged — in particular FR-27's veto means a candidate carrying a
+    figure or entity the other beat's item lacks is force-reframed and still delivers, leading
+    with what is new. That is correct, not a leak: deferral means "already covered," and a story
+    with uncovered facts is not covered.
+  - **Acceptance:** Done when a fixture where the news beat kept an item and the need-to-know
+    candidate restates it with no new grounded values yields `ntk_deferred` naming the news beat
+    and no duplicate in the digest; the same candidate carrying one new figure delivers as a
+    forced reframe; and a run where the news beat is disabled assesses the candidate against
+    nothing and delivers it, proving the one-way coupling is optional at runtime.
+  - **Touches:** `forecaster/synthesizer.py` (the FR-9b dedup pass — this is dedup-machinery
+    change riding with this feature, **not** a beat-registration edit; the FR-2 seam test
+    concerns adding a beat, and FR-9b/FR-11 precedent is that dedup changes touch the
+    synthesizer legitimately), `forecaster/memory/dedup.py`
+
+- **FR-40 — Bar-phase metric and calibration band** `[MVP — v5]`
+  - **Requirement:** The FR-35 checker grows §2's (d), (e), and (f). The calibration band —
+    delivering nights per rolling 14, target **2–3** (Sarah, 2026-08-14) — is **report-only** and
+    carries the same honesty posture as `TARGET_NIGHTS`: the report states how many real nights
+    back the window, and that drift outside the band is a retuning signal for
+    `corroboration.min_sources` and `corroboration.floor` against FR-35's distribution, never an
+    automatic adjustment.
+  - **Acceptance:** Done when the checker passes a fixture trace set satisfying (d)–(f); returns
+    the specific failing condition for a fixture violating each of (d) and (e); and reports —
+    without failing — a fixture set whose delivery rate sits outside the band.
+  - **Touches:** `forecaster/ntk_metric.py`, `forecaster/cli.py`
 
 ## 6. Technical & data notes
 
@@ -260,13 +379,18 @@ open, the honest move is to instrument first and decide second — the same post
 
 - **Config:** own `[need_to_know]` section mirroring `[news]`'s shape (user agent, politeness,
   `min_body_chars`, chunking, corpus path + TTL, corroboration `window_days` and `floor`). No
-  `topics` array — this beat has none — and **no `min_sources` knob**: nothing in this increment
-  consumes a bar-shaped value, and shipping one would be inventing the bar through config.
-  Proposed reasoned (not measured) values: `corroboration.window_days = 2` (a story being carried
-  *now* is the signal; the corpus TTL is retention, not identity), `corroboration.floor = 0.55` —
-  between Q5's 0.60 (delivered line vs. delivered line) and Q6's 0.35 (short query vs. long
-  chunk), because same-story summaries from two outlets are near the line-vs-line case. Both
-  flagged §9 Q1.
+  `topics` array — this beat has none. Proposed reasoned (not measured) values:
+  `corroboration.window_days = 2` (a story being carried *now* is the signal; the corpus TTL is
+  retention, not identity), `corroboration.floor = 0.55` — between Q5's 0.60 (delivered line vs.
+  delivered line) and Q6's 0.35 (short query vs. long chunk), because same-story summaries from
+  two outlets are near the line-vs-line case. Both flagged §9 Q1.
+  - *v4 as originally written shipped no `min_sources` knob — nothing consumed a bar-shaped value,
+    and shipping one would have been inventing the bar through config.* **Amended 2026-08-14:**
+    with the bar decided, v5 adds exactly the values Sarah set, all still reasoned-not-measured:
+    `corroboration.min_sources = 2` (the FR-36 gate), `[need_to_know.watchlist] terms` (seed list
+    in FR-37 — Sarah's to edit, like the news topics), and `[need_to_know.bar]` `deliver` /
+    `exclude` plain-language lists (her categories, in config rather than hardcoded into a prompt,
+    for the same reason the topics are: taste is config, not code).
 
 - **Embeddings:** the same injected `StaticEmbedder` instance, loaded once per run. The suite
   keeps `HashingEmbedder`, with the standing fixture-construction constraint (assert membership
@@ -315,41 +439,89 @@ open, the honest move is to instrument first and decide second — the same post
   expect a DIVERGENCES row when this ships.
 - **Copyright posture:** inherited unchanged from the AI beat's §8 — personal, single-inbox,
   robots-respecting, rate-limited, TTL-bounded, sources named.
+- **Escalation fatigue (new with FR-37).** The watchlist rule joins `freeze_alert` and the dormant
+  injury rule, and the parent's warning applies verbatim: escalating everything is the same as
+  escalating nothing. An over-broad term ("Texas" alone will match constantly in a corpus that
+  includes the Texas Tribune) makes the carve-out fire nightly, which floods both the top of the
+  digest *and* the bar bypass. The seed list must be specific (systems and event terms, not bare
+  geography), §2(e)'s tally makes fire frequency visible, and the first two weeks deserve a look.
+- **The suppress-default has no backstop, by choice.** Sarah chose suppress-when-unsure knowing a
+  wrongly passed story has no second channel. The watchlist bounds the worst case for the classes
+  she named; for everything else, the trace records every PASS with its reason, so a miss is at
+  least auditable after the fact. Named here so no later checkpoint discovers it as a surprise.
+- **Judgment abstention inverts FR-19(d), deliberately.** A judgment outage suppresses rather than
+  includes (FR-36 invariant ii). The inversion is safe only because it is loud — the pulse line
+  names the abstention in the inbox itself. If FR-38 ever regresses to silence, this becomes the
+  exact failure FR-18 exists to prevent; the §2(d) accounting is what guards that.
+- **Deferral can still near-duplicate.** FR-39's FR-27 veto force-reframes a candidate carrying
+  any new grounded value, so a reader may occasionally see an important story twice in different
+  framings. Correct-side error, consistent with the project's stated position that repeating beats
+  going quiet — recorded so it reads as designed, not broken.
 
 ## 9. Open questions
 
 Downstream must not invent answers to these.
 
-1. **Q1 (new) — corroboration thresholds are unmeasured.** `floor = 0.55`, `window_days = 2` are
-   reasoned above and validated by nothing. A sibling of parent Q5 and child Q6 — a third,
-   distinct retrieval problem (same-story chunk vs. chunk, cross-outlet) with its own natural
-   floor. The distribution FR-35 accumulates is the instrument for measuring it. Recorded in the
-   parent as §9 Q7. No checkpoint may describe any of the three sets as tuned.
-2. **Parent §9 Q2 — rules vs judgment — is this beat's blocker, not just an inherited note.**
-   FR-36 is the first requirement in the project that cannot be written at all without it. The
-   costs of each answer are laid out in FR-36; the call is Sarah's.
-3. **Cross-beat overlap.** An Anthropic story can legitimately clear both beats once this one
-   delivers. Which beat carries it, and does the reader ever see it twice? Deferred with FR-36;
-   the within-run dedup fix is the natural substrate, and extending it across beats is new
-   semantics (FR-9b retrieval is same-beat by design) that should not be built speculatively.
-4. **A personal watchlist as a second gate.** Entity matching is mechanical, but its *effect* is
-   not: bypass-the-bar and escalate are both Q2-shaped powers. Unspecced until Q2.
+1. **Q1 — the numbers are unmeasured, and the interview added more of them.** `floor = 0.55` and
+   `window_days = 2` are reasoned and validated by nothing — a sibling of parent Q5 and child Q6,
+   a third distinct retrieval problem (same-story chunk vs. chunk, cross-outlet) with its own
+   natural floor. Recorded in the parent as §9 Q7. **2026-08-14:** `min_sources = 2` and the 2–3
+   nights/fortnight band join this list — they are Sarah's *targets*, chosen by interview, which
+   settles what to aim at but measures nothing. FR-35's distribution and FR-40's band report are
+   the instruments. No checkpoint may describe any of these as tuned.
+2. ~~**Parent §9 Q2 — rules vs judgment — is this beat's blocker.**~~ **Answered for this beat,
+   2026-08-14, by Sarah (structured interview, eight decisions):** the FR-9b split transfers to
+   importance — mechanical gates narrow, a model judges, invariants bound it. Uncertainty default:
+   **suppress**, inverted from dedup, with a mechanical watchlist carve-out that may never be
+   suppressed (bypass gate + judgment, escalate via a deterministic rule). Calibration target: 2–3
+   delivering nights per 14. Bar categories: local/personal safety (Austin/Texas), national and
+   world emergencies, market/economy shocks; **elections outcomes and major-figure deaths
+   deliberately excluded**. Quiet nights get a one-line provenance-checked pulse. Overlap: this
+   beat defers, one-way. — Note the scope of the answer: Q2 *for escalation generally* remains
+   open at the parent; FR-37's escalation contribution is deterministic precisely so this answer
+   does not leak into that one.
+3. ~~**Cross-beat overlap.**~~ **Answered 2026-08-14 (same interview): need-to-know defers,
+   one-way.** FR-39 specs it on top of the within-run dedup mechanism; no other beat ever treats
+   this beat's candidates as neighbours.
+4. ~~**A personal watchlist as a second gate.**~~ **Answered 2026-08-14 (same interview): bypass
+   the bar and escalate**, as a config-owned term list and a deterministic rule. FR-37. The
+   escalation-fatigue risk this creates is named in §8.
+5. **Q5 (new) — how long does a suppressed story stay suppressed?** Inherited shape from the AI
+   beat's §9 Q4, sharper here: a story the bar PASSes on night one may grow into need-to-know by
+   night three, and ledger dedup will then see night-three coverage as near night-one's.
+   Resurrection is a judgment call this spec does not make. The FR-27 veto (new figures and
+   entities force delivery) is the partial mitigation already in place.
 
 ## 10. Phasing
 
-- **v4 (this increment): FR-31 … FR-35.** Five requirements, all mechanical, zero model calls,
+- **v4 (first increment): FR-31 … FR-35.** Five requirements, all mechanical, zero model calls,
   zero digest content beyond FR-28 status lines. Coherent and honest on its own: the beat
-  observes, accounts for its own silence, and accumulates the evidence its one open design
-  question needs.
-- **Sequenced separately, before FR-36:** the within-run dedup fix, as its own small increment
-  against the live AI news beat.
-- **Later: FR-36**, unblocked only by Sarah answering parent §9 Q2 — ideally with FR-35's
-  distribution in hand, which is the point of doing v4 first.
-- **No cut list:** v4 is already the cut. The only smaller increment is a config edit that this
-  spec's §1 argues would not be the feature.
+  observes, accounts for its own silence, and accumulates the evidence the bar's numbers need.
+  Still builds first — the bar being decided does not make the substrate skippable.
+- **Sequenced separately, between v4 and v5:** the within-run dedup fix, as its own small
+  increment against the live AI news beat (in progress 2026-08-14). FR-36 and FR-39 depend on it.
+- **v5 (the bar, unblocked 2026-08-14): FR-36 … FR-40.** Buildable now that §9 Q2 is answered for
+  this beat. The available cut if a checkpoint deadline forces one: ship v5 **without FR-39**
+  (cross-beat deferral) and accept the occasional double-coverage night, recorded as a divergence
+  — FR-39 is the only v5 requirement with an external dependency. FR-37 and FR-38 are not
+  cuttable: without the carve-out the suppress-default has no bound, and without the pulse line
+  the abstention path (FR-36 invariant ii) is silent, which §8 names as the one configuration
+  this design must never be in.
+- **No smaller cut below v4:** the only smaller increment is a config edit that this spec's §1
+  argues would not be the feature.
 
 ## 12. Changelog
 
+- **v2 — 2026-08-14 (later the same day):** The bar decided. Sarah answered §9 Q2 for this beat by
+  structured interview — eight decisions, recorded in §9 Q2 — and FR-36 was rewritten from a
+  blocked placeholder into five buildable requirements (FR-36 … FR-40): the FR-9b split
+  transferred with an inverted suppress-when-unsure default, a watchlist carve-out that bypasses
+  and escalates via a deterministic rule, a provenance-checked quiet-night pulse line, one-way
+  cross-beat deferral, and a report-only 2–3-nights-per-fortnight calibration band. Elections
+  outcomes and major-figure deaths recorded as deliberate exclusions. §2 gained conditions
+  (d)–(f); §8 gained the escalation-fatigue, no-backstop, abstention-inversion, and near-duplicate
+  risks; §9 Q5 (suppression resurrection) added. Every new number is a target, not a measurement —
+  §9 Q1 grew rather than shrank.
 - **v1 — 2026-08-14:** Initial PRD. Framed as an observation increment after establishing (a) the
   beat is real — inverted delivery contract, distinct sources, corroboration machinery — and
   (b) its defining bar is unwritable without parent §9 Q2, which is surfaced, not answered.

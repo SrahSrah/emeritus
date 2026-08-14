@@ -71,11 +71,14 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
       with no change to planner, synthesizer, or delivery:
   - [ ] r/WallStreetBets mention volume
   - [~] "need-to-know" news — **specced 2026-08-14** as
-        [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md), FR-31 … FR-36.
-        v4 is deliberately **observation-only**: reuse the news plumbing over four verified
-        general-news feeds, index into the shared `corpus.db`, compute source-scoped corroboration
-        counts nightly with full provenance, deliver nothing. The bar itself is FR-36 `[Later]`,
-        **blocked on parent §9 Q2** — surfaced, not answered.
+        [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md), FR-31 … FR-40.
+        v4 is **observation-only**: reuse the news plumbing over four verified general-news feeds,
+        shared `corpus.db`, source-scoped corroboration counts with full provenance, deliver
+        nothing. **The bar was decided the same day** (Sarah, structured interview — child §9 Q2):
+        FR-9b split transferred, suppress-when-unsure, watchlist bypass + deterministic escalation,
+        2–3 nights/fortnight calibration band, quiet-night pulse line, one-way cross-beat deferral.
+        v5 = FR-36 … FR-40, buildable after v4 **and** the within-run dedup increment land. All
+        numbers remain reasoned-not-measured (parent §9 Q7).
   - [ ] Austin live music and theatre
 
 ## Likely, but unconfirmed

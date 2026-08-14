@@ -260,7 +260,9 @@ worth writing about each week.
     drudgery") lands directly on §9 Q2, which stays open. The child therefore specs an
     **observation-only** increment (mechanical corroboration counting with full provenance, no
     digest content) and defers the bar as its FR-36, explicitly blocked on Q2. r/WallStreetBets and
-    Austin live music remain `[Later]` here, unspecced.
+    Austin live music remain `[Later]` here, unspecced. *Later the same day, Sarah answered Q2 for
+    this beat by interview and the child's FR-36 … FR-40 spec the bar as buildable v5 — see the
+    child's §9 Q2 and the Q2 note below.*
 
 ## 6. Technical & data notes
 
@@ -321,6 +323,11 @@ Downstream must not invent answers to these.
    open. **Partially informed 2026-08-02:** FR-9b settled the same question for *dedup* by splitting
    it — retrieval narrows mechanically, the model judges, and safety invariants bound what the
    judgment is allowed to do. Whether that split transfers to escalation is untested and still open.
+   **Further narrowed 2026-08-14:** Sarah transferred the split to the need-to-know beat's
+   *importance bar* by structured interview (child PRD §9 Q2), with the uncertainty default
+   deliberately inverted to suppress. Escalation itself remains rules-only — the child's watchlist
+   rule (`need_to_know_watchlist`) is deterministic on purpose, so this question stays open for
+   escalation while now being answered for selection.
 3. ~~**Item identity for the ledger.**~~ **Answered 2026-08-02 by Sarah:** *item identity is not a
    property of an item; it is a relation computed at read time between a candidate and what has
    already been sent.* Hence no identity column, no fingerprint, no content hash — a stored key would

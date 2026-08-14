@@ -114,20 +114,21 @@ These are PRD §9 open questions. The build surfaced them rather than guessing; 
 gates real work.
 
 - [x] **Q3 — item identity for the ledger.** Answered 2026-08-02. FR-9b is built.
-- [ ] **Q2 — rules vs judgment for escalation.** Escalation is still deterministic rules only.
-      FR-9b settled the same tension for *dedup* by splitting it — retrieval narrows
-      mechanically, the model judges, invariants bound the judgment. Whether that split should
-      transfer to escalation is untested and yours to decide. **As of 2026-08-14 this also gates
-      the need-to-know beat's bar** — its FR-36 (importance judgment + delivery) is written as
-      blocked on this question, and the observation increment (FR-31 … FR-35) exists to hand you
-      the corroboration distribution so you can decide it from evidence rather than taste. See
-      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) FR-36 for the costs
-      of each answer.
-- [ ] **Review the need-to-know feed list** in
-      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 before its build.
-      Four feeds verified free and keyless on 2026-08-14: BBC World, NPR News, Al Jazeera, Texas
-      Tribune (the local counterweight). The Guardian blocked the fetch; AP and Reuters have no
-      verifiable open feed. This is your taste, not a design decision.
+- [~] **Q2 — rules vs judgment.** Escalation is still deterministic rules only, and Q2 *for
+      escalation* is still yours to decide. **Answered for the need-to-know beat's importance bar
+      on 2026-08-14** (structured interview, eight decisions — recorded in
+      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §9 Q2): the FR-9b
+      split transfers, suppress-when-unsure, watchlist carve-out, 2–3 nights/fortnight target.
+      The beat's escalation contribution stays deterministic so this answer doesn't leak into the
+      open half.
+- [ ] **Review the need-to-know feed list and watchlist seed terms** in
+      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 and FR-37 before
+      its build. Four feeds verified free and keyless on 2026-08-14: BBC World, NPR News,
+      Al Jazeera, Texas Tribune (the local counterweight); the Guardian blocked the fetch; AP and
+      Reuters have no verifiable open feed. The watchlist seed (ERCOT, Austin Water, boil notice,
+      evacuation, grid emergency…) is the piece worth ten minutes: an over-broad term escalates
+      nightly, and a missing one is a safety story the bar may PASS on. Both are your taste, not
+      design.
 - [ ] **Q5 (new) — validate the retrieval thresholds.** `k = 5`, `similarity_floor = 0.60`,
       `window_days = 14` are reasoned, not measured. After a few weeks of real runs, read the
       traces and tune:
