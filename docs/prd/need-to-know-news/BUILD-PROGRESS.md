@@ -32,8 +32,8 @@ log**, repair this file, and say so.
 
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
-| 35 | `[need_to_know]` config schema + TTL-equality rule | **done** | — | 467 tests (+12). `[need_to_know]` optional like `[news]`; chunking/corpus/feeds parsing extracted into shared `_parse_*` helpers (news error messages unchanged, asserted by the existing suite). TTL rule fires only with both sections present. `need_to_know = false` until Step 38. |
-| 36 | Shared-corpus co-tenancy proof | todo | — | |
+| 35 | `[need_to_know]` config schema + TTL-equality rule | **done** | `23660d1` | 467 tests (+12). `[need_to_know]` optional like `[news]`; chunking/corpus/feeds parsing extracted into shared `_parse_*` helpers (news error messages unchanged, asserted by the existing suite). TTL rule fires only with both sections present. `need_to_know = false` until Step 38. |
+| 36 | Shared-corpus co-tenancy proof | **done** | — | 470 tests (+3). No production change needed, as predicted — corpus.py is already url-keyed and path-agnostic. `_entry` helper gained a `source` kwarg. Purge proven cutoff-only and idempotent across tenants. |
 | 37 | Corroboration counter | todo | — | |
 | 38 | `NeedToKnowBeat` + silence accounting + fixtures | todo | — | |
 | 39 | Observation metric checker + CLI | todo | — | |
