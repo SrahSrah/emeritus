@@ -85,7 +85,11 @@ def test_no_game_fixture_takes_the_brief_branch_and_is_not_an_error(
     assert result.available is True, "an off day is information, not a failure"
     assert result.error is None
     assert result.items, "the no-game branch must still say something"
-    assert result.checkable_fields == {"game_count": 0}
+    assert result.checkable_fields == {}, (
+        "an off day states no number, so it declares nothing checkable — a cardinality "
+        "claim about an empty observation is not a value FR-11 can support"
+    )
+    assert result.items[0].fields["game_count"] == 0, "FR-19 still needs it in fields"
     assert len(recorder.requests) == 1, "no second call is warranted with no game"
 
     decisions = [r["decision"] for r in records_of(read_trace(trace.path), "decision")]
@@ -314,3 +318,34 @@ def test_altering_one_score_of_the_pair_still_fails(tmp_path: Path) -> None:
     assert not report.ok
     assert {v.kind for v in report.violations} == {"altered_claim"}
     assert all("5, Houston Astros 1" in v.detail for v in report.violations)
+
+
+def test_an_off_day_survives_the_provenance_check(tmp_path: Path) -> None:
+    """The gap that let this ship: the no-game branch was never provenance-checked.
+
+    `test_no_game_fixture_takes_the_brief_branch_and_is_not_an_error` asserts on the
+    `BeatResult` and stops there, so `check_provenance` never ran over this path — in
+    tests or in the wild — until the first real off day on 2026-08-13, which failed the
+    run with `[unsupported_claim] astros.game_count: value 0 does not appear in any
+    observation it points at`.
+
+    Nothing was wrong with the digest. `game_count: 0` was a claim about the observation's
+    cardinality, and the observation is `[]`.
+    """
+    from forecaster.trace import check_provenance
+
+    client, _ = fixture_client([Route(SCHEDULE_URL, fixture="mlb_no_game")])
+    trace = trace_in(tmp_path, "off-day")
+    with client:
+        result = AstrosBeat().run(make_context(trace=trace, http_client=client))
+        trace.beat_result(result)
+    digest = "\n".join(item.text for item in result.items)
+    trace.digest(digest, order=["astros"])
+    trace.close()
+
+    report = check_provenance(trace.path)
+
+    assert report.ok, report.summary()
+    assert "game today." in digest and not any(char.isdigit() for char in digest), (
+        "the off-day line states no number, which is why it declares nothing checkable"
+    )
