@@ -60,10 +60,22 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
 
 - [ ] **FR-16 — reply-driven feedback loop.** Reply to the digest in plain English; parse it
       into a durable preference rule. Needs an inbox-read path, which v1 doesn't have.
+- [ ] **Within-run cross-item dedup.** FR-9b compares candidates against the *ledger*; two items in
+      the same run covering one story reach the digest twice — observed live 2026-08-13 (the
+      `claude` and `agents` topics both wrote up the same Anthropic finding, and the *model* patched
+      it in prose). Cheap fix identified: pass the run's already-kept items to `assess_item` as
+      extra neighbours, reusing every FR-19 invariant. **Its own small increment** — decided in
+      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §4, and a dependency
+      of that spec's FR-36.
 - [ ] **FR-17 — the remaining three beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
   - [ ] r/WallStreetBets mention volume
-  - [ ] "need-to-know" news (the bar is higher than daily drudgery)
+  - [~] "need-to-know" news — **specced 2026-08-14** as
+        [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md), FR-31 … FR-36.
+        v4 is deliberately **observation-only**: reuse the news plumbing over four verified
+        general-news feeds, index into the shared `corpus.db`, compute source-scoped corroboration
+        counts nightly with full provenance, deliver nothing. The bar itself is FR-36 `[Later]`,
+        **blocked on parent §9 Q2** — surfaced, not answered.
   - [ ] Austin live music and theatre
 
 ## Likely, but unconfirmed

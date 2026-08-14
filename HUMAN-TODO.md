@@ -117,7 +117,17 @@ gates real work.
 - [ ] **Q2 — rules vs judgment for escalation.** Escalation is still deterministic rules only.
       FR-9b settled the same tension for *dedup* by splitting it — retrieval narrows
       mechanically, the model judges, invariants bound the judgment. Whether that split should
-      transfer to escalation is untested and yours to decide.
+      transfer to escalation is untested and yours to decide. **As of 2026-08-14 this also gates
+      the need-to-know beat's bar** — its FR-36 (importance judgment + delivery) is written as
+      blocked on this question, and the observation increment (FR-31 … FR-35) exists to hand you
+      the corroboration distribution so you can decide it from evidence rather than taste. See
+      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) FR-36 for the costs
+      of each answer.
+- [ ] **Review the need-to-know feed list** in
+      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 before its build.
+      Four feeds verified free and keyless on 2026-08-14: BBC World, NPR News, Al Jazeera, Texas
+      Tribune (the local counterweight). The Guardian blocked the fetch; AP and Reuters have no
+      verifiable open feed. This is your taste, not a design decision.
 - [ ] **Q5 (new) — validate the retrieval thresholds.** `k = 5`, `similarity_floor = 0.60`,
       `window_days = 14` are reasoned, not measured. After a few weeks of real runs, read the
       traces and tune:

@@ -253,6 +253,14 @@ worth writing about each week.
     requires FR-11's provenance check to grow a case (child FR-26) and FR-19's first invariant to be
     transplanted from typed fields to grounded prose (child FR-27). The other three — r/WallStreetBets,
     need-to-know news, Austin live music — stay `[Later]` under this requirement, unspecced.
+  - **Amended 2026-08-14 — need-to-know news is specced separately.** Child spec at
+    [`docs/prd/need-to-know-news/PRD.md`](../need-to-know-news/PRD.md), which owns **FR-31 onward**.
+    It is broken out because its defining behaviour inverts the other beats' — they report what they
+    find; it must suppress nearly everything — and because its bar ("higher than the daily
+    drudgery") lands directly on §9 Q2, which stays open. The child therefore specs an
+    **observation-only** increment (mechanical corroboration counting with full provenance, no
+    digest content) and defers the bar as its FR-36, explicitly blocked on Q2. r/WallStreetBets and
+    Austin live music remain `[Later]` here, unspecced.
 
 ## 6. Technical & data notes
 
@@ -332,6 +340,12 @@ Downstream must not invent answers to these.
    [`docs/prd/ai-news-beat/PRD.md`](../ai-news-beat/PRD.md) §9 Q6. A **sibling** of Q5, not an answer
    to it: Q5 is about comparing a candidate line to past lines, Q6 is about matching a topic query to
    article chunks, and the two are different retrieval problems with different natural floors.
+7. **New — the need-to-know beat's *corroboration* thresholds are unmeasured.** `floor = 0.55`,
+   `window_days = 2`, specified in
+   [`docs/prd/need-to-know-news/PRD.md`](../need-to-know-news/PRD.md) §9 Q1. A third sibling, not an
+   answer to Q5 or Q6: this one matches same-story chunks against each other across outlets, which
+   is yet another retrieval problem with its own natural floor. The child's FR-35 exists to measure
+   it before anything consumes it.
 
 ## 10. Phasing
 
