@@ -122,7 +122,7 @@ gates real work.
       The beat's escalation contribution stays deterministic so this answer doesn't leak into the
       open half.
 - [ ] **Review the need-to-know feed list and watchlist seed terms** in
-      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 and FR-37 before
+      [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 and FR-38 before
       its build. Four feeds verified free and keyless on 2026-08-14: BBC World, NPR News,
       Al Jazeera, Texas Tribune (the local counterweight); the Guardian blocked the fetch; AP and
       Reuters have no verifiable open feed. The watchlist seed (ERCOT, Austin Water, boil notice,

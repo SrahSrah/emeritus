@@ -261,8 +261,9 @@ worth writing about each week.
     **observation-only** increment (mechanical corroboration counting with full provenance, no
     digest content) and defers the bar as its FR-36, explicitly blocked on Q2. r/WallStreetBets and
     Austin live music remain `[Later]` here, unspecced. *Later the same day, Sarah answered Q2 for
-    this beat by interview and the child's FR-36 … FR-40 spec the bar as buildable v5 — see the
-    child's §9 Q2 and the Q2 note below.*
+    this beat by interview and the child's FR-36 and FR-38 … FR-41 spec the bar as buildable v5 —
+    see the child's §9 Q2 and the Q2 note below. FR-37 is the within-run dedup fix, numbered in the
+    ai-news-beat spec where it shipped.*
 
 ## 6. Technical & data notes
 
