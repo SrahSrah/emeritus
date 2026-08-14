@@ -360,6 +360,15 @@ def build_parser() -> argparse.ArgumentParser:
             "and exit. Reads only; runs nothing."
         ),
     )
+    parser.add_argument(
+        "--ntk-metric",
+        action="store_true",
+        help=(
+            "Report the need-to-know beat's three observation conditions plus its "
+            "corroboration distribution over the traces in data/runs/ and exit. "
+            "Reads only; runs nothing."
+        ),
+    )
     return parser
 
 
@@ -373,6 +382,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         report = check_news_metric(trace_files(DEFAULT_RUN_DIR))
         print(report.summary())
+        return 0
+
+    if args.ntk_metric:
+        from forecaster.news_metric import trace_files
+        from forecaster.ntk_metric import check_ntk_metric
+        from forecaster.trace import DEFAULT_RUN_DIR
+
+        print(check_ntk_metric(trace_files(DEFAULT_RUN_DIR)).summary())
         return 0
 
     load_env()

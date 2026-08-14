@@ -265,6 +265,10 @@ class NeedToKnowBeat:
                 payload={
                     "url": entry.url,
                     "source": entry.source,
+                    # Which text the count ran over — §8 expects the report to surface
+                    # the per-source article-vs-summary split, and this is where it
+                    # can come from without a second bookkeeping path.
+                    "text_source": entry.text_source,
                     "corroborators": {
                         source: [hit.as_record() for hit in hits]
                         for source, hits in corroborators.items()
