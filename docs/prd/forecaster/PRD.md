@@ -253,6 +253,17 @@ worth writing about each week.
     requires FR-11's provenance check to grow a case (child FR-26) and FR-19's first invariant to be
     transplanted from typed fields to grounded prose (child FR-27). The other three — r/WallStreetBets,
     need-to-know news, Austin live music — stay `[Later]` under this requirement, unspecced.
+  - **Amended 2026-08-14 — need-to-know news is specced separately.** Child spec at
+    [`docs/prd/need-to-know-news/PRD.md`](../need-to-know-news/PRD.md), which owns **FR-31 onward**.
+    It is broken out because its defining behaviour inverts the other beats' — they report what they
+    find; it must suppress nearly everything — and because its bar ("higher than the daily
+    drudgery") lands directly on §9 Q2, which stays open. The child therefore specs an
+    **observation-only** increment (mechanical corroboration counting with full provenance, no
+    digest content) and defers the bar as its FR-36, explicitly blocked on Q2. r/WallStreetBets and
+    Austin live music remain `[Later]` here, unspecced. *Later the same day, Sarah answered Q2 for
+    this beat by interview and the child's FR-36 and FR-38 … FR-41 spec the bar as buildable v5 —
+    see the child's §9 Q2 and the Q2 note below. FR-37 is the within-run dedup fix, numbered in the
+    ai-news-beat spec where it shipped.*
 
 ## 6. Technical & data notes
 
@@ -313,6 +324,11 @@ Downstream must not invent answers to these.
    open. **Partially informed 2026-08-02:** FR-9b settled the same question for *dedup* by splitting
    it — retrieval narrows mechanically, the model judges, and safety invariants bound what the
    judgment is allowed to do. Whether that split transfers to escalation is untested and still open.
+   **Further narrowed 2026-08-14:** Sarah transferred the split to the need-to-know beat's
+   *importance bar* by structured interview (child PRD §9 Q2), with the uncertainty default
+   deliberately inverted to suppress. Escalation itself remains rules-only — the child's watchlist
+   rule (`need_to_know_watchlist`) is deterministic on purpose, so this question stays open for
+   escalation while now being answered for selection.
 3. ~~**Item identity for the ledger.**~~ **Answered 2026-08-02 by Sarah:** *item identity is not a
    property of an item; it is a relation computed at read time between a candidate and what has
    already been sent.* Hence no identity column, no fingerprint, no content hash — a stored key would
@@ -332,6 +348,12 @@ Downstream must not invent answers to these.
    [`docs/prd/ai-news-beat/PRD.md`](../ai-news-beat/PRD.md) §9 Q6. A **sibling** of Q5, not an answer
    to it: Q5 is about comparing a candidate line to past lines, Q6 is about matching a topic query to
    article chunks, and the two are different retrieval problems with different natural floors.
+7. **New — the need-to-know beat's *corroboration* thresholds are unmeasured.** `floor = 0.55`,
+   `window_days = 2`, specified in
+   [`docs/prd/need-to-know-news/PRD.md`](../need-to-know-news/PRD.md) §9 Q1. A third sibling, not an
+   answer to Q5 or Q6: this one matches same-story chunks against each other across outlets, which
+   is yet another retrieval problem with its own natural floor. The child's FR-35 exists to measure
+   it before anything consumes it.
 
 ## 10. Phasing
 

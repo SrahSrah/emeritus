@@ -60,10 +60,25 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
 
 - [ ] **FR-16 — reply-driven feedback loop.** Reply to the digest in plain English; parse it
       into a durable preference rule. Needs an inbox-read path, which v1 doesn't have.
+- [x] **FR-37 — within-run cross-item dedup. Shipped 2026-08-14** (PR #12, ai-news PRD; 455 tests
+      green). FR-9b compared candidates only against the *ledger*; two items in the same run
+      covering one story reached the digest twice — observed live 2026-08-13. The dedup pass now
+      hands the run's already-kept same-beat items to `assess_item` as extra neighbours, every
+      FR-19 invariant unchanged. Decided as its own increment in the need-to-know spec's §4; its
+      landing satisfies that spec's FR-36/FR-40 dependency.
 - [ ] **FR-17 — the remaining three beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
   - [ ] r/WallStreetBets mention volume
-  - [ ] "need-to-know" news (the bar is higher than daily drudgery)
+  - [~] "need-to-know" news — **specced 2026-08-14** as
+        [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md), FR-31 … FR-36 +
+        FR-38 … FR-41 (37 is the dedup fix, numbered in the ai-news PRD).
+        v4 is **observation-only**: reuse the news plumbing over four verified general-news feeds,
+        shared `corpus.db`, source-scoped corroboration counts with full provenance, deliver
+        nothing. **The bar was decided the same day** (Sarah, structured interview — child §9 Q2):
+        FR-9b split transferred, suppress-when-unsure, watchlist bypass + deterministic escalation,
+        2–3 nights/fortnight calibration band, quiet-night pulse line, one-way cross-beat deferral.
+        v5 = FR-36 + FR-38 … FR-41, buildable once v4 lands (the dedup prerequisite shipped). All
+        numbers remain reasoned-not-measured (parent §9 Q7).
   - [ ] Austin live music and theatre
 
 ## Likely, but unconfirmed
