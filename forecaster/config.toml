@@ -14,6 +14,7 @@ run_window_end = "08:00"
 astros = true
 weather = true
 news = true
+need_to_know = true
 
 [location]
 city = "Austin"
@@ -98,6 +99,42 @@ similarity_floor = 0.35
 window_days = 3
 # One long article must not fill the whole context for a topic.
 max_chunks_per_article = 2
+
+[need_to_know]
+# FR-31 … FR-35, the observation increment: fetch, index, count corroboration, deliver
+# NOTHING. General news wires, not AI trade press — all four verified free and keyless
+# 2026-08-14. The Guardian blocked the fetch; AP and Reuters have no open feed.
+# NOTE deliberately absent keys: min_sources, watchlist, bar — those are v5 (the bar),
+# and a knob nothing consumes would be inventing the bar through config.
+user_agent = "forecaster/0.1 (sarah.rachel.hernandez@gmail.com)"
+fetch_delay_seconds = 1.0
+timeout_seconds = 15
+min_body_chars = 600
+feeds = [
+  { name = "BBC World",      url = "https://feeds.bbci.co.uk/news/world/rss.xml" },
+  { name = "NPR News",       url = "https://feeds.npr.org/1001/rss.xml" },
+  { name = "Al Jazeera",     url = "https://www.aljazeera.com/xml/rss/all.xml" },
+  { name = "Texas Tribune",  url = "https://feeds.texastribune.org/feeds/main/" },
+]
+
+[need_to_know.chunking]
+target_chars = 900
+max_chars = 1200
+overlap_chars = 150
+
+[need_to_know.corpus]
+# The SAME file as [news.corpus] — the corpus is a shared, disposable cache of what
+# publishers said this week, beat-agnostic like ledger.db is on the durable side.
+# Config validation errors if these two blocks share a path but disagree on ttl_days.
+path = "data/corpus.db"
+ttl_days = 7
+
+[need_to_know.corroboration]
+# FR-33. A third retrieval problem with a third natural floor: same-story chunk against
+# chunk across outlets — closer to line-vs-line (0.60) than query-vs-chunk (0.35).
+# Reasoned, NOT measured — parent PRD §9 Q7. Do not describe these as tuned.
+window_days = 2
+floor = 0.55
 
 # Sarah's taste, not a design decision. Nothing in the code knows these ids.
 [[news.topics]]

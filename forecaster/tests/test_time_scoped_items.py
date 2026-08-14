@@ -62,7 +62,7 @@ ARTIFACT_KEYS = DATE_KEYS | {"published", "url", "source"}
 
 #: Beat names this file drives through real fixtures. The coverage test below fails when
 #: a registered beat is missing from it, so a new beat cannot land unexamined.
-COVERED_BEATS = {"astros", "weather", "news"}
+COVERED_BEATS = {"astros", "weather", "news", "need_to_know"}
 
 WEATHER_ROUTES = [
     Route(POINTS_URL, fixture="nws_points_austin"),
@@ -285,6 +285,62 @@ def test_the_typed_date_rule_still_governs_a_structured_beat(tmp_path: Path) -> 
     assert decision.action != "suppress"
     assert decision.forced is True
     assert client.asked == 0
+
+
+# --------------------------------------------------------------------------- #
+# The need-to-know beat — dated status lines are its only items (v4, FR-34)
+# --------------------------------------------------------------------------- #
+
+
+def _run_ntk(tmp_path: Path, *, routes=None):
+    """The observation beat: embedder + corpus, but deliberately no working model."""
+    from tests.test_beat_need_to_know import NOW as NTK_NOW, _no_model, _routes
+
+    from forecaster.beats.need_to_know import NeedToKnowBeat
+    from forecaster.memory import corpus as corpus_module
+    from forecaster.memory.retrieval import HashingEmbedder
+    from tests.helpers import NEED_TO_KNOW_CONFIG, make_config
+
+    return _run(
+        NeedToKnowBeat(),
+        routes if routes is not None else _routes(),
+        tmp_path,
+        now=NTK_NOW,
+        config=make_config(
+            beats={"need_to_know": True}, need_to_know=NEED_TO_KNOW_CONFIG
+        ),
+        embedder=HashingEmbedder(),
+        corpus=corpus_module.connect(tmp_path / "corpus.db"),
+        agent_client=_no_model(),
+    )
+
+
+def test_need_to_know_emits_no_items_on_a_healthy_night(tmp_path: Path) -> None:
+    """v4's contract: the digest never hears from this beat unless a source is down.
+
+    This beat is exercised here without joining the date-rule parametrize above, because
+    on a healthy night it has no items to check — which is itself the property under
+    test. Its only possible items are the dated status lines checked below.
+    """
+    result = _run_ntk(tmp_path)
+    assert result.available
+    assert result.items == []
+
+
+def test_need_to_know_unavailability_lines_carry_a_date(tmp_path: Path) -> None:
+    """Its only items are FR-28 status lines, and they fall under the original date rule."""
+    from tests.test_beat_need_to_know import _routes_with_dead_feed
+
+    result = _run_ntk(tmp_path, routes=_routes_with_dead_feed())
+    assert result.items, "a dead source must produce a named status line"
+    for item in result.items:
+        assert item.fields.get("text_origin") is None, (
+            "a status line is code-assembled, never synthesized — the date rule governs it"
+        )
+        assert DATE_KEYS & set(item.fields), (
+            "an undated unavailability line could be suppressed as a repeat of last "
+            "night's outage, which is exactly FR-18's silent failure"
+        )
 
 
 # --------------------------------------------------------------------------- #

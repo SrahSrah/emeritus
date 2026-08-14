@@ -69,16 +69,17 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
 - [ ] **FR-17 — the remaining three beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
   - [ ] r/WallStreetBets mention volume
-  - [~] "need-to-know" news — **specced 2026-08-14** as
-        [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md), FR-31 … FR-36 +
-        FR-38 … FR-41 (37 is the dedup fix, numbered in the ai-news PRD).
-        v4 is **observation-only**: reuse the news plumbing over four verified general-news feeds,
-        shared `corpus.db`, source-scoped corroboration counts with full provenance, deliver
-        nothing. **The bar was decided the same day** (Sarah, structured interview — child §9 Q2):
-        FR-9b split transferred, suppress-when-unsure, watchlist bypass + deterministic escalation,
-        2–3 nights/fortnight calibration band, quiet-night pulse line, one-way cross-beat deferral.
-        v5 = FR-36 + FR-38 … FR-41, buildable once v4 lands (the dedup prerequisite shipped). All
-        numbers remain reasoned-not-measured (parent §9 Q7).
+  - [~] "need-to-know" news — spec: [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md).
+    - [x] **v4 (observation, FR-31 … FR-35) — built 2026-08-14.** Steps 35–39 on
+          `feature/need-to-know-beat`, 498 tests green, zero model calls. The beat runs, delivers
+          nothing by design, and proves its silence in the trace; `--ntk-metric` reports the
+          corroboration distribution that tunes the bar.
+    - [ ] **v5 (the bar, FR-36 + FR-38 … FR-41) — decided, not built.** Sarah's interview answers
+          are in the child PRD §9 Q2: FR-9b split, suppress-when-unsure, watchlist bypass +
+          deterministic escalation, quiet-night pulse line, one-way deferral, 2–3 nights/fortnight
+          band. Needs its own BUILD-PROMPTS decomposition. All numbers remain
+          reasoned-not-measured (parent §9 Q7) — ideally let a few nights of v4 distribution
+          accumulate first (HUMAN-TODO ④).
   - [ ] Austin live music and theatre
 
 ## Likely, but unconfirmed

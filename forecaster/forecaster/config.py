@@ -190,6 +190,38 @@ class NewsConfig:
 
 
 @dataclass(frozen=True)
+class CorroborationConfig:
+    """FR-33. A third retrieval problem with a third natural floor.
+
+    Same-story chunk against chunk across outlets is neither line-vs-line (Q5, 0.60) nor
+    query-vs-chunk (Q6, 0.35). These values are reasoned, not measured — parent PRD §9 Q7.
+    """
+
+    window_days: int
+    floor: float
+
+
+@dataclass(frozen=True)
+class NeedToKnowConfig:
+    """FR-31. The news beat's shape minus topics — this beat has no queries.
+
+    Its candidate set is every in-window article from its own sources, and its only
+    v4 computation is the corroboration count. Deliberately **no** `min_sources`,
+    `watchlist`, or `bar` key: those are v5 (FR-36, FR-38), and shipping a knob nothing
+    consumes would be inventing the bar through config.
+    """
+
+    user_agent: str
+    fetch_delay_seconds: float
+    timeout_seconds: float
+    min_body_chars: int
+    feeds: list[FeedConfig]
+    chunking: ChunkingConfig
+    corpus: CorpusConfig
+    corroboration: CorroborationConfig
+
+
+@dataclass(frozen=True)
 class Config:
     run: RunConfig
     beats: dict[str, bool]
@@ -199,6 +231,7 @@ class Config:
     team: TeamConfig
     retrieval: RetrievalConfig
     news: NewsConfig | None = None
+    need_to_know: NeedToKnowConfig | None = None
     source_path: Path | None = None
     raw: Mapping[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
@@ -276,6 +309,10 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         raise ConfigError("config.toml: [retrieval].similarity_floor must be within 0.0–1.0")
 
     news = _parse_news(data, news_enabled=beats.get("news", False))
+    need_to_know = _parse_need_to_know(
+        data, enabled=beats.get("need_to_know", False)
+    )
+    _reject_corpus_ttl_conflict(news, need_to_know)
 
     return Config(
         run=run,
@@ -286,6 +323,7 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         team=team,
         retrieval=retrieval,
         news=news,
+        need_to_know=need_to_know,
         source_path=source_path,
         raw=dict(data),
     )
@@ -309,34 +347,8 @@ def _parse_news(data: Mapping[str, Any], *, news_enabled: bool) -> NewsConfig | 
 
     news_table = _require_table(data, "news")
 
-    chunk_table = _require_table(news_table, "chunking")
-    chunking = ChunkingConfig(
-        target_chars=_require_int(chunk_table, "target_chars", "news.chunking"),
-        max_chars=_require_int(chunk_table, "max_chars", "news.chunking"),
-        overlap_chars=_require_int(chunk_table, "overlap_chars", "news.chunking"),
-    )
-    if chunking.overlap_chars < 0:
-        raise ConfigError("config.toml: [news.chunking].overlap_chars must not be negative")
-    if chunking.overlap_chars >= chunking.target_chars:
-        raise ConfigError(
-            "config.toml: [news.chunking].overlap_chars must be less than target_chars — "
-            "an overlap at or above the target never advances and chunking would not "
-            "terminate"
-        )
-    if chunking.target_chars > chunking.max_chars:
-        raise ConfigError(
-            "config.toml: [news.chunking].target_chars must not exceed max_chars"
-        )
-    if chunking.target_chars < 1:
-        raise ConfigError("config.toml: [news.chunking].target_chars must be at least 1")
-
-    corpus_table = _require_table(news_table, "corpus")
-    corpus = CorpusConfig(
-        path=_require_str(corpus_table, "path", "news.corpus"),
-        ttl_days=_require_int(corpus_table, "ttl_days", "news.corpus"),
-    )
-    if corpus.ttl_days < 1:
-        raise ConfigError("config.toml: [news.corpus].ttl_days must be at least 1")
+    chunking = _parse_chunking(news_table, "news")
+    corpus = _parse_corpus(news_table, "news")
 
     retrieval_table = _require_table(news_table, "retrieval")
     news_retrieval = NewsRetrievalConfig(
@@ -368,20 +380,7 @@ def _parse_news(data: Mapping[str, Any], *, news_enabled: bool) -> NewsConfig | 
             "over articles the purge has already deleted"
         )
 
-    feeds: list[FeedConfig] = []
-    raw_feeds = news_table.get("feeds", [])
-    if not isinstance(raw_feeds, list):
-        raise ConfigError("config.toml: [news].feeds must be a list of tables")
-    for index, raw in enumerate(raw_feeds):
-        if not isinstance(raw, Mapping):
-            raise ConfigError(f"config.toml: [news].feeds #{index} must be a table")
-        feeds.append(
-            FeedConfig(
-                name=_require_str(raw, "name", f"news.feeds#{index}"),
-                url=_require_str(raw, "url", f"news.feeds#{index}"),
-            )
-        )
-    _reject_duplicates([feed.name for feed in feeds], "news.feeds", "name")
+    feeds = _parse_feeds(news_table, "news")
 
     topics: list[TopicConfig] = []
     raw_topics = news_table.get("topics", [])
@@ -422,6 +421,151 @@ def _parse_news(data: Mapping[str, Any], *, news_enabled: bool) -> NewsConfig | 
         retrieval=news_retrieval,
         topics=topics,
     )
+
+
+def _parse_chunking(table: Mapping[str, Any], section: str) -> ChunkingConfig:
+    """FR-22's knobs, shared by every document-shaped beat's config section."""
+    chunk_table = _require_table(table, "chunking")
+    chunking = ChunkingConfig(
+        target_chars=_require_int(chunk_table, "target_chars", f"{section}.chunking"),
+        max_chars=_require_int(chunk_table, "max_chars", f"{section}.chunking"),
+        overlap_chars=_require_int(chunk_table, "overlap_chars", f"{section}.chunking"),
+    )
+    if chunking.overlap_chars < 0:
+        raise ConfigError(
+            f"config.toml: [{section}.chunking].overlap_chars must not be negative"
+        )
+    if chunking.overlap_chars >= chunking.target_chars:
+        raise ConfigError(
+            f"config.toml: [{section}.chunking].overlap_chars must be less than "
+            "target_chars — an overlap at or above the target never advances and "
+            "chunking would not terminate"
+        )
+    if chunking.target_chars > chunking.max_chars:
+        raise ConfigError(
+            f"config.toml: [{section}.chunking].target_chars must not exceed max_chars"
+        )
+    if chunking.target_chars < 1:
+        raise ConfigError(
+            f"config.toml: [{section}.chunking].target_chars must be at least 1"
+        )
+    return chunking
+
+
+def _parse_corpus(table: Mapping[str, Any], section: str) -> CorpusConfig:
+    corpus_table = _require_table(table, "corpus")
+    corpus = CorpusConfig(
+        path=_require_str(corpus_table, "path", f"{section}.corpus"),
+        ttl_days=_require_int(corpus_table, "ttl_days", f"{section}.corpus"),
+    )
+    if corpus.ttl_days < 1:
+        raise ConfigError(f"config.toml: [{section}.corpus].ttl_days must be at least 1")
+    return corpus
+
+
+def _parse_feeds(table: Mapping[str, Any], section: str) -> list[FeedConfig]:
+    feeds: list[FeedConfig] = []
+    raw_feeds = table.get("feeds", [])
+    if not isinstance(raw_feeds, list):
+        raise ConfigError(f"config.toml: [{section}].feeds must be a list of tables")
+    for index, raw in enumerate(raw_feeds):
+        if not isinstance(raw, Mapping):
+            raise ConfigError(f"config.toml: [{section}].feeds #{index} must be a table")
+        feeds.append(
+            FeedConfig(
+                name=_require_str(raw, "name", f"{section}.feeds#{index}"),
+                url=_require_str(raw, "url", f"{section}.feeds#{index}"),
+            )
+        )
+    _reject_duplicates([feed.name for feed in feeds], f"{section}.feeds", "name")
+    return feeds
+
+
+def _parse_need_to_know(
+    data: Mapping[str, Any], *, enabled: bool
+) -> NeedToKnowConfig | None:
+    """Parse `[need_to_know]` if present. Absent is fine **unless** the beat is on.
+
+    Same contract as `_parse_news`: every config that predates this beat stays valid,
+    and enabling the beat with nothing to configure it from fails at load, not at 7 pm.
+    """
+    if "need_to_know" not in data:
+        if enabled:
+            raise ConfigError(
+                "config.toml: [beats].need_to_know is true but there is no "
+                "[need_to_know] section. The beat has no feeds and no corroboration "
+                "settings to run with."
+            )
+        return None
+
+    table = _require_table(data, "need_to_know")
+
+    chunking = _parse_chunking(table, "need_to_know")
+    corpus = _parse_corpus(table, "need_to_know")
+    feeds = _parse_feeds(table, "need_to_know")
+
+    corroboration_table = _require_table(table, "corroboration")
+    corroboration = CorroborationConfig(
+        window_days=_require_int(
+            corroboration_table, "window_days", "need_to_know.corroboration"
+        ),
+        floor=_require_float(corroboration_table, "floor", "need_to_know.corroboration"),
+    )
+    if corroboration.window_days < 1:
+        raise ConfigError(
+            "config.toml: [need_to_know.corroboration].window_days must be at least 1"
+        )
+    if not 0.0 <= corroboration.floor <= 1.0:
+        raise ConfigError(
+            "config.toml: [need_to_know.corroboration].floor must be within 0.0–1.0"
+        )
+    if corroboration.window_days > corpus.ttl_days:
+        raise ConfigError(
+            f"config.toml: [need_to_know.corroboration].window_days "
+            f"({corroboration.window_days}) exceeds [need_to_know.corpus].ttl_days "
+            f"({corpus.ttl_days}) — the run would corroborate over articles the purge "
+            "has already deleted"
+        )
+
+    if enabled and not feeds:
+        raise ConfigError(
+            "config.toml: [beats].need_to_know is true but [need_to_know].feeds is "
+            "empty — there is nothing to read"
+        )
+
+    return NeedToKnowConfig(
+        user_agent=_require_str(table, "user_agent", "need_to_know"),
+        fetch_delay_seconds=_require_float(table, "fetch_delay_seconds", "need_to_know"),
+        timeout_seconds=_require_float(table, "timeout_seconds", "need_to_know"),
+        min_body_chars=_require_int(table, "min_body_chars", "need_to_know"),
+        feeds=feeds,
+        chunking=chunking,
+        corpus=corpus,
+        corroboration=corroboration,
+    )
+
+
+def _reject_corpus_ttl_conflict(
+    news: NewsConfig | None, need_to_know: NeedToKnowConfig | None
+) -> None:
+    """FR-32. Two beats sharing one corpus file must agree on its lifecycle.
+
+    `purge_expired` deletes by `fetched_at` cutoff regardless of which beat calls it, so
+    with unequal TTLs on one path, whichever beat runs first would silently purge the
+    other's window. Enforced at load rather than remembered at every purge site.
+    """
+    if news is None or need_to_know is None:
+        return
+    if Path(news.corpus.path) != Path(need_to_know.corpus.path):
+        return
+    if news.corpus.ttl_days != need_to_know.corpus.ttl_days:
+        raise ConfigError(
+            f"config.toml: [news.corpus] and [need_to_know.corpus] share the path "
+            f"{news.corpus.path!r} but disagree on ttl_days "
+            f"({news.corpus.ttl_days} vs {need_to_know.corpus.ttl_days}). A shared "
+            "corpus file needs one lifecycle — whichever beat purged first would "
+            "silently shorten the other's window."
+        )
 
 
 def _reject_duplicates(values: list[str], section: str, key: str) -> None:
@@ -465,10 +609,12 @@ __all__ = [
     "Config",
     "ConfigError",
     "CorpusConfig",
+    "CorroborationConfig",
     "DeliveryConfig",
     "EscalationConfig",
     "FeedConfig",
     "LocationConfig",
+    "NeedToKnowConfig",
     "NewsConfig",
     "NewsRetrievalConfig",
     "RetrievalConfig",

@@ -169,14 +169,20 @@ def test_invalid_settings_raise_rather_than_looping_forever() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _entry(url: str, *, published: str = "2026-08-03T14:30:00+00:00", body: str | None = None):
+def _entry(
+    url: str,
+    *,
+    published: str = "2026-08-03T14:30:00+00:00",
+    body: str | None = None,
+    source: str = "Ars Technica",
+):
     from datetime import datetime
 
     from forecaster.tools.feeds import SOURCE_ARTICLE, FeedEntry
 
     return FeedEntry(
         url=url,
-        source="Ars Technica",
+        source=source,
         headline=HEADLINE,
         published=datetime.fromisoformat(published),
         summary="short",
@@ -530,3 +536,83 @@ def test_k_of_zero_returns_empty_rather_than_everything(tmp_path) -> None:
     conn = _corpus(tmp_path)
     _seed(conn, "https://a.test/1", "Claude", "Claude model pricing changed today.")
     assert _query(conn, "Claude", k=0) == []
+
+
+# --------------------------------------------------------------------------- #
+# Step 36 — shared-corpus co-tenancy (FR-32)
+# --------------------------------------------------------------------------- #
+# The corpus is one file with two tenants: the news beat and the need-to-know beat
+# index into it on the same night, over partially overlapping feeds. These tests are
+# the proof that sharing is safe — url-keyed replacement, cutoff-only purging, and
+# idempotence — with no production change expected: `corpus.py` is already
+# path-agnostic, and FR-32's other half (TTL agreement) is enforced at config load.
+
+
+def test_two_beats_indexing_the_same_url_leave_one_article(tmp_path) -> None:
+    """The Verge is in both feed lists; one night's overlap must not duplicate."""
+    from forecaster.memory.corpus import article_count, chunk_count, index_article, vector_count
+
+    conn = _corpus(tmp_path)
+    embedder = _embedder()
+    body = _body(8)
+    as_news_saw_it = _entry("https://overlap.test/story", source="The Verge", body=body)
+    as_ntk_saw_it = _entry("https://overlap.test/story", source="The Verge", body=body)
+
+    index_article(conn, as_news_saw_it, _chunk(body), embedder)
+    first_chunks = chunk_count(conn)
+    index_article(conn, as_ntk_saw_it, _chunk(body), embedder)
+
+    assert article_count(conn) == 1
+    assert chunk_count(conn) == first_chunks
+    assert vector_count(conn) == first_chunks
+
+
+def test_purge_by_one_tenant_never_touches_the_others_fresh_articles(tmp_path) -> None:
+    """Purging is by fetched_at cutoff only — source is invisible to it, by design."""
+    from datetime import datetime, timedelta, timezone
+
+    from forecaster.memory.corpus import article_count, index_article, purge_expired
+
+    conn = _corpus(tmp_path)
+    now = datetime(2026, 8, 14, 19, 0, tzinfo=timezone.utc)
+    embedder = _embedder()
+
+    stale_news = _entry("https://ars.test/old", source="Ars Technica")
+    fresh_news = _entry("https://ars.test/new", source="Ars Technica")
+    fresh_ntk = _entry("https://bbc.test/new", source="BBC World")
+    index_article(conn, stale_news, _chunk(stale_news.body), embedder, fetched_at=now - timedelta(days=9))
+    index_article(conn, fresh_news, _chunk(fresh_news.body), embedder, fetched_at=now)
+    index_article(conn, fresh_ntk, _chunk(fresh_ntk.body), embedder, fetched_at=now - timedelta(days=2))
+
+    # The need-to-know beat runs first tonight and purges with the shared TTL.
+    removed = purge_expired(conn, ttl_days=7, now=now)
+
+    assert removed == 1
+    remaining = {
+        str(row[0]) for row in conn.execute("SELECT url FROM articles")
+    }
+    assert remaining == {"https://ars.test/new", "https://bbc.test/new"}
+    assert article_count(conn) == 2
+
+
+def test_purge_is_idempotent_across_both_tenants_in_one_night(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from forecaster.memory.corpus import chunk_count, index_article, purge_expired, vector_count
+
+    conn = _corpus(tmp_path)
+    now = datetime(2026, 8, 14, 19, 0, tzinfo=timezone.utc)
+    embedder = _embedder()
+
+    old = _entry("https://a.test/old")
+    fresh = _entry("https://bbc.test/fresh", source="BBC World")
+    index_article(conn, old, _chunk(old.body), embedder, fetched_at=now - timedelta(days=9))
+    index_article(conn, fresh, _chunk(fresh.body), embedder, fetched_at=now)
+
+    first = purge_expired(conn, ttl_days=7, now=now)   # news beat's purge
+    chunks_after_first = chunk_count(conn)
+    second = purge_expired(conn, ttl_days=7, now=now)  # need-to-know beat's purge
+
+    assert (first, second) == (1, 0)
+    assert chunk_count(conn) == chunks_after_first
+    assert vector_count(conn) == chunks_after_first

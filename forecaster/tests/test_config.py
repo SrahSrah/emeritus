@@ -268,3 +268,100 @@ def test_news_retrieval_is_a_separate_setting_from_ledger_retrieval() -> None:
     assert config.retrieval.k != config.news.retrieval.k
     assert config.retrieval.similarity_floor != config.news.retrieval.similarity_floor
     assert config.retrieval.window_days != config.news.retrieval.window_days
+
+
+# --------------------------------------------------------------------------- #
+# Step 35 — the need_to_know section (FR-31 config half, FR-32 TTL rule)
+# --------------------------------------------------------------------------- #
+
+
+def _ntk_config(*, enabled: bool = False, **overrides: object) -> Config:
+    """Parse a base config with `[need_to_know]` merged in, applying overrides."""
+    from tests.helpers import NEED_TO_KNOW_CONFIG, make_config
+
+    ntk = {key: value for key, value in NEED_TO_KNOW_CONFIG.items()}
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(ntk.get(key), dict):
+            ntk[key] = {**ntk[key], **value}
+        else:
+            ntk[key] = value
+    beats = {"need_to_know": True} if enabled else {}
+    return make_config(beats=beats, need_to_know=ntk)
+
+
+def test_a_config_with_no_need_to_know_section_is_still_valid() -> None:
+    """Every config that predates this beat is still a config."""
+    from tests.helpers import make_config
+
+    assert make_config().need_to_know is None
+
+
+def test_enabling_need_to_know_without_its_section_raises() -> None:
+    from tests.helpers import make_config
+
+    with pytest.raises(ConfigError, match=r"no \[need_to_know\] section"):
+        make_config(beats={"need_to_know": True})
+
+
+@pytest.mark.parametrize(
+    "overrides,message",
+    [
+        ({"chunking": {"overlap_chars": 900}}, "less than target_chars"),
+        ({"corroboration": {"floor": 1.5}}, "within 0.0"),
+        ({"corroboration": {"window_days": 0}}, "window_days must be at least 1"),
+        ({"corroboration": {"window_days": 30}}, "corroborate over articles"),
+        ({"corpus": {"ttl_days": 0}}, "ttl_days must be at least 1"),
+        ({"user_agent": ""}, "non-empty string"),
+    ],
+)
+def test_each_need_to_know_validation_rule_has_a_raising_case(overrides, message) -> None:
+    with pytest.raises(ConfigError, match=message):
+        _ntk_config(**overrides)
+
+
+def test_enabling_need_to_know_with_no_feeds_raises() -> None:
+    with pytest.raises(ConfigError, match="nothing to read"):
+        _ntk_config(enabled=True, feeds=[])
+
+
+def _both_beats_config(**ntk_overrides: object) -> Config:
+    """Both document-shaped sections present — the TTL rule only fires with two tenants."""
+    from tests.helpers import NEED_TO_KNOW_CONFIG, NEWS_CONFIG, make_config
+
+    ntk = {key: value for key, value in NEED_TO_KNOW_CONFIG.items()}
+    for key, value in ntk_overrides.items():
+        if isinstance(value, dict) and isinstance(ntk.get(key), dict):
+            ntk[key] = {**ntk[key], **value}
+        else:
+            ntk[key] = value
+    return make_config(news=NEWS_CONFIG, need_to_know=ntk)
+
+
+def test_shared_corpus_path_with_unequal_ttls_is_rejected() -> None:
+    """FR-32: whichever beat purges first would silently shorten the other's window."""
+    with pytest.raises(ConfigError) as excinfo:
+        _both_beats_config(corpus={"path": "data/corpus.db", "ttl_days": 14})
+    message = str(excinfo.value)
+    assert "[news.corpus]" in message
+    assert "[need_to_know.corpus]" in message
+    assert "disagree on ttl_days" in message
+
+
+def test_corpus_lifecycle_agreement_loads_fine() -> None:
+    """Same path + same TTL is the shipped default; distinct paths may differ freely."""
+    shared = _both_beats_config()  # helper defaults: same path, same ttl
+    assert shared.need_to_know is not None and shared.news is not None
+    split = _both_beats_config(corpus={"path": "data/ntk_corpus.db", "ttl_days": 14})
+    assert split.need_to_know is not None
+    assert split.need_to_know.corpus.ttl_days == 14
+
+
+def test_the_real_config_parses_its_need_to_know_section() -> None:
+    """Enabled as of Step 38, with Q7's values distinct from Q5's and Q6's."""
+    config = load_config(REAL_CONFIG)
+    assert config.need_to_know is not None
+    assert config.beats.get("need_to_know") is True
+    assert config.news is not None
+    floor = config.need_to_know.corroboration.floor
+    assert floor != config.retrieval.similarity_floor
+    assert floor != config.news.retrieval.similarity_floor

@@ -13,6 +13,18 @@ Checkpoints 1.1, 2.x and **3.1 submitted** (3.1 on 2026-08-02). The capstone is 
 **increment 3**: 34 build steps, **419 tests green**, no network and no model calls in the suite.
 First live end-to-end run succeeded 2026-08-04.
 
+**Increment 4 (2026-08-14) — the need-to-know beat, v4 (observation). Built on
+`feature/need-to-know-beat`, Steps 35–39, 498 tests green.**
+FR-31 … FR-35: the sixth beat's substrate, deliberately delivering **nothing** — it fetches four
+general-news wires (real fixtures captured live), indexes into the shared `corpus.db` (with a
+config-load guard against TTL disagreement), computes a source-scoped corroboration count per
+in-window article with full provenance, and proves its own silence in the trace
+(`corroboration_observed` / `no_candidates`; `--ntk-metric` reads them). Zero model calls — the
+tests inject a client that raises on contact. The bar (FR-36, FR-38 … FR-41) is decided but not
+built; the distribution this increment accumulates is what tunes it. Discovered en route: **NPR
+times out the article fetch** — expect summary fallback from it in production, like OpenAI on the
+AI beat.
+
 **FR-37 (2026-08-14) — within-run dedup. Merged into `dev` (PR #12).**
 FR-9b only ever compared a candidate against previous nights; two topics writing up one story in
 the *same* run sailed through, observed live 2026-08-13 when the model patched the duplication in
@@ -132,6 +144,7 @@ game in progress; `"In Progress"` is the `detailedState`. The adapter exposes bo
 
 | Date | What happened |
 |---|---|
+| 2026-08-14 | **Increment 4 built — the need-to-know beat's observation substrate (v4, FR-31 … FR-35).** Steps 35–39 on `feature/need-to-know-beat`, one commit each, **498 tests green** (from 455). Config schema with a shared-corpus TTL-equality guard; co-tenancy proven (url-keyed replace, cutoff-only purge, idempotent); `corroborating_sources` — a read-time count probing with the stored ordinal-0 vector, no identity written; the beat itself, emitting zero digest items and proving its silence per candidate; `--ntk-metric` with the quiet-vs-broken discriminator and the distribution report. Real fixtures captured live for all four feeds + a Texas Tribune article/robots pair. **NPR timed out the article fetch twice** — summary fallback is its expected production behaviour. Zero model calls anywhere in the increment. Seam verified: `git diff dev...HEAD` touches none of `planner.py`, `synthesizer.py`, `delivery/`. |
 | 2026-08-14 | **FR-37 — within-run dedup.** The 2026-08-13 live run had the `claude` and `agents` topics both write up the same Anthropic finding, and the model noted the duplication in prose — a guard's job done in prose. Fix: the synthesizer's dedup pass now hands the run's already-kept items (same beat only) to `assess_item` as extra neighbours, scored by the same embedder against the same floor; every FR-19 invariant applies unchanged and a same-run neighbour is identifiable in the trace. ~A dozen lines in `synthesizer.py` plus a scoring helper in `retrieval.py`; specced as FR-37 in the ai-news-beat PRD. 455 tests green, PR into `dev`. |
 | 2026-08-14 | **The need-to-know bar decided, same day.** Sarah answered §9 Q2 for this beat via structured interview (eight decisions, recorded in the child PRD §9 Q2): FR-9b split transferred to importance, **suppress-when-unsure** (inverted from dedup, with the inversion's no-backstop cost named), mechanical watchlist carve-out that bypasses the bar and escalates via a new deterministic rule, calibration target 2–3 delivering nights per 14 (report-only band), categories in / elections & major-figure deaths **deliberately out**, nightly provenance-checked quiet pulse line, one-way cross-beat deferral. FR-36 rewritten from blocked placeholder into buildable v5 (since renumbered FR-36 + FR-38 … FR-41 — see the next row); parent §9 Q2 narrowed (selection answered, escalation still open). Every new number is a target, not a measurement — §9 Q1/Q7 grew. Within-run dedup fix and FR-30 retro-spec running in their own sessions. |
 | 2026-08-14 | **Numbering collision found and resolved at rebase.** The within-run dedup session and the need-to-know spec session both claimed FR-37 concurrently — dedup merged first (PR #12, ai-news PRD), so its number stands and the need-to-know v5 renumbered to FR-38 … FR-41 (watchlist, pulse, deferral, band). Its landing satisfies v5's only external dependency: v5 now waits only on v4. PR #10 rebased onto `dev`; **note PR #10 is still open** — the merges on 2026-08-14 were #11 and #12. |
