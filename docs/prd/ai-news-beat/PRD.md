@@ -5,6 +5,12 @@
 > Child of [`docs/prd/forecaster/PRD.md`](../forecaster/PRD.md). That spec owns FR-1 … FR-19; this
 > one owns **FR-20 onward**. The parent's FR-17 covers the remaining four beats and is amended to
 > point here for the news beat specifically.
+>
+> **Numbering note (2026-08-14):** FR-31 … FR-36 are owned by the need-to-know-news spec
+> (`docs/prd/need-to-know-news/PRD.md`, drafted 2026-08-14, on its own unmerged branch). FR-37
+> below is the within-run dedup fix that spec declared out of its own scope and sequenced as an
+> independent increment against this beat — the one that exhibits the defect live. Its FR-36
+> depends on FR-37 having landed.
 
 ## 1. Problem & why now
 
@@ -294,8 +300,8 @@ Module 3 named and the one Checkpoint 3 promised to demonstrate next.
     Sarah's call during the first live news runs) without ever being written into a spec — it was
     logged in STATUS.md and DIVERGENCES row 8 at the time, but no PRD carried it until now. The text
     below describes what shipped, written from `synthesizer.py`, `trace.py`, and
-    `tests/test_item_quarantine.py`, not from intent. FR-30 is the last number this spec owns; FR-31
-    onward are claimed by the need-to-know news spec.
+    `tests/test_item_quarantine.py`, not from intent. FR-31 … FR-36 belong to the need-to-know news
+    spec; see the header's numbering note.
   - **Requirement:** A provenance violation the checker can pin to **one item** costs that item, not
     the night. The item-level kinds are exactly `ungrounded_number`, `ungrounded_quote` (FR-26's two
     cases), and `ungrounded_item` (a synthesized item that points at no observation at all); each
@@ -336,6 +342,34 @@ Module 3 named and the one Checkpoint 3 promised to demonstrate next.
     requirement: a checkpoint may say the guarantee held; it may not yet say the guarantee was
     tested, because nothing has yet tried to fabricate and been caught in the wild. FR-29's metric
     reads a run's **final** provenance verdict, which after a quarantine is the recheck (PR #8).
+
+- **FR-37 — Within-run dedup: same-run neighbours** `[MVP]` — *added 2026-08-14 as its own
+  increment; see the numbering note in the header*
+  - **Requirement:** FR-9b's dedup pass compares each candidate only against the sent-item ledger,
+    which knows previous nights and nothing about tonight. Observed live 2026-08-13: the `claude`
+    and `agents` topics both wrote up the same Anthropic finding, and the model appended a prose
+    note about the duplication — a guard's job done in prose, which this project is explicitly
+    against. Fix: in the synthesizer's dedup pass, the items already **kept in the current run**
+    are handed to `assess_item` as additional neighbours — scored by the same embedder against the
+    same similarity floor, merged with the retrieved neighbours in similarity order, and **same
+    beat only** (FR-9b retrieval is same-beat by design; cross-beat overlap is the need-to-know
+    spec's §9 Q3 and is not built speculatively). Every FR-19 invariant applies to a same-run
+    neighbour unchanged: a differing checkable value or a newly introduced grounded value (FR-27)
+    still vetoes suppression with the model unconsulted, an escalation candidate is still never
+    suppressed, a scoring failure still degrades to include, and the decision is still auditable —
+    a same-run neighbour is identifiable in the trace by `sent_item_id = 0` and
+    `sent_at = "tonight, earlier in this digest"`. Nothing is stored: identity stays a read-time
+    relation, per parent §9 Q3.
+  - **Acceptance:** Done when, against an **empty** ledger in a single run, (i) two same-beat items
+    covering one story deliver the first and suppress the second, with the same-run neighbour and
+    the reason in the trace; (ii) a second item introducing an entity its kept sibling lacked is
+    reframed, never suppressed, with the model not consulted; (iii) two same-beat items whose
+    declared checkable values differ (a doubleheader) are both delivered; (iv) an escalation
+    candidate survives an identical same-run sibling; (v) a near-identical line in a *different*
+    beat is not a neighbour; and the entire pre-existing dedup and FR-9b acceptance suite passes
+    unchanged.
+  - **Touches:** `forecaster/synthesizer.py` (the FR-11-owned dedup pass), `forecaster/memory/retrieval.py`,
+    `tests/test_within_run_dedup.py`
 
 ## 6. Technical & data notes
 
@@ -532,7 +566,10 @@ Downstream must not invent answers to these.
   article-body fetch; no paid API, since none returns full article text). Item shape and grounded-summary
   provenance case also chosen by Sarah. FR-27 added during drafting after finding that FR-19's first
   invariant inverts for a document-shaped beat.
-- **v2 — 2026-08-14:** FR-30 recorded retroactively, ten days after it shipped (2026-08-04, PR #6,
+- **v2 — 2026-08-14:** FR-37 added (within-run dedup, same-run neighbours), fixing the duplication
+  observed live 2026-08-13. Decided as its own increment in the need-to-know-news spec's §4, which
+  reserves FR-31 … FR-36; recorded here because the defect lives in this beat.
+- **v3 — 2026-08-14:** FR-30 recorded retroactively, ten days after it shipped (2026-08-04, PR #6,
   `25184f6`). The requirement was Sarah's call during the first live news runs and went straight to
   code; STATUS.md and DIVERGENCES row 8 carried it, no spec did. Written from the shipped code and
-  tests. No other section changed, and nothing was renumbered.
+  tests. Nothing was renumbered.

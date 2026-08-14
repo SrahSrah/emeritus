@@ -1,6 +1,6 @@
 # STATUS — Emeritus
 
-_Last updated: 2026-08-02_
+_Last updated: 2026-08-14_
 
 > **Graduated from the playground on 2026-07-27.** Source: `playground/emeritus`.
 > Home: `C:\Users\Sarah\Documents\31 Emeritus` → https://github.com/SrahSrah/emeritus (private).
@@ -12,6 +12,13 @@ _Last updated: 2026-08-02_
 Checkpoints 1.1, 2.x and **3.1 submitted** (3.1 on 2026-08-02). The capstone is built through
 **increment 3**: 34 build steps, **419 tests green**, no network and no model calls in the suite.
 First live end-to-end run succeeded 2026-08-04.
+
+**FR-37 (2026-08-14) — within-run dedup. On `feature/within-run-dedup`, PR into `dev` open.**
+FR-9b only ever compared a candidate against previous nights; two topics writing up one story in
+the *same* run sailed through, observed live 2026-08-13 when the model patched the duplication in
+prose. The dedup pass now also feeds the run's already-kept items to `assess_item` as same-beat
+neighbours, every FR-19 invariant unchanged. Specced as FR-37 in the ai-news-beat PRD (numbered
+after the need-to-know-news spec's FR-31 … FR-36 block, whose FR-36 depends on it). 455 tests green.
 
 **Increment 3 (2026-08-04) — the AI news beat. Merged into `dev`, and it runs.**
 FR-20 … FR-30: RSS discovery plus an article-body fetch, real chunking, a second vector collection
@@ -125,6 +132,7 @@ game in progress; `"In Progress"` is the `detailedState`. The adapter exposes bo
 
 | Date | What happened |
 |---|---|
+| 2026-08-14 | **FR-37 — within-run dedup.** The 2026-08-13 live run had the `claude` and `agents` topics both write up the same Anthropic finding, and the model noted the duplication in prose — a guard's job done in prose. Fix: the synthesizer's dedup pass now hands the run's already-kept items (same beat only) to `assess_item` as extra neighbours, scored by the same embedder against the same floor; every FR-19 invariant applies unchanged and a same-run neighbour is identifiable in the trace. ~A dozen lines in `synthesizer.py` plus a scoring helper in `retrieval.py`; specced as FR-37 in the ai-news-beat PRD. 455 tests green, PR into `dev`. |
 | 2026-07-26 | Created the `emeritus` playground project and scaffolded trackers. |
 | 2026-07-26 | Drafted Assignment 2 and wrote it into the shared Google Doc under `ASSIGNMENT 2: SUBMISSION:`. |
 | 2026-07-27 | Assignment 2 submitted. Wrote the Forecaster PRD (v1, 18 FRs) and locked the build decisions above. |
