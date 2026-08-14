@@ -492,6 +492,129 @@ def retrieve_for_topic(
     return results
 
 
+# --------------------------------------------------------------------------- #
+# FR-33 — corroboration. A count, not a judgment; a relation, not a stored fact.
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class CorroboratingChunk:
+    """One passage from another outlet that reads like the candidate's lead."""
+
+    source: str
+    chunk_id: int
+    url: str
+    similarity: float
+
+    def as_record(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "chunk_id": self.chunk_id,
+            "url": self.url,
+            "similarity": round(self.similarity, 4),
+        }
+
+
+def corroborating_sources(
+    connection: sqlite3.Connection,
+    url: str,
+    *,
+    sources: Sequence[str],
+    floor: float,
+    window_days: int,
+    now: datetime | None = None,
+) -> dict[str, list[CorroboratingChunk]]:
+    """Which *other* configured sources are carrying the story at ``url``?
+
+    The probe is the candidate's **first chunk** (ordinal 0 — headline plus lead): it is
+    the story's identity, it is the *only* chunk for the frequent summary-fallback case,
+    and an all-pairs comparison would mostly match boilerplate. The probe's stored vector
+    is read back from the index, so nothing is re-embedded.
+
+    The count is the number of distinct keys in the returned mapping. Per FR-33 and
+    parent §9 Q3, nothing here writes anything: corroboration is a relation computed at
+    read time, and the schema-guard test asserts this module stores no identity to make
+    it cheaper.
+
+    Restrictions, in order: publication window (UTC-normalized strings, the Step 29
+    lesson), the caller's ``sources`` list (a shared corpus may hold other beats'
+    articles, which must never inflate a count), never the candidate's own source or its
+    own url, and the similarity ``floor``. An unindexed url or a cold corpus returns an
+    empty mapping — "nothing known", not an error.
+    """
+    candidate = connection.execute(
+        "SELECT c.id, a.source FROM chunks AS c JOIN articles AS a ON a.url = c.url "
+        "WHERE c.url = ? AND c.ordinal = 0",
+        (url,),
+    ).fetchone()
+    if candidate is None:
+        return {}
+    probe_id, own_source = int(candidate[0]), str(candidate[1])
+
+    try:
+        stored = connection.execute(
+            f"SELECT embedding FROM {VEC_TABLE} WHERE {VEC_KEY} = ?", (probe_id,)
+        ).fetchone()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return {}
+        raise
+    if stored is None:
+        return {}
+
+    from forecaster.memory.retrieval import RetrievalError, similarity_from_distance
+
+    wanted = [name for name in sources if name != own_source]
+    if not wanted:
+        return {}
+    cutoff = (
+        ((now or datetime.now(timezone.utc)) - timedelta(days=window_days))
+        .astimezone(timezone.utc)
+        .isoformat()
+    )
+    placeholders = ",".join("?" for _ in wanted)
+
+    try:
+        rows = connection.execute(
+            f"""
+            SELECT c.id, c.url, a.source, v.distance
+            FROM (
+                SELECT {VEC_KEY}, distance
+                FROM {VEC_TABLE}
+                WHERE embedding MATCH ? AND k = ?
+            ) AS v
+            JOIN chunks   AS c ON c.id = v.{VEC_KEY}
+            JOIN articles AS a ON a.url = c.url
+            WHERE a.published >= ?
+              AND a.source IN ({placeholders})
+              AND a.url != ?
+            ORDER BY v.distance ASC
+            """,
+            (stored[0], 200, cutoff, *wanted, url),
+        ).fetchall()
+    except sqlite3.Error as exc:
+        raise RetrievalError(f"corroboration search failed: {exc}") from exc
+
+    by_source: dict[str, list[CorroboratingChunk]] = {}
+    for row in rows:
+        similarity = similarity_from_distance(float(row[3]))
+        if similarity < floor:
+            continue
+        source = str(row[2])
+        by_source.setdefault(source, []).append(
+            CorroboratingChunk(
+                source=source,
+                chunk_id=int(row[0]),
+                url=str(row[1]),
+                similarity=similarity,
+            )
+        )
+    # Strongest corroborator first, so the trace reads best-evidence-down.
+    return dict(
+        sorted(by_source.items(), key=lambda kv: kv[1][0].similarity, reverse=True)
+    )
+
+
 def article_count(connection: sqlite3.Connection) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM articles").fetchone()[0])
 
@@ -513,9 +636,11 @@ __all__ = [
     "VEC_KEY",
     "VEC_TABLE",
     "Chunk",
+    "CorroboratingChunk",
     "RetrievedChunk",
     "article_count",
     "chunk_article",
+    "corroborating_sources",
     "chunk_count",
     "connect",
     "index_article",
