@@ -32,7 +32,7 @@ log**, repair this file, and say so.
 
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
-| 35 | `[need_to_know]` config schema + TTL-equality rule | todo | — | |
+| 35 | `[need_to_know]` config schema + TTL-equality rule | **done** | — | 467 tests (+12). `[need_to_know]` optional like `[news]`; chunking/corpus/feeds parsing extracted into shared `_parse_*` helpers (news error messages unchanged, asserted by the existing suite). TTL rule fires only with both sections present. `need_to_know = false` until Step 38. |
 | 36 | Shared-corpus co-tenancy proof | todo | — | |
 | 37 | Corroboration counter | todo | — | |
 | 38 | `NeedToKnowBeat` + silence accounting + fixtures | todo | — | |

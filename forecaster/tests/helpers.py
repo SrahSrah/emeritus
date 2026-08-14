@@ -77,6 +77,25 @@ NEWS_CONFIG: dict[str, Any] = {
 }
 
 
+#: Opt-in need-to-know settings, mirroring NEWS_CONFIG's role. A test that needs the
+#: beat passes `make_config(beats={"need_to_know": True}, need_to_know=NEED_TO_KNOW_CONFIG)`.
+#: Two feeds keeps fixture sets readable; the corpus path deliberately matches
+#: NEWS_CONFIG's so the shared-file default is what tests exercise unless they override.
+NEED_TO_KNOW_CONFIG: dict[str, Any] = {
+    "user_agent": "forecaster-test/0.1 (tests@example.test)",
+    "fetch_delay_seconds": 0.0,
+    "timeout_seconds": 5,
+    "min_body_chars": 600,
+    "feeds": [
+        {"name": "BBC World", "url": "https://feeds.bbci.test/news/world/rss.xml"},
+        {"name": "Texas Tribune", "url": "https://feeds.texastribune.test/feeds/main/"},
+    ],
+    "chunking": {"target_chars": 900, "max_chars": 1200, "overlap_chars": 150},
+    "corpus": {"path": "data/corpus.db", "ttl_days": 7},
+    "corroboration": {"window_days": 2, "floor": 0.55},
+}
+
+
 def make_config(**overrides: Any) -> Config:
     """Deep-ish merge of section overrides onto the base config."""
     data = {section: dict(values) for section, values in BASE_CONFIG.items()}
