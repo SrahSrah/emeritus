@@ -397,7 +397,18 @@ class AstrosBeat:
                     observations=[today_ref],
                 )
             ],
-            checkable_fields={"game_count": 0},
+            # Nothing checkable on an off day. "No Astros game today." states no number,
+            # and `game_count: 0` was a claim about the observation's *cardinality* rather
+            # than a value inside it — the adapter returns a normalized `Game` list, so an
+            # off day records `[]`, and the count of an empty list is not one of its
+            # leaves. FR-11's support check looks for the value in the payload and cannot
+            # see a count, so declaring it failed a run that had stated nothing wrong.
+            #
+            # Found live 2026-08-13, the first off day since the pipeline started running.
+            # `game_count` stays in the item's `fields`, where FR-19 uses it and where
+            # nothing polices it. FR-11's own scope note applies exactly: a value the
+            # digest does not state is prose, not a claim.
+            checkable_fields={},
             observations=[today_ref],
         )
 
