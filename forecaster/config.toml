@@ -15,8 +15,7 @@ astros = true
 weather = true
 news = true
 need_to_know = true
-# Off until the beat class lands (Step 42).
-venues = false
+venues = true
 
 [location]
 city = "Austin"

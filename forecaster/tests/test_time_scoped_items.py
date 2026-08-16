@@ -62,7 +62,7 @@ ARTIFACT_KEYS = DATE_KEYS | {"published", "url", "source"}
 
 #: Beat names this file drives through real fixtures. The coverage test below fails when
 #: a registered beat is missing from it, so a new beat cannot land unexamined.
-COVERED_BEATS = {"astros", "weather", "news", "need_to_know"}
+COVERED_BEATS = {"astros", "weather", "news", "need_to_know", "venues"}
 
 WEATHER_ROUTES = [
     Route(POINTS_URL, fixture="nws_points_austin"),
@@ -341,6 +341,39 @@ def test_need_to_know_unavailability_lines_carry_a_date(tmp_path: Path) -> None:
             "an undated unavailability line could be suppressed as a repeat of last "
             "night's outage, which is exactly FR-18's silent failure"
         )
+
+
+# --------------------------------------------------------------------------- #
+# The venues beat — dated, code-assembled listings (FR-43); dedup handled by FR-44
+# --------------------------------------------------------------------------- #
+
+
+def test_venue_items_carry_dates_and_are_never_synthesized(tmp_path: Path) -> None:
+    """Every listing and status line is code-assembled and dated.
+
+    Dedup for this beat is governed by FR-44's config exemption, not by these fields —
+    but the fields still matter: if the exemption is ever lifted, the date rule is what
+    keeps a standing listing from being suppressed as last night's repeat.
+    """
+    from tests.test_beat_venues import NOW as VENUES_NOW, _no_model, _routes
+
+    from forecaster.beats.venues import VenueListingsBeat
+    from tests.helpers import VENUES_CONFIG, make_config
+
+    result = _run(
+        VenueListingsBeat(),
+        _routes(),
+        tmp_path,
+        now=VENUES_NOW,
+        config=make_config(beats={"venues": True}, venues=VENUES_CONFIG),
+        agent_client=_no_model(),
+    )
+    assert result.items, "the capture has in-window productions"
+    for item in result.items:
+        assert item.fields.get("text_origin") is None, (
+            "a listing is code-assembled; nothing in this beat is model-written"
+        )
+        assert DATE_KEYS & set(item.fields)
 
 
 # --------------------------------------------------------------------------- #

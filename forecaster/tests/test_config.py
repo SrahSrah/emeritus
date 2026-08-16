@@ -433,10 +433,10 @@ def test_exempt_beats_defaults_empty_and_parses_when_present() -> None:
 
 
 def test_the_real_config_parses_its_venues_section() -> None:
-    """Ships present but off until Step 42, already exempt from dedup."""
+    """Enabled as of Step 42, already exempt from dedup."""
     config = load_config(REAL_CONFIG)
     assert config.venues is not None
-    assert config.beats.get("venues") is False
+    assert config.beats.get("venues") is True
     assert [venue.kind for venue in config.venues.venues] == ["zach_shows"]
     assert "zachtheater.org" in config.venues.venues[0].url  # one "t" — the working host
     assert config.retrieval.exempt_beats == ["venues"]
