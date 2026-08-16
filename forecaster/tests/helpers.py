@@ -96,6 +96,20 @@ NEED_TO_KNOW_CONFIG: dict[str, Any] = {
 }
 
 
+#: Opt-in venue settings, mirroring the other beat-config dicts. A test that needs the
+#: beat passes `make_config(beats={"venues": True}, venues=VENUES_CONFIG)`. The dedup
+#: exemption is NOT included here — tests opt into it explicitly via
+#: `retrieval={"exempt_beats": ["venues"]}` so the un-exempt path stays testable.
+VENUES_CONFIG: dict[str, Any] = {
+    "user_agent": "forecaster-test/0.1 (tests@example.test)",
+    "timeout_seconds": 5,
+    "window_days": 14,
+    "venues": [
+        {"name": "ZACH Theatre", "kind": "zach_shows", "url": "https://www.zachtheater.test/tickets/shows/"},
+    ],
+}
+
+
 def make_config(**overrides: Any) -> Config:
     """Deep-ish merge of section overrides onto the base config."""
     data = {section: dict(values) for section, values in BASE_CONFIG.items()}

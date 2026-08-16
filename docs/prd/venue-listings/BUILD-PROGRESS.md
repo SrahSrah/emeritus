@@ -30,7 +30,7 @@ git log**, repair this file, and say so.
 
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
-| 40 | `[venues]` config + `[retrieval] exempt_beats` | todo | — | |
+| 40 | `[venues]` config + `[retrieval] exempt_beats` | **done** | — | 505 tests (+7). `[venues]` optional per the house contract; `kind` deliberately not validated against a registry (config stays ignorant of code). `exempt_beats` on RetrievalConfig, default []; ships ["venues"]. `venues = false` until Step 42. VENUES_CONFIG helper deliberately excludes the exemption so the un-exempt path stays testable. |
 | 41 | ZACH parser + captured fixtures | todo | — | |
 | 42 | `VenueListingsBeat`: window, items, quiet vs broken | todo | — | |
 | 43 | Dedup opt-out (`exempt_beats`), explicit and accounted | todo | — | |
