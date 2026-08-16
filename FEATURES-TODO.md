@@ -80,7 +80,13 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
           band. Needs its own BUILD-PROMPTS decomposition. All numbers remain
           reasoned-not-measured (parent §9 Q7) — ideally let a few nights of v4 distribution
           accumulate first (HUMAN-TODO ④).
-  - [ ] Austin live music and theatre
+  - [~] Austin live music and theatre — **re-scoped and specced 2026-08-16** as
+        [docs/prd/venue-listings/PRD.md](docs/prd/venue-listings/PRD.md), FR-42 … FR-47: named-venue
+        listings, not discovery. v1 = ZACH Theatre only (server-rendered, keyless, measured);
+        **no dedup by Sarah's explicit call** — repeats deliberate, made auditable by a
+        never-suppressed metric condition. Bass Concert Hall is FR-47 `[Later]`, gated on the
+        Ticketmaster developer account (signup failed 2026-08-16; free tier verified, ~1 call/night
+        vs 5,000/day). Zero model calls in the whole beat.
 
 ## Likely, but unconfirmed
 

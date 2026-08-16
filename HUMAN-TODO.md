@@ -121,6 +121,23 @@ gates real work.
       split transfers, suppress-when-unsure, watchlist carve-out, 2–3 nights/fortnight target.
       The beat's escalation contribution stays deterministic so this answer doesn't leak into the
       open half.
+- [ ] **Retry the Ticketmaster developer signup** (first attempt failed 2026-08-16 — cause
+      unknown; try a different browser, no VPN, or their support). This gates only Bass Concert
+      Hall (venue-listings FR-47); ZACH ships without it. Free tier verified 2026-08-14: 5,000
+      calls/day vs our ~1/night. When it works, ~5 minutes:
+      1. https://developer.ticketmaster.com → **Get Your API Key** → create the account (it's a
+         standalone developer account, not your ticket-buying login).
+      2. Confirm the verification email, log in.
+      3. **My Apps** → **Add a New App** → name `forecaster`, any one-line description; leave
+         OAuth/redirect fields blank.
+      4. Copy the **Consumer Key** into `forecaster\.env` as `TICKETMASTER_API_KEY=...`
+         (gitignored; never paste it in chat; `.env.example` gets a placeholder at build time).
+      5. Sanity-check + get the Bass venue id (paste the id back into a session — it's not a
+         secret):
+         ```powershell
+         cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
+         uv run python -c "import os; from forecaster.agent import load_env; load_env(); import httpx; r = httpx.get('https://app.ticketmaster.com/discovery/v2/venues.json', params={'keyword': 'Bass Concert Hall', 'stateCode': 'TX', 'apikey': os.environ['TICKETMASTER_API_KEY']}, timeout=20); print(r.status_code); [print(v['name'], v['id']) for v in r.json().get('_embedded', {}).get('venues', [])]"
+         ```
 - [ ] **Review the need-to-know feed list and watchlist seed terms** in
       [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 and FR-38 before
       its build. Four feeds verified free and keyless on 2026-08-14: BBC World, NPR News,
