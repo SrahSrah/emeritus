@@ -27,13 +27,14 @@ from typing import Any, Iterable, Mapping, Sequence
 from forecaster.news_metric import Condition
 from forecaster.trace import read_trace, records_of
 
-#: §2(c) is measured across this many consecutive nights.
+#: §2(c) is measured across this many nights.
 #:
-#: **The parent PRD says fourteen. This is one, deliberately, and it is a divergence** —
-#: the same development concession as the news metric's, recorded as DIVERGENCES row 9.
-#: A checkpoint must not present a one-night result as the fourteen-night one. Raise it
-#: back when the nights exist.
-TARGET_NIGHTS = 1
+#: **The parent PRD says fourteen. This is two — Sarah's call, 2026-08-16**, replacing
+#: the initial one-night development concession: two nights of corroboration
+#: distribution is the gate she set before building the bar (v5, FR-36/FR-38…FR-41).
+#: It is still a divergence from fourteen, in the DIVERGENCES row 9 posture — a
+#: checkpoint must not present a two-night result as the fourteen-night one.
+TARGET_NIGHTS = 2
 
 NTK_BEAT = "need_to_know"
 

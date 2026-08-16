@@ -77,7 +77,10 @@ FR-35's distribution is what eventually tunes them.
     among the contributing chunk observations it lists, and every listed observation id resolves
     in the same trace. Zero orphans.
   - **(c) Evidence accumulates.** At least `TARGET_NIGHTS` nights carry distribution records.
-    Inherits the news metric's honesty posture wholesale: `TARGET_NIGHTS` is currently **1**, a
+    **Amended 2026-08-16: `TARGET_NIGHTS = 2`, Sarah's call** — two nights of distribution is her
+    chosen gate before building the bar, replacing the initial one-night development concession.
+    Still a divergence from the parent's fourteen, in the same posture. The original clause, for
+    the record: inherits the news metric's honesty posture wholesale — initially **1**, a
     recorded development concession (DIVERGENCES row 9), and only HUMAN-TODO ④ can produce real
     nights. No checkpoint may present accumulated evidence it does not have.
 
@@ -243,7 +246,8 @@ and keeping those two apart is itself the design lesson worth writing about.
   - **Requirement:** A function computing §2's three conditions over one or more traces, plus a
     CLI subcommand printing it — `forecaster/news_metric.py` is the working example and the
     report shape to follow, including its caveat posture: the checker states what it cannot know
-    (real nights vs. dev reruns; `TARGET_NIGHTS = 1` per DIVERGENCES row 9) rather than implying
+    (real nights vs. dev reruns; `TARGET_NIGHTS` = 2 since 2026-08-16, Sarah's gate, per the
+    DIVERGENCES row 9 posture) rather than implying
     it. The report also prints the accumulated corroboration distribution (counts per night,
     max, median) — the actual point of the increment — clearly labeled as *evidence for* Q1/Q2,
     not as a result.

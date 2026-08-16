@@ -22,10 +22,16 @@ def _write_trace(
     include_beat: bool = True,
     break_count: bool = False,
     dangling_observation: bool = False,
+    at: str = "2026-08-16T19:00:00+00:00",
 ) -> Path:
-    """One synthetic need-to-know run. Everything the checker reads and nothing else."""
+    """One synthetic need-to-know run. Everything the checker reads and nothing else.
+
+    ``at`` pins the night — `_write` lets an explicit timestamp override its stamp — so
+    the two-night gate (TARGET_NIGHTS, Sarah's 2026-08-16 call) is testable without two
+    real evenings.
+    """
     trace = Trace(run_id, directory=directory)
-    trace.run_start(auth_mode="subscription_oauth", config_digest="test")
+    trace.run_start(auth_mode="subscription_oauth", config_digest="test", at=at)
 
     if include_beat:
         for candidate in candidates or []:
@@ -87,15 +93,34 @@ def _write_trace(
 CANDIDATE = {"url": "https://bbc.test/story", "sources": ["NPR News", "Texas Tribune"]}
 
 
-def test_all_three_conditions_pass_over_a_well_accounted_run(tmp_path) -> None:
-    path = _write_trace(tmp_path, "good", candidates=[CANDIDATE])
-    report = check_ntk_metric([path])
+def test_all_three_conditions_pass_over_two_accounted_nights(tmp_path) -> None:
+    """TARGET_NIGHTS is 2 (Sarah, 2026-08-16), so the pass case needs two nights."""
+    first = _write_trace(
+        tmp_path, "night-one", candidates=[CANDIDATE], at="2026-08-15T19:00:00+00:00"
+    )
+    second = _write_trace(
+        tmp_path, "night-two", candidates=[CANDIDATE], at="2026-08-16T19:00:00+00:00"
+    )
+    report = check_ntk_metric([first, second])
 
     assert report.ok
-    assert report.runs_examined == 1
+    assert report.runs_examined == 2
+    assert report.nights_accumulated == 2
     assert report.condition("silence_accounted").passed
     assert report.condition("count_provenance").passed
     assert report.condition("evidence_accumulates").passed
+
+
+def test_one_night_is_not_yet_evidence(tmp_path) -> None:
+    """The gate has a point: a single evening must report itself as short."""
+    path = _write_trace(tmp_path, "good", candidates=[CANDIDATE])
+    report = check_ntk_metric([path])
+
+    assert report.condition("silence_accounted").passed
+    assert report.condition("count_provenance").passed
+    condition = report.condition("evidence_accumulates")
+    assert not condition.passed
+    assert f"1 of {TARGET_NIGHTS}" in condition.detail
 
 
 def test_a_quiet_night_with_its_decision_passes(tmp_path) -> None:
