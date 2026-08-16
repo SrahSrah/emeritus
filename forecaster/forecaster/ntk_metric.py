@@ -231,8 +231,9 @@ def check_ntk_metric(trace_paths: Iterable[str | Path]) -> NtkMetricReport:
     )
     report.caveats.append(
         "(c) counts nights with distribution records, not real scheduled nights — a "
-        "trace cannot tell a 7 pm run from a development rerun. TARGET_NIGHTS is 1, a "
-        "recorded development concession (DIVERGENCES row 9); the parent PRD says 14."
+        f"trace cannot tell a 7 pm run from a development rerun. TARGET_NIGHTS is "
+        f"{TARGET_NIGHTS} (Sarah's gate, 2026-08-16, DIVERGENCES row 9 posture); the "
+        "parent PRD says 14."
     )
     report.caveats.append(
         "the distribution is evidence for tuning the corroboration floor, window, and "
