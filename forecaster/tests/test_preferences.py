@@ -60,7 +60,29 @@ def test_matching_item_returns_a_decision_naming_the_rule() -> None:
 
 
 def test_field_equals_rule_matches_on_structured_value() -> None:
-    prefs = load_preferences(REAL_PREFERENCES)
+    """The field/equals mechanism, on an inline rule.
+
+    This used to read the real preferences file and depend on the `no-trivial-precip`
+    rule being in it — coupling a mechanism test to Sarah's taste. She removed that rule
+    on 2026-08-16 ("i do want to know the weather even if it's perfect temp"), which is
+    exactly the kind of edit the file exists for and no test may forbid.
+    """
+    from forecaster.memory.preferences import parse_preferences
+
+    prefs = parse_preferences(
+        {
+            "topics": {"weather": 1.0},
+            "suppressions": [
+                {
+                    "id": "field-equals-demo",
+                    "beat": "weather",
+                    "field": "precip_probability_pct",
+                    "equals": 0,
+                    "reason": "mechanism under test",
+                }
+            ],
+        }
+    )
     item = StubItem(
         beat="weather",
         text="Low 68F, no rain expected.",
@@ -70,7 +92,19 @@ def test_field_equals_rule_matches_on_structured_value() -> None:
     decision = suppression_match(item, prefs)
 
     assert decision is not None
-    assert decision.rule_id == "no-trivial-precip"
+    assert decision.rule_id == "field-equals-demo"
+
+
+def test_the_real_preferences_no_longer_suppress_a_perfect_morning() -> None:
+    """Sarah's 2026-08-16 edit, pinned: a dry 75°F forecast reaches the digest."""
+    prefs = load_preferences(REAL_PREFERENCES)
+    item = StubItem(
+        beat="weather",
+        text="Run window 05:00-08:00: 75.0-77.0F, 0 mph , 0% chance of precipitation.",
+        fields={"precip_probability_pct": 0},
+    )
+
+    assert suppression_match(item, prefs) is None
 
 
 def test_non_matching_item_returns_none() -> None:
