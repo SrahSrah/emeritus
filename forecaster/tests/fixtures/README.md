@@ -114,3 +114,9 @@ Edited — **only the three periods covering 05:00–08:00 local on 2026-07-28**
 Every other period is untouched. Why synthetic: Austin in late July does not produce a
 below-freezing morning, and FR-6's acceptance needs one in each direction. The unedited
 `nws_hourly_austin.json` is the above-threshold case.
+
+- `zach_shows_empty.html` — **hand-edited** from `zach_shows.html` (captured live
+  2026-08-16): every production card removed, page landmarks intact. The parsed-empty
+  case FR-42 must distinguish from a redesign.
+- `zach_shows_redesigned.html` — **hand-edited** from the same capture: the `onstage`
+  landmark renamed, simulating a redesign. Must raise `VenueParseError`.

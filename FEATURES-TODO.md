@@ -80,13 +80,16 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
           band. Needs its own BUILD-PROMPTS decomposition. All numbers remain
           reasoned-not-measured (parent §9 Q7) — ideally let a few nights of v4 distribution
           accumulate first (HUMAN-TODO ④).
-  - [~] Austin live music and theatre — **re-scoped and specced 2026-08-16** as
-        [docs/prd/venue-listings/PRD.md](docs/prd/venue-listings/PRD.md), FR-42 … FR-47: named-venue
-        listings, not discovery. v1 = ZACH Theatre only (server-rendered, keyless, measured);
-        **no dedup by Sarah's explicit call** — repeats deliberate, made auditable by a
-        never-suppressed metric condition. Bass Concert Hall is FR-47 `[Later]`, gated on the
-        Ticketmaster developer account (signup failed 2026-08-16; free tier verified, ~1 call/night
-        vs 5,000/day). Zero model calls in the whole beat.
+  - [~] Austin live music and theatre — re-scoped 2026-08-16 to **named-venue listings**:
+        [docs/prd/venue-listings/PRD.md](docs/prd/venue-listings/PRD.md), FR-42 … FR-47.
+    - [x] **v1 (ZACH, FR-42 … FR-46) — built 2026-08-16.** Steps 40–44 on
+          `feature/venue-listings-beat`, 548 tests green, zero model calls. Listings quote the
+          venue's own dates verbatim; dedup off by config with every repeat on the record
+          (`dedup_exempt`); `--venues-metric`'s load-bearing condition is never-suppressed.
+    - [ ] **FR-47 — Bass Concert Hall via Ticketmaster** `[Later]`, gated on the developer
+          account (signup failed 2026-08-16; retry steps in HUMAN-TODO; free tier verified,
+          ~1 call/night vs 5,000/day). Lands as a new parser `kind` + a config entry — no stub
+          shipped.
 
 ## Likely, but unconfirmed
 

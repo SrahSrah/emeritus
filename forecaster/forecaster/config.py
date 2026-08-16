@@ -128,6 +128,12 @@ class RetrievalConfig:
     k: int
     similarity_floor: float
     window_days: int
+    #: FR-44. Beats whose items bypass the dedup pass entirely — no retrieval, no
+    #: judgment, an explicit `dedup_exempt` record instead. Config-owned rather than
+    #: beat-declared, so the opt-out is visible every time this file is opened and
+    #: reversible with a one-line edit. Ships as ["venues"]: a standing listing should
+    #: repeat nightly while Sarah decides (her call, 2026-08-16).
+    exempt_beats: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -222,6 +228,30 @@ class NeedToKnowConfig:
 
 
 @dataclass(frozen=True)
+class VenueConfig:
+    """One venue calendar. `kind` names the parser; config stays ignorant of code."""
+
+    name: str
+    kind: str
+    url: str
+
+
+@dataclass(frozen=True)
+class VenuesConfig:
+    """FR-43. Named-venue listings — deliberately no taste, ranking, or discovery knobs.
+
+    The 2026-08-16 re-scope is the design: what's playing at venues Sarah named, for
+    `window_days`, repeated nightly. Anything resembling a preference belongs in
+    `preferences.toml`, not here, and v1 has none.
+    """
+
+    user_agent: str
+    timeout_seconds: float
+    window_days: int
+    venues: list[VenueConfig]
+
+
+@dataclass(frozen=True)
 class Config:
     run: RunConfig
     beats: dict[str, bool]
@@ -232,6 +262,7 @@ class Config:
     retrieval: RetrievalConfig
     news: NewsConfig | None = None
     need_to_know: NeedToKnowConfig | None = None
+    venues: VenuesConfig | None = None
     source_path: Path | None = None
     raw: Mapping[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
@@ -296,12 +327,20 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
     enabled = _require(retrieval_table, "enabled", "retrieval")
     if not isinstance(enabled, bool):
         raise ConfigError("config.toml: [retrieval].enabled must be true or false")
+    raw_exempt = retrieval_table.get("exempt_beats", [])
+    if not isinstance(raw_exempt, list) or not all(
+        isinstance(item, str) and item for item in raw_exempt
+    ):
+        raise ConfigError(
+            "config.toml: [retrieval].exempt_beats must be a list of beat names"
+        )
     retrieval = RetrievalConfig(
         enabled=enabled,
         model=_require_str(retrieval_table, "model", "retrieval"),
         k=_require_int(retrieval_table, "k", "retrieval"),
         similarity_floor=_require_float(retrieval_table, "similarity_floor", "retrieval"),
         window_days=_require_int(retrieval_table, "window_days", "retrieval"),
+        exempt_beats=list(raw_exempt),
     )
     if retrieval.k < 1:
         raise ConfigError("config.toml: [retrieval].k must be at least 1")
@@ -313,6 +352,7 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         data, enabled=beats.get("need_to_know", False)
     )
     _reject_corpus_ttl_conflict(news, need_to_know)
+    venues = _parse_venues(data, enabled=beats.get("venues", False))
 
     return Config(
         run=run,
@@ -324,6 +364,7 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         retrieval=retrieval,
         news=news,
         need_to_know=need_to_know,
+        venues=venues,
         source_path=source_path,
         raw=dict(data),
     )
@@ -545,6 +586,58 @@ def _parse_need_to_know(
     )
 
 
+def _parse_venues(data: Mapping[str, Any], *, enabled: bool) -> VenuesConfig | None:
+    """Parse `[venues]` if present. Absent is fine **unless** the beat is on.
+
+    Same contract as every beat section: pre-existing configs stay valid, and enabling
+    the beat with nothing to read fails at load rather than at 7 pm. `kind` is **not**
+    validated against a parser registry here — config stays ignorant of code, and an
+    unknown kind surfaces at run time as a named failed venue (FR-45), not a load error.
+    """
+    if "venues" not in data:
+        if enabled:
+            raise ConfigError(
+                "config.toml: [beats].venues is true but there is no [venues] section. "
+                "The beat has no venue calendars to read."
+            )
+        return None
+
+    table = _require_table(data, "venues")
+
+    entries: list[VenueConfig] = []
+    raw_venues = table.get("venues", [])
+    if not isinstance(raw_venues, list):
+        raise ConfigError("config.toml: [venues].venues must be a list of tables")
+    for index, raw in enumerate(raw_venues):
+        if not isinstance(raw, Mapping):
+            raise ConfigError(f"config.toml: [venues].venues #{index} must be a table")
+        entries.append(
+            VenueConfig(
+                name=_require_str(raw, "name", f"venues.venues#{index}"),
+                kind=_require_str(raw, "kind", f"venues.venues#{index}"),
+                url=_require_str(raw, "url", f"venues.venues#{index}"),
+            )
+        )
+    _reject_duplicates([venue.name for venue in entries], "venues.venues", "name")
+
+    window_days = _require_int(table, "window_days", "venues")
+    if window_days < 1:
+        raise ConfigError("config.toml: [venues].window_days must be at least 1")
+
+    if enabled and not entries:
+        raise ConfigError(
+            "config.toml: [beats].venues is true but [venues].venues is empty — there "
+            "is nothing to read"
+        )
+
+    return VenuesConfig(
+        user_agent=_require_str(table, "user_agent", "venues"),
+        timeout_seconds=_require_float(table, "timeout_seconds", "venues"),
+        window_days=window_days,
+        venues=entries,
+    )
+
+
 def _reject_corpus_ttl_conflict(
     news: NewsConfig | None, need_to_know: NeedToKnowConfig | None
 ) -> None:
@@ -621,6 +714,8 @@ __all__ = [
     "RunConfig",
     "TeamConfig",
     "TopicConfig",
+    "VenueConfig",
+    "VenuesConfig",
     "config_digest",
     "enabled_beats",
     "load_config",

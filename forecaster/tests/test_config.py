@@ -365,3 +365,78 @@ def test_the_real_config_parses_its_need_to_know_section() -> None:
     floor = config.need_to_know.corroboration.floor
     assert floor != config.retrieval.similarity_floor
     assert floor != config.news.retrieval.similarity_floor
+
+
+# --------------------------------------------------------------------------- #
+# Step 40 — the venues section + the dedup exemption (FR-43/FR-44 config halves)
+# --------------------------------------------------------------------------- #
+
+
+def _venues_config(*, enabled: bool = False, **overrides: object) -> Config:
+    from tests.helpers import VENUES_CONFIG, make_config
+
+    venues = {key: value for key, value in VENUES_CONFIG.items()}
+    for key, value in overrides.items():
+        venues[key] = value
+    beats = {"venues": True} if enabled else {}
+    return make_config(beats=beats, venues=venues)
+
+
+def test_a_config_with_no_venues_section_is_still_valid() -> None:
+    from tests.helpers import make_config
+
+    assert make_config().venues is None
+
+
+def test_enabling_venues_without_its_section_raises() -> None:
+    from tests.helpers import make_config
+
+    with pytest.raises(ConfigError, match=r"no \[venues\] section"):
+        make_config(beats={"venues": True})
+
+
+def test_venues_validation_rules_each_have_a_raising_case() -> None:
+    with pytest.raises(ConfigError, match="nothing to read"):
+        _venues_config(enabled=True, venues=[])
+    with pytest.raises(ConfigError, match="window_days must be at least 1"):
+        _venues_config(window_days=0)
+    with pytest.raises(ConfigError, match="duplicate name"):
+        _venues_config(
+            venues=[
+                {"name": "ZACH Theatre", "kind": "zach_shows", "url": "https://a.test/"},
+                {"name": "ZACH Theatre", "kind": "zach_shows", "url": "https://b.test/"},
+            ]
+        )
+    with pytest.raises(ConfigError, match="non-empty string"):
+        _venues_config(venues=[{"name": "ZACH Theatre", "kind": "", "url": "https://a.test/"}])
+
+
+def test_an_unknown_kind_is_not_a_config_error() -> None:
+    """Config stays ignorant of code; a bad kind surfaces at run time as a failed venue."""
+    config = _venues_config(
+        venues=[{"name": "Somewhere", "kind": "not_a_parser", "url": "https://a.test/"}]
+    )
+    assert config.venues is not None
+    assert config.venues.venues[0].kind == "not_a_parser"
+
+
+def test_exempt_beats_defaults_empty_and_parses_when_present() -> None:
+    from tests.helpers import make_config
+
+    assert make_config().retrieval.exempt_beats == []
+    config = make_config(retrieval={"exempt_beats": ["venues"]})
+    assert config.retrieval.exempt_beats == ["venues"]
+    with pytest.raises(ConfigError, match="list of beat names"):
+        make_config(retrieval={"exempt_beats": "venues"})
+    with pytest.raises(ConfigError, match="list of beat names"):
+        make_config(retrieval={"exempt_beats": [""]})
+
+
+def test_the_real_config_parses_its_venues_section() -> None:
+    """Enabled as of Step 42, already exempt from dedup."""
+    config = load_config(REAL_CONFIG)
+    assert config.venues is not None
+    assert config.beats.get("venues") is True
+    assert [venue.kind for venue in config.venues.venues] == ["zach_shows"]
+    assert "zachtheater.org" in config.venues.venues[0].url  # one "t" — the working host
+    assert config.retrieval.exempt_beats == ["venues"]
