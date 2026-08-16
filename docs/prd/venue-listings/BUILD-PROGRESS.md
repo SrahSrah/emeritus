@@ -30,8 +30,8 @@ git log**, repair this file, and say so.
 
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
-| 40 | `[venues]` config + `[retrieval] exempt_beats` | **done** | — | 505 tests (+7). `[venues]` optional per the house contract; `kind` deliberately not validated against a registry (config stays ignorant of code). `exempt_beats` on RetrievalConfig, default []; ships ["venues"]. `venues = false` until Step 42. VENUES_CONFIG helper deliberately excludes the exemption so the un-exempt path stays testable. |
-| 41 | ZACH parser + captured fixtures | todo | — | |
+| 40 | `[venues]` config + `[retrieval] exempt_beats` | **done** | `d50d9f7` | 504 tests (+6; earlier note said 505 — miscount, corrected). `[venues]` optional per the house contract; `kind` deliberately not validated against a registry (config stays ignorant of code). `exempt_beats` on RetrievalConfig, default []; ships ["venues"]. `venues = false` until Step 42. VENUES_CONFIG helper deliberately excludes the exemption so the un-exempt path stays testable. |
+| 41 | ZACH parser + captured fixtures | **done** | — | 523 tests (+19). Live capture 2026-08-16: 11 productions, `id="onstage"` landmark, cards with h3/strong/href. Real variety handled: en-dashes, NBSPs, cross-year ranges, year-inheriting starts (incl. the December→January back-up rule), day-only second halves, all-caps months, a title containing "|" (so nothing splits on it). Two hand-derived fixtures documented in the fixtures README. `follow_redirects=False` — the session-bounce gotcha surfaces as HTTP 301 instead of being chased. |
 | 42 | `VenueListingsBeat`: window, items, quiet vs broken | todo | — | |
 | 43 | Dedup opt-out (`exempt_beats`), explicit and accounted | todo | — | |
 | 44 | Venues metric checker + CLI | todo | — | |
