@@ -146,8 +146,9 @@ def _apply_dedup(
     agent_client: AgentClientLike,
     now: Any = None,
     effort: str = DEFAULT_EFFORT,
+    exempt_beats: Sequence[str] = (),
 ) -> list[tuple[str, DedupDecision]]:
-    """FR-9b, plus FR-37. Mutates each result's `items` in place; returns every decision.
+    """FR-9b, plus FR-37, minus FR-44's exempt beats. Mutates items in place.
 
     An unavailable beat is skipped entirely — it has no items, and FR-18's "couldn't
     reach X tonight" line is generated later and is never a dedup candidate.
@@ -157,13 +158,38 @@ def _apply_dedup(
     writing up one story used to survive because the stored index only knows previous
     nights — and the model would note the duplication in prose, which is a guard's job
     done in prose. Every FR-19 invariant applies to a same-run neighbour unchanged.
+
+    FR-44: a beat named in ``exempt_beats`` bypasses all of it — no retrieval, no
+    same-run neighbours, no judgment — with an explicit ``dedup_exempt`` record per
+    item. This is a bypass *around* the machinery, not a change to it: Sarah's venue
+    listings should repeat nightly while she decides (2026-08-16), and repetition on
+    purpose must cost zero embedder and zero model work. Exempt items also never join
+    the same-run pool: nothing may defer to, or be reframed against, a standing listing.
     """
     decisions: list[tuple[str, DedupDecision]] = []
     kept_this_run: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    exempt = set(exempt_beats)
 
     for result in results:
         beat = getattr(result, "beat", "")
         if not getattr(result, "available", True):
+            continue
+
+        if beat in exempt:
+            for item in getattr(result, "items", []) or []:
+                decision = DedupDecision(
+                    "include",
+                    "beat opts out by config; repeats are deliberate",
+                    forced=True,
+                )
+                decisions.append((beat, decision))
+                if trace is not None:
+                    trace.decision(
+                        beat=beat,
+                        decision="dedup_exempt",
+                        reason=decision.reason,
+                        **decision.as_record(),
+                    )
             continue
 
         prior = kept_this_run.setdefault(beat, [])
@@ -257,7 +283,16 @@ def synthesize(
     dedup_decisions: list[tuple[str, DedupDecision]] = []
     if retriever is not None:
         dedup_decisions = _apply_dedup(
-            kept, retriever, trace, agent_client=agent_client, now=now, effort=effort
+            kept,
+            retriever,
+            trace,
+            agent_client=agent_client,
+            now=now,
+            effort=effort,
+            exempt_beats=getattr(
+                getattr(config, "retrieval", None), "exempt_beats", []
+            )
+            or [],
         )
 
     ordered = apply_escalation(kept, config, trace=trace)
