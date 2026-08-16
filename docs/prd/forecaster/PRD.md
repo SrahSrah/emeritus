@@ -264,6 +264,15 @@ worth writing about each week.
     this beat by interview and the child's FR-36 and FR-38 … FR-41 spec the bar as buildable v5 —
     see the child's §9 Q2 and the Q2 note below. FR-37 is the within-run dedup fix, numbered in the
     ai-news-beat spec where it shipped.*
+  - **Amended 2026-08-16 — live music/theatre is specced separately, re-scoped.** Child spec at
+    [`docs/prd/venue-listings/PRD.md`](../venue-listings/PRD.md), which owns **FR-42 … FR-47**.
+    Sarah re-scoped the promised beat from discovery ("live music in Austin") to **named-venue
+    listings** ("what's playing in the next two weeks at Bass Concert Hall and ZACH Theatre"),
+    with dedup deliberately off for it — repeats are the point of a standing listing. v1 is
+    ZACH-only (measured: ZACH is a clean keyless scrape; Bass's sites WAF-block the identifying
+    client, and the Ticketmaster fallback is gated on a developer account whose signup failed
+    2026-08-16 — child FR-47 `[Later]`). Only **r/WallStreetBets** now remains `[Later]` here,
+    unspecced.
 
 ## 6. Technical & data notes
 
