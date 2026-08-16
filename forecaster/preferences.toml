@@ -18,9 +18,6 @@ beat = "astros"
 contains = "Spring Training"
 reason = "Exhibition results don't change anything."
 
-[[suppressions]]
-id = "no-trivial-precip"
-beat = "weather"
-field = "precip_probability_pct"
-equals = 0
-reason = "A 0% chance of rain isn't news."
+# Removed 2026-08-16 (Sarah): "no-trivial-precip" suppressed the weather line whenever
+# precip was 0% — its first live firing (75°F, dry) hid the forecast she dresses by.
+# The weather line now appears every night, perfect weather included.
