@@ -38,8 +38,27 @@ log**, repair this file, and say so.
 | 38 | `NeedToKnowBeat` + silence accounting + fixtures | **done** | `2f6ed29` | 489 tests (+11). Real fixtures captured for all four feeds; Texas Tribune article + robots captured; **NPR timed out the article fetch twice** — expect summary fallbacks from it in production, like OpenAI on the AI beat. cli corpus block generalized: any enabled beat whose config section has a `corpus` block gets a connection, keyed by resolved path (shared path = one connection). Coverage test satisfied with real fixtures. Seam verified: no edit to planner/synthesizer/delivery. Suite slowed to ~75s (ntk tests index ~560 real chunks per run). |
 | 39 | Observation metric checker + CLI | **done** | — | 498 tests (+9). `ntk_metric.py` reuses `Condition` from news_metric; n/a-not-pass posture kept. Verified against the real data/runs: 0 runs examined, all n/a — correct, the beat has never run live. Beat gained `text_source` in the corroboration payload so the report can surface the per-source article/summary split §8 asks for. |
 
+## v5 — the bar (appended 2026-08-19)
+
+- **Branch:** `feature/need-to-know-bar`, cut from `dev` (`358e801`)
+- **Baseline:** 550 tests green on `dev`; two live nights banked (evidence gate 2 of 2 met)
+- **Scope:** FR-36 + FR-38 … FR-41, per BUILD-PROMPTS' v5 section. **The measured-dead-gate flag
+  governs:** `min_sources = 2` at `floor = 0.55` passed zero candidates on both measured nights —
+  ship the mechanism, surface the number nightly (Step 50), never tune it silently.
+
+| # | Step | Status | Commit | Notes |
+|---|---|---|---|---|
+| 45 | Bar config: min_sources, watchlist, bar lists | todo | — | |
+| 46 | Watchlist carve-out + deterministic escalation | todo | — | |
+| 47 | Importance judgment: gate → judge → suppress-when-unsure | todo | — | |
+| 48 | Pulse line: quiet nights and abstentions | todo | — | |
+| 49 | Cross-beat deferral, one-way | todo | — | |
+| 50 | Bar-phase metric (d)–(f) + gate-pass count | todo | — | |
+
 ## Log
 
+- **2026-08-19** — v5 section opened. Steps continue at 45 (venues v1 used 40–44). Sarah's call:
+  decompose now rather than retune first; the dead-gate finding rides the prompts as a flag.
 - **2026-08-14** — Ledger opened alongside BUILD-PROMPTS. Step numbering continues at 35: the
   FR-37 within-run dedup increment was a single direct commit (`c3305ef`) and consumed no steps.
 
