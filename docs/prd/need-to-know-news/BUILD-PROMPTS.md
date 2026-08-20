@@ -188,14 +188,17 @@ Appended 2026-08-19. Decomposes **FR-36 + FR-38 … FR-41** — the importance b
 interview (PRD §9 Q2). v4 (Steps 35–39) is shipped and running; the within-run dedup prerequisite
 shipped as ai-news FR-37. Steps continue the repo ledger at **Step 45** (venues v1 used 40–44).
 
-**The measured-dead-gate flag — read before Step 45 and do not "fix" it.** Two live nights
-(2026-08-16, 2026-08-19: 120 candidates) produced **max corroboration 1, median 0** at
-`floor = 0.55`. The shipped `min_sources = 2` gate therefore passes **zero** candidates on every
-night measured so far: at launch, only the watchlist can deliver. This is a known, deliberate
-state — Sarah chose to decompose now rather than retune first. The build's job is the *mechanism*;
-the *numbers* are hers (§9 Q1/Q7). No step may lower `floor` or `min_sources` to make a demo look
-alive; what Step 50 must do instead is put the nightly **gate-pass count** in the metric report so
-the deadness stays visible until she tunes it.
+**The gate flag — RESOLVED 2026-08-20, read the history so you don't re-litigate it.** Two live
+nights at the reasoned `floor = 0.55` produced max corroboration 1 (the `min_sources = 2` gate
+passed zero candidates), so a floor sweep over the live corpus was run
+(`scripts/corroboration_sweep.py`, now committed) and, per Sarah's standing instruction, **the
+floor was retuned to 0.35** — the first measured threshold in the project. At the shipped config
+the gate now passes **~2 candidates a night**, so the judgment path is live at launch, not
+watchlist-only. What survives for the build: the *numbers* are still Sarah's (§9 Q1/Q7 — measured
+on three nights, not tuned on fourteen); no step may adjust `floor` or `min_sources` further; and
+Step 50 still puts the nightly **gate-pass count** in the metric report — that number is how the
+next retune gets its evidence. Historical nights (2026-08-16/19/20) recorded their counts at the
+old floor, so their gate-pass counts read as 0 in old traces; that is correct history, not a bug.
 
 **Environment, unchanged from v4's block** (worktree off `dev`, `uv run pytest -q` green before
 done, no network/model calls in tests, protected gates, zero edits to `planner.py`/`delivery/`;
@@ -215,8 +218,8 @@ new `watchlist` block with `terms` (non-empty strings; duplicates rejected case-
 new `bar` block with `deliver` and `exclude` (non-empty string lists — Sarah's categories are
 config, not code, same reasoning as the news topics). All three **required once `[need_to_know]`
 exists** — v5 makes the bar part of the beat's definition, so a section without them fails at load
-naming the missing block. Ship `config.toml` with: `min_sources = 2` (measured-dead at the current
-floor — shipped anyway, per the flag above, with a comment saying exactly that), the watchlist
+naming the missing block. Ship `config.toml` with: `min_sources = 2` (alive at the measured
+`floor = 0.35` — ~2 gate-passes/night; see the resolved flag above), the watchlist
 seed from FR-38 (Austin, Texas, ERCOT, Austin Water, boil notice, evacuation, grid emergency),
 and the §9 Q2 categories (deliver: local/personal safety for Austin and Texas; national and world
 emergencies; market and economy shocks — exclude: election outcomes; deaths of public figures).
@@ -335,7 +338,8 @@ the existing two live nights must not retroactively fail.
 failing condition, including a synthetic suppressed watchlist hit for (e); pre-v5 trace → (a)–(c)
 computed, (d)/(e) n/a; band drift reported without failing; `uv run python -m forecaster.cli
 --ntk-metric` runs cleanly against the real `data/runs/` and shows gate-pass counts of **0** for
-the two existing nights — the honest current answer.
+the pre-retune nights — correct history (their counts were recorded at the old 0.55 floor), and
+the report must not recompute the past under the new floor.
 **Guardrails:** Report-only, never gating, never auto-tuning. Keep the row-9-posture caveat and
 the "evidence, not a result" label.
 
