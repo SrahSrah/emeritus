@@ -149,10 +149,15 @@ ttl_days = 7
 
 [need_to_know.corroboration]
 # FR-33. A third retrieval problem with a third natural floor: same-story chunk against
-# chunk across outlets — closer to line-vs-line (0.60) than query-vs-chunk (0.35).
-# Reasoned, NOT measured — parent PRD §9 Q7. Do not describe these as tuned.
+# chunk across outlets. floor was reasoned at 0.55 ("closer to line-vs-line than
+# query-vs-chunk") and MEASURED WRONG: over three live nights (162 articles, sweep
+# 2026-08-20, scripts/corroboration_sweep.py) no candidate reached 2 sources above 0.40,
+# while 0.35 yields ~2 gate-passing candidates/night — genuinely co-covered stories.
+# Cross-outlet same-story prose is looser than reasoned. 0.35 equals the news beat's
+# topic floor by coincidence of measurement, not shared derivation (Q6 and Q7 stay
+# separate questions). Measured on three nights ≠ tuned on fourteen — parent §9 Q7.
 window_days = 2
-floor = 0.55
+floor = 0.35
 
 # Sarah's taste, not a design decision. Nothing in the code knows these ids.
 [[news.topics]]

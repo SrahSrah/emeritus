@@ -357,14 +357,21 @@ def test_corpus_lifecycle_agreement_loads_fine() -> None:
 
 
 def test_the_real_config_parses_its_need_to_know_section() -> None:
-    """Enabled as of Step 38, with Q7's values distinct from Q5's and Q6's."""
+    """Enabled as of Step 38; the corroboration floor is the 2026-08-20 measured value.
+
+    This test used to assert the floor differed from Q5's and Q6's floors, as a proxy
+    for "three distinct retrieval questions". The measured retune landed on 0.35 — the
+    same number as the news topic floor, by coincidence of measurement, not shared
+    derivation. So the proxy is retired and the measured value is pinned instead: anyone
+    changing it should be changing it on evidence (scripts/corroboration_sweep.py), and
+    this assertion is where they find that out.
+    """
     config = load_config(REAL_CONFIG)
     assert config.need_to_know is not None
     assert config.beats.get("need_to_know") is True
     assert config.news is not None
-    floor = config.need_to_know.corroboration.floor
-    assert floor != config.retrieval.similarity_floor
-    assert floor != config.news.retrieval.similarity_floor
+    assert config.need_to_know.corroboration.floor == 0.35
+    assert config.retrieval.similarity_floor == 0.60  # Q5's question is still its own
 
 
 # --------------------------------------------------------------------------- #
