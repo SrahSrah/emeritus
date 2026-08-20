@@ -483,6 +483,16 @@ Downstream must not invent answers to these.
    nights/fortnight band join this list — they are Sarah's *targets*, chosen by interview, which
    settles what to aim at but measures nothing. FR-35's distribution and FR-41's band report are
    the instruments. No checkpoint may describe any of these as tuned.
+   **Amended 2026-08-20 — the floor is now measured, and the reasoning was wrong.** Three live
+   nights (162 corpus articles) plus a floor sweep with the shipped counter
+   (`scripts/corroboration_sweep.py`): above 0.40 **no candidate ever reached two sources** — the
+   reasoned 0.55 made the `min_sources = 2` gate structurally dead — while 0.35 yields ~2
+   gate-passing candidates a night, spot-checked as genuinely co-covered stories. Sarah's standing
+   instruction ("retune whatever it says") set `floor = 0.35` under the pre-stated rule (highest
+   floor with 1–10 gate-passes/night). The coincidental equality with Q6's topic floor is
+   measurement, not shared derivation. Status of the family: `floor` is **measured on three
+   nights**; `window_days`, `min_sources`, and the band remain reasoned targets; nothing is
+   fourteen-night validated, and a checkpoint may say "measured", not "tuned".
 2. ~~**Parent §9 Q2 — rules vs judgment — is this beat's blocker.**~~ **Answered for this beat,
    2026-08-14, by Sarah (structured interview, eight decisions):** the FR-9b split transfers to
    importance — mechanical gates narrow, a model judges, invariants bound it. Uncertainty default:

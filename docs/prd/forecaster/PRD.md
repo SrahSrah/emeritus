@@ -362,7 +362,11 @@ Downstream must not invent answers to these.
    [`docs/prd/need-to-know-news/PRD.md`](../need-to-know-news/PRD.md) §9 Q1. A third sibling, not an
    answer to Q5 or Q6: this one matches same-story chunks against each other across outlets, which
    is yet another retrieval problem with its own natural floor. The child's FR-35 exists to measure
-   it before anything consumes it.
+   it before anything consumes it. **Partially answered 2026-08-20:** the floor was measured over
+   three live nights and moved 0.55 → **0.35** — the reasoned value made the two-source gate
+   structurally dead; cross-outlet same-story prose is looser than line-vs-line reasoning assumed.
+   First threshold in the Q5/Q6/Q7 family to graduate from reasoned to measured (child §9 Q1 has
+   the numbers). Q5 and Q6 remain unmeasured.
 
 ## 10. Phasing
 
