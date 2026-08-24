@@ -238,3 +238,184 @@ def test_dedup_can_never_suppress_a_watchlist_item(tmp_path) -> None:
     )
     assert decision.action == "include"
     assert decision.forced is True
+
+
+# --------------------------------------------------------------------------- #
+# Step 47 — the gated judgment
+# --------------------------------------------------------------------------- #
+
+
+class ScriptedJudgeAndWriter:
+    """Answers the bar with a fixed verdict; writes by echoing a passage.
+
+    Distinguishes the two calls by shape: the judgment carries `corroborated_by`,
+    the writer carries `passages`.
+    """
+
+    auth_mode = "subscription_oauth"
+
+    def __init__(self, verdict: str = "DELIVER local safety story") -> None:
+        self.verdict = verdict
+        self.judge_calls = 0
+        self.write_calls = 0
+        self.systems: list[str] = []
+
+    def complete(self, prompt, *, structured=None, system=None, effort="low"):
+        structured = structured or {}
+        if "corroborated_by" in structured:
+            self.judge_calls += 1
+            self.systems.append(system or "")
+            return AgentResponse(text=self.verdict)
+        self.write_calls += 1
+        passages = structured.get("passages") or []
+        source = passages[0]["source"] if passages else "a publication"
+        body = passages[0]["text"] if passages else ""
+        return AgentResponse(text=f"Per {source}: {body[:180]}")
+
+
+class RaisingJudge(ScriptedJudgeAndWriter):
+    def complete(self, prompt, *, structured=None, system=None, effort="low"):
+        if "corroborated_by" in (structured or {}):
+            raise RuntimeError("judgment endpoint down")
+        return super().complete(prompt, structured=structured, system=system, effort=effort)
+
+
+#: Same story on both wires, so under min_sources = 1 the BBC copy passes the gate.
+CORROBORATED_TITLE = "Grid operator warns of rolling outages this weekend"
+
+
+def _gated_config(**bar_overrides):
+    ntk = {
+        **NEED_TO_KNOW_CONFIG,
+        "corroboration": {**NEED_TO_KNOW_CONFIG["corroboration"], "min_sources": 1},
+    }
+    ntk.update(bar_overrides)
+    return make_config(beats={"need_to_know": True}, need_to_know=ntk)
+
+
+def _run_gated(tmp_path: Path, client, *, config=None):
+    routes = [
+        Route(r"/robots\.txt", text="User-agent: *\nDisallow:\n"),
+        Route(
+            BBC_FEED,
+            text=_feed_xml((CORROBORATED_TITLE, "https://bbc.test/outages")),
+            content_type="application/xml",
+        ),
+        Route(
+            TT_FEED,
+            text=_feed_xml(
+                (CORROBORATED_TITLE, "https://tt.test/outages"),
+                ("Weekend chess roundup", "https://tt.test/chess"),
+            ),
+            content_type="application/xml",
+        ),
+        Route(r"(bbc|tt)\.test/outages", text=SAFETY_BODY.replace("boil notice", "power warning"), content_type="text/html"),
+        Route(r"tt\.test/chess", text=CHESS_BODY, content_type="text/html"),
+    ]
+    http, _ = fixture_client(routes)
+    trace = trace_in(tmp_path, "ntk-judge")
+    corpus = corpus_module.connect(tmp_path / "corpus.db")
+    with http:
+        context = BeatContext(
+            config=config or _gated_config(),
+            preferences=make_preferences(),
+            now=NOW,
+            scratchpad=__import__(
+                "forecaster.memory.scratchpad", fromlist=["Scratchpad"]
+            ).Scratchpad(trace=trace),
+            trace=trace,
+            http_client=http,
+            embedder=HashingEmbedder(),
+            corpus=corpus,
+            agent_client=client,
+        )
+        result = run_beat_safely(NeedToKnowBeat(), context)
+    trace.beat_result(result)
+    trace.close()
+    return result, trace
+
+
+def test_a_deliver_verdict_delivers_a_grounded_item(tmp_path) -> None:
+    client = ScriptedJudgeAndWriter("DELIVER grid trouble is local safety")
+    result, trace = _run_gated(tmp_path, client)
+
+    story = [item for item in result.items if item.fields.get("text_origin")]
+    assert [item.fields["via"] for item in story] == ["bar", "bar"]
+    assert client.judge_calls == 2, "both corroborated copies pass the gate"
+    delivered = _decisions(trace, "ntk_delivered")
+    assert len(delivered) == 2
+    digest = "\n".join(item.text for item in story)
+    assert check_provenance(trace.path, digest).violations == []
+
+
+def test_the_chess_story_never_reaches_the_judge(tmp_path) -> None:
+    """Sub-gate (count 0 < 1): the model must not even be asked."""
+    client = ScriptedJudgeAndWriter()
+    _run_gated(tmp_path, client)
+    assert client.judge_calls == 2, "only the two corroborated copies, never chess"
+
+
+def test_a_pass_verdict_suppresses_with_the_reason_on_record(tmp_path) -> None:
+    client = ScriptedJudgeAndWriter("PASS wire drudgery")
+    result, trace = _run_gated(tmp_path, client)
+
+    assert [item for item in result.items if item.fields.get("text_origin")] == []
+    suppressed = _decisions(trace, "ntk_suppressed")
+    assert len(suppressed) == 2
+    assert all("PASS" in record["reason"] for record in suppressed)
+    assert client.write_calls == 0
+
+
+def test_an_unrecognisable_verdict_is_uncertainty_and_suppresses(tmp_path) -> None:
+    client = ScriptedJudgeAndWriter("hmm, tough one")
+    result, trace = _run_gated(tmp_path, client)
+    assert [item for item in result.items if item.fields.get("text_origin")] == []
+    assert len(_decisions(trace, "ntk_suppressed")) == 2
+
+
+def test_a_judgment_failure_is_a_named_abstention_never_include(tmp_path) -> None:
+    result, trace = _run_gated(tmp_path, RaisingJudge())
+
+    assert result.available, "abstention is not an outage"
+    assert [item for item in result.items if item.fields.get("text_origin")] == []
+    (abstention,) = _decisions(trace, "ntk_judgment_unavailable")
+    assert abstention["unassessed"] == 2
+    assert "never silent" in abstention["reason"]
+
+
+def test_the_bar_lists_reach_the_prompt_from_config(tmp_path) -> None:
+    client = ScriptedJudgeAndWriter("PASS")
+    _run_gated(tmp_path, client)
+    default_system = client.systems[0]
+    assert "local safety" in default_system and "election outcomes" in default_system
+
+    client = ScriptedJudgeAndWriter("PASS")
+    _run_gated(
+        tmp_path / "b",
+        client,
+        config=_gated_config(bar={"deliver": ["volcano news"], "exclude": ["sports"]}),
+    )
+    assert "volcano news" in client.systems[0] and "sports" in client.systems[0]
+    assert client.systems[0] != default_system
+
+
+def test_v4_observation_conditions_still_hold_under_the_bar(tmp_path) -> None:
+    """The bar sits on top of observation, never instead of it."""
+    from forecaster.ntk_metric import check_ntk_metric
+
+    _, trace = _run_gated(tmp_path, ScriptedJudgeAndWriter("PASS"))
+    report = check_ntk_metric([trace.path])
+    assert report.condition("silence_accounted").passed
+    assert report.condition("count_provenance").passed
+
+
+def test_a_corroborated_watchlist_hit_skips_the_judge_entirely(tmp_path) -> None:
+    """Carve-out precedence: matched term means delivered, no judgment consulted."""
+    client = ScriptedJudgeAndWriter("PASS would have suppressed it")
+    config = _gated_config(watchlist={"terms": ["rolling outages"]})
+    result, trace = _run_gated(tmp_path, client, config=config)
+
+    story = [item for item in result.items if item.fields.get("text_origin")]
+    assert {item.fields["via"] for item in story} == {"watchlist"}
+    assert client.judge_calls == 0
+    assert result.escalation_candidate is True

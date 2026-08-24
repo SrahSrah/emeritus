@@ -127,8 +127,10 @@ class NeedToKnowBeat:
         candidates = self._observe(context, settings, fetched)
 
         # v5 — the bar. Watchlist first (FR-38): a hit bypasses the gate and the
-        # judgment entirely and escalates via the deterministic rule.
+        # judgment entirely and escalates via the deterministic rule. Then the gated
+        # judgment (FR-36) over everything the watchlist did not already claim.
         story_items = self._watchlist_pass(context, settings, candidates)
+        story_items += self._judgment_pass(context, settings, candidates)
         hits = [c.watchlist_term for c in candidates if c.watchlist_term]
 
         return BeatResult(
@@ -339,6 +341,9 @@ class NeedToKnowBeat:
                 count=len(corroborators),
                 sources=sorted(corroborators),
                 observation=observation_id,
+                # FR-41: the metric computes gate-passes from the trace alone, so the
+                # gate value in force rides along with every count.
+                min_sources=settings.corroboration.min_sources,
             )
             observed.append(
                 _Candidate(
@@ -389,6 +394,89 @@ class NeedToKnowBeat:
             if re.search(rf"\b{re.escape(term)}\b", haystack, re.IGNORECASE):
                 return term
         return None
+
+    def _judgment_pass(
+        self, context: BeatContext, settings: Any, candidates: list[_Candidate]
+    ) -> list[BeatItem]:
+        """FR-36 — gate, then judge, suppress when unsure.
+
+        The invariants live in code, not the prompt: watchlist hits never reach this
+        (already delivered); a sub-gate candidate never reaches the model; and a
+        judgment failure degrades to **named abstention**, never include — the
+        remaining candidates are recorded as unassessed and nothing more delivers,
+        because include-on-failure is safe for dedup (worst case, a repeat) and unsafe
+        here (worst case, the feed Sarah quit).
+        """
+        gate = settings.corroboration.min_sources
+        queue = [
+            candidate
+            for candidate in candidates
+            if candidate.watchlist_term is None and candidate.count >= gate
+        ]
+        items: list[BeatItem] = []
+        for index, candidate in enumerate(queue):
+            try:
+                response = context.agent_client.complete(
+                    "Does this story clear the need-to-know bar? Answer DELIVER or "
+                    "PASS, then give a one-sentence reason.",
+                    structured={
+                        "headline": candidate.entry.headline,
+                        "source": candidate.entry.source,
+                        "corroborated_by": candidate.sources,
+                        "summary": (candidate.entry.body or "")[:600],
+                    },
+                    system=self._judge_system(settings),
+                    effort=DEFAULT_EFFORT,
+                )
+            except Exception as exc:  # noqa: BLE001 - invariant ii: loud abstention
+                unassessed = len(queue) - index
+                context.trace.decision(
+                    beat=self.name,
+                    decision="ntk_judgment_unavailable",
+                    reason=(
+                        f"the bar judgment failed ({type(exc).__name__}: {exc}); "
+                        f"{unassessed} gate-passing candidate(s) go unassessed and "
+                        "none of them delivers — abstention, stated, never silent "
+                        "inclusion"
+                    ),
+                    unassessed=unassessed,
+                )
+                break
+
+            verdict = (response.text or "").strip()
+            if verdict.upper().startswith("DELIVER"):
+                items.append(self._write_item(context, candidate, via="bar"))
+                context.trace.decision(
+                    beat=self.name,
+                    decision="ntk_delivered",
+                    reason=verdict.splitlines()[0][:200],
+                    url=candidate.entry.url,
+                )
+            else:
+                # PASS, or anything unrecognisable — which is uncertainty, and the
+                # stated default for this beat is to suppress it.
+                context.trace.decision(
+                    beat=self.name,
+                    decision="ntk_suppressed",
+                    reason=(verdict.splitlines()[0][:200] if verdict else "no verdict"),
+                    url=candidate.entry.url,
+                )
+        return items
+
+    def _judge_system(self, settings: Any) -> str:
+        """Sarah's bar, from config, with the inverted default stated in words."""
+        deliver = "; ".join(settings.bar.deliver)
+        exclude = "; ".join(settings.bar.exclude)
+        return (
+            "You decide whether a news story clears a high 'need to know' bar for a "
+            "nightly digest whose reader quit the feeds on purpose. "
+            f"DELIVER only stories in these categories: {deliver}. "
+            f"Never deliver these deliberate exclusions: {exclude}. "
+            "Everything else is daily drudgery and does not clear the bar. "
+            "Answer DELIVER or PASS, then a one-sentence reason. "
+            "When uncertain, PASS — for this digest, repeating the drudgery is the "
+            "larger error."
+        )
 
     def _write_item(
         self, context: BeatContext, candidate: _Candidate, *, via: str
