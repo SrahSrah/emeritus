@@ -28,6 +28,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 FREEZE_ALERT = "freeze_alert"
 WATCHED_PLAYER_INJURY = "watched_player_injury"
+NEED_TO_KNOW_WATCHLIST = "need_to_know_watchlist"
 
 
 @dataclass(frozen=True)
@@ -160,9 +161,48 @@ def _injury_names(injuries: Any) -> list[str]:
     return names
 
 
+def _need_to_know_watchlist(result: Any, config: Any) -> RuleOutcome:
+    """Promote a need-to-know item that matched a configured watchlist term (FR-38).
+
+    Deterministic on purpose: the carve-out is what bounds the bar's suppress-when-unsure
+    judgment, so no model opinion may decide whether it fires. Reads the beat-agnostic
+    `escalation_signals["watchlist"]` bag per the base-contract rule (no beat-specific
+    column on the universal contract). Registered in Step 45 **dormant** — nothing
+    populates the signal until the beat's watchlist pass lands in Step 46 — which is the
+    same landing pattern as the injury rule, minus the missing data source.
+    """
+    beat = getattr(result, "beat", "")
+    if not getattr(result, "available", True):
+        return RuleOutcome(
+            rule=NEED_TO_KNOW_WATCHLIST,
+            beat=beat,
+            fired=False,
+            reason=f"{beat} is unavailable, so no watchlist match is possible",
+        )
+
+    signals = getattr(result, "escalation_signals", {}) or {}
+    hits = signals.get("watchlist") or []
+    if hits:
+        terms = ", ".join(str(hit) for hit in hits[:3])
+        more = "" if len(hits) <= 3 else f" (and {len(hits) - 3} more)"
+        return RuleOutcome(
+            rule=NEED_TO_KNOW_WATCHLIST,
+            beat=beat,
+            fired=True,
+            reason=f"watchlist term(s) matched: {terms}{more}",
+        )
+    return RuleOutcome(
+        rule=NEED_TO_KNOW_WATCHLIST,
+        beat=beat,
+        fired=False,
+        reason=f"{beat} reported no watchlist match",
+    )
+
+
 RULES: dict[str, Callable[[Any, Any], RuleOutcome]] = {
     FREEZE_ALERT: _freeze_alert,
     WATCHED_PLAYER_INJURY: _watched_player_injury,
+    NEED_TO_KNOW_WATCHLIST: _need_to_know_watchlist,
 }
 
 
@@ -250,6 +290,7 @@ def escalation_summary(ordered: OrderedItems) -> dict[str, Any]:
 
 __all__ = [
     "FREEZE_ALERT",
+    "NEED_TO_KNOW_WATCHLIST",
     "RULES",
     "WATCHED_PLAYER_INJURY",
     "OrderedItem",

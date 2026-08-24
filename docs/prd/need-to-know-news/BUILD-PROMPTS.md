@@ -177,3 +177,182 @@ Q5 (resurrection) is a v5 concern.
 FR-36 and FR-38 … FR-41 (v5: judgment, watchlist, pulse line, deferral, band) — decomposed
 separately after v4 lands. Any temptation to "just add the gate while we're in there" is the
 gold-plating this file exists to prevent.
+
+
+---
+---
+
+# BUILD PROMPTS — Need-to-know news beat, v5 (the bar)
+
+Appended 2026-08-19. Decomposes **FR-36 + FR-38 … FR-41** — the importance bar Sarah decided by
+interview (PRD §9 Q2). v4 (Steps 35–39) is shipped and running; the within-run dedup prerequisite
+shipped as ai-news FR-37. Steps continue the repo ledger at **Step 45** (venues v1 used 40–44).
+
+**The gate flag — RESOLVED 2026-08-20, read the history so you don't re-litigate it.** Two live
+nights at the reasoned `floor = 0.55` produced max corroboration 1 (the `min_sources = 2` gate
+passed zero candidates), so a floor sweep over the live corpus was run
+(`scripts/corroboration_sweep.py`, now committed) and, per Sarah's standing instruction, **the
+floor was retuned to 0.35** — the first measured threshold in the project. At the shipped config
+the gate now passes **~2 candidates a night**, so the judgment path is live at launch, not
+watchlist-only. What survives for the build: the *numbers* are still Sarah's (§9 Q1/Q7 — measured
+on three nights, not tuned on fourteen); no step may adjust `floor` or `min_sources` further; and
+Step 50 still puts the nightly **gate-pass count** in the metric report — that number is how the
+next retune gets its evidence. Historical nights (2026-08-16/19/20) recorded their counts at the
+old floor, so their gate-pass counts read as 0 in old traces; that is correct history, not a bug.
+
+**Environment, unchanged from v4's block** (worktree off `dev`, `uv run pytest -q` green before
+done, no network/model calls in tests, protected gates, zero edits to `planner.py`/`delivery/`;
+`synthesizer.py` only where a step says so). New for v5: the beat now **does** call the model in
+production for items it delivers — `FakeAgentClient`/scripted clients in tests, and
+`tests/test_time_scoped_items.py::_run_ntk` must switch from the exploding `_no_model` client to a
+scripted passage-writing client (the `PassageClient` pattern in `test_beat_news.py`), since v5's
+beat may legitimately write text.
+
+---
+
+### Step 45 — Bar config: `min_sources`, `[need_to_know.watchlist]`, `[need_to_know.bar]`  (implements FR-36/FR-38 config halves)
+**Context:** [`PRD.md`](PRD.md) FR-36/FR-38 and §6's amended config note. `forecaster/config.py`,
+`forecaster/config.toml`, `tests/helpers.py` (`NEED_TO_KNOW_CONFIG`), `tests/test_config.py`.
+**Task:** Extend the `need_to_know` settings: `corroboration` gains `min_sources` (int ≥ 1);
+new `watchlist` block with `terms` (non-empty strings; duplicates rejected case-insensitively);
+new `bar` block with `deliver` and `exclude` (non-empty string lists — Sarah's categories are
+config, not code, same reasoning as the news topics). All three **required once `[need_to_know]`
+exists** — v5 makes the bar part of the beat's definition, so a section without them fails at load
+naming the missing block. Ship `config.toml` with: `min_sources = 2` (alive at the measured
+`floor = 0.35` — ~2 gate-passes/night; see the resolved flag above), the watchlist
+seed from FR-38 (Austin, Texas, ERCOT, Austin Water, boil notice, evacuation, grid emergency),
+and the §9 Q2 categories (deliver: local/personal safety for Austin and Texas; national and world
+emergencies; market and economy shocks — exclude: election outcomes; deaths of public figures).
+Add `need_to_know_watchlist` to `[escalation] rules`. Update `NEED_TO_KNOW_CONFIG` in helpers
+with small test values.
+**Verify:** `uv run pytest -q` green. New tests: missing `bar`/`watchlist`/`min_sources` each
+raise naming the block; `min_sources = 0` raises; empty or duplicate watchlist terms raise; empty
+`deliver` or `exclude` raises; the real `config.toml` parses with the seed values and the
+escalation rule present. Every pre-v5 test that builds `[need_to_know]` updated via the helper,
+not by loosening validation.
+**Guardrails:** Config stays ignorant of code — no prompt text in config beyond the plain-language
+category lists. Do not touch `floor` or `window_days`.
+
+### Step 46 — Watchlist carve-out: mechanical match, bypass, deterministic escalation  (implements FR-38)
+**Context:** [`PRD.md`](PRD.md) FR-38. `forecaster/beats/need_to_know.py`,
+`forecaster/escalation.py` (new rule id — editable, not part of the FR-2 seam), a new
+`_write`-style helper modeled on `beats/news.py` (system prompt: one or two sentences, figures
+exact, name the source, quotes verbatim — copy the news beat's contract, not a paraphrase of it).
+**Task:** After v4's observation pass, match each candidate's **headline + first chunk** against
+`watchlist.terms`, case-insensitive, whole-word. A hit bypasses the corroboration gate and the
+FR-36 judgment entirely: the item is written by the model from the candidate's own chunks
+(`text_origin = "synthesized"`, chunk observations linked, **no artifact keys in `fields`** per
+FR-27 — add its case to the existing conventions test), `escalation_candidate = True` with the
+matched term in `escalation_reason`, and the beat's result carries it so the deterministic
+`need_to_know_watchlist` rule promotes it. Trace: a `watchlist_hit` decision naming term + url.
+Ledger dedup can never suppress it — FR-19 invariant 2 already guarantees that; add the test, not
+new machinery.
+**Verify:** `uv run pytest -q` green. Over fixtures: a story only one source carries, containing a
+watchlist term, is delivered and sits at the top of the ordered digest (escalation asserted on
+structure); the same story with the term absent is gated out (no model call — assert call count);
+matching is whole-word ("ERCOT" hits, "supercot" does not) and case-insensitive; the item's text
+passes FR-26 against its linked chunks; a scripted suppress-happy client cannot suppress it
+(invariant 2 path, `forced=True`).
+**Guardrails:** The carve-out is mechanical — no model classification decides safety. Escalation
+stays rules-only (parent §9 Q2's open half must not leak). `synthesizer.py` untouched.
+
+### Step 47 — The importance judgment: gate → judge → suppress-when-unsure  (implements FR-36)
+**Context:** [`PRD.md`](PRD.md) FR-36 — the invariants are the requirement; read them verbatim.
+`forecaster/beats/need_to_know.py`; the system prompt interpolates `bar.deliver`/`bar.exclude`
+from config and states the inverted default in words ("when uncertain, PASS — repeating the
+drudgery is the larger error here").
+**Task:** Candidates that pass the mechanical gate (v4 corroboration count ≥ `min_sources`) and
+are not watchlist hits are judged one at a time: DELIVER or PASS plus a one-sentence reason.
+DELIVER → model-written item from the candidate's chunks (same helper as Step 46, same FR-27
+field shape, chunk observations linked). PASS → `ntk_suppressed` decision carrying the reason.
+Judgment invariants, enforced around the model: (i) watchlist hits never reach it (Step 46
+already delivered them — assert call counts); (ii) a judgment **failure** degrades to **named
+abstention**, never include: nothing delivers, an `ntk_judgment_unavailable` decision records the
+unassessed count, and Step 48's pulse line states it in the digest (build the decision now, the
+line next step); (iii) every verdict is traced. Sub-gate candidates never reach the model.
+**Verify:** `uv run pytest -q` green. Fixtures with a scripted client: DELIVER yields an item
+whose text passes FR-26 and whose fields pass the FR-27 conventions test; PASS yields
+`ntk_suppressed` with the model's reason; a raising client yields zero deliveries plus
+`ntk_judgment_unavailable` with the count; a sub-gate candidate never reaches the client (call
+count); the bar lists reach the prompt from config (run twice with two configs, assert the prompt
+changed); v4's observation decisions still record for every candidate — the bar sits **on top of**
+observation, it does not replace it (`--ntk-metric` conditions (a)–(c) must still pass over a v5
+fixture run).
+**Guardrails:** Suppress-when-unsure is the *prompt's stated default*, but the mechanism never
+relies on prompt obedience for safety — the carve-out and abstention are code. Do not consult the
+model for anything the gate already decided.
+
+### Step 48 — The pulse line: quiet nights and abstentions, inbox-visible  (implements FR-39)
+**Context:** [`PRD.md`](PRD.md) FR-39. `forecaster/beats/need_to_know.py`. The failed-source and
+venue quiet lines are the house pattern: code-assembled, dated, declared checkable.
+**Task:** On any run where the beat is available and delivers zero story items, emit exactly one
+code-assembled status line — "Nothing cleared the need-to-know bar tonight (N stories watched,
+max corroboration M)." — with N and M copied from this run's own trace tallies, declared in
+`checkable_fields` so FR-11 polices them, and `as_of` in `fields` so FR-19's date rule makes it
+reframe-only. When Step 47 recorded an abstention, the line instead names it: "The need-to-know
+bar couldn't be judged tonight (K candidates unassessed)." A delivering night emits no pulse line.
+**Verify:** `uv run pytest -q` green. Quiet fixture → exactly one pulse item, N and M matching
+the trace, provenance passing; delivering fixture → no pulse; abstention fixture → the abstention
+wording with K; a prior-night near-identical pulse line reframes, never suppresses (date rule);
+the digest-level FR-18 checks unchanged.
+**Guardrails:** The pulse line is code-assembled — never model-written. Its numbers come from the
+trace, not from re-counting at render time in a second code path.
+
+### Step 49 — Cross-beat deferral, one-way  (implements FR-40)
+**Context:** [`PRD.md`](PRD.md) FR-40. `forecaster/synthesizer.py` (**the one step allowed to
+touch it**, in the dedup pass — FR-9b/FR-37/FR-44 precedent) and `forecaster/memory/dedup.py` if
+needed. Read `_apply_dedup` first: FR-37's `kept_this_run` pool is same-beat by construction, and
+FR-44's exempt items never join it — both properties must survive.
+**Task:** A need-to-know item that cleared Step 47 is additionally assessed against the run's
+already-kept items **from other beats** before delivery, by handing them to `assess_item` as
+extra neighbours — one way only (no other beat ever sees ntk candidates as neighbours; exempt
+beats' items are never anyone's neighbours, FR-44). A suppress verdict here is recorded as
+`ntk_deferred` naming the covering beat and item, not as a plain dedup_suppress. FR-27's veto
+applies unchanged: an ntk candidate carrying a figure or entity the other beat's item lacks
+force-reframes and still delivers, leading with what is new — deferral means "already covered,"
+and a story with uncovered facts is not covered.
+**Verify:** `uv run pytest -q` green. Fixture where the news beat kept an Anthropic item and the
+ntk candidate restates it with no new grounded values → `ntk_deferred` naming the news beat, no
+duplicate in the digest; the same candidate with one new figure → forced reframe, delivered;
+news beat disabled → the candidate is assessed against nothing and delivers (one-way coupling
+optional at runtime); watchlist hits are **never** deferred (feeds §2(e)); every existing dedup,
+FR-37, and FR-44 test passes untouched.
+**Guardrails:** No FR-19 invariant weakened; no test edited to force green. If the implementation
+wants to change `assess_item`'s signature, stop and reconsider — extra neighbours through the
+existing parameter is the intended shape.
+
+### Step 50 — Bar-phase metric: conditions (d)–(f) + the gate-pass count  (implements FR-41)
+**Context:** [`PRD.md`](PRD.md) §2 (d)–(f) and FR-41. `forecaster/ntk_metric.py`,
+`forecaster/tests/test_ntk_metric.py`, `forecaster/cli.py` (same `--ntk-metric` flag — one
+report, both phases).
+**Task:** Extend the checker: **(d) no unaccounted judgment** — every gate-passing candidate ends
+in exactly one of delivered / `ntk_suppressed` / `ntk_deferred` / `ntk_judgment_unavailable`, and
+the pulse line's stated counts match the tally; **(e) the carve-out held** — zero watchlist-hit
+candidates suppressed or deferred, ever; a single violation fails; **(f) calibration band,
+report-only** — delivering nights per rolling 14 against Sarah's 2–3 target, never pass/fail.
+Add to the distribution block the **nightly gate-pass count** (candidates with count ≥
+`min_sources`, read from the decisions) so the measured-dead gate is visible in every report
+until Sarah tunes it. Conditions (d)/(e) are n/a on pre-v5 traces (no bar decisions present) —
+the existing two live nights must not retroactively fail.
+**Verify:** `uv run pytest -q` green. Fixtures: all-pass over a v5-shaped trace; one fixture per
+failing condition, including a synthetic suppressed watchlist hit for (e); pre-v5 trace → (a)–(c)
+computed, (d)/(e) n/a; band drift reported without failing; `uv run python -m forecaster.cli
+--ntk-metric` runs cleanly against the real `data/runs/` and shows gate-pass counts of **0** for
+the pre-retune nights — correct history (their counts were recorded at the old 0.55 floor), and
+the report must not recompute the past under the new floor.
+**Guardrails:** Report-only, never gating, never auto-tuning. Keep the row-9-posture caveat and
+the "evidence, not a result" label.
+
+---
+
+## Withheld pending §9 — none (v5)
+
+Q2 is answered for this beat (PRD §9 Q2, Sarah's interview). Q1/Q7 (the numbers) constrain
+*claims and tuning*, not buildability — and the measured-dead-gate flag above is Q1 evidence
+carried into the build, not a blocker. Q5 (suppression resurrection) remains open and out of
+scope; if a step appears to need it, stop.
+
+## Explicitly out of the v5 build
+
+Retuning `floor` / `min_sources` (Sarah's, from the metric's evidence); any escalation judgment
+beyond the deterministic watchlist rule (parent §9 Q2's open half); r/WSB; Bass.

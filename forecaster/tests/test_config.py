@@ -82,7 +82,11 @@ def test_real_config_loads_with_the_expected_typed_fields() -> None:
 
     assert config.team.mlb_team_id == 117
     assert config.escalation.freeze_threshold_f == pytest.approx(32.0)
-    assert config.escalation.rules == ["freeze_alert", "watched_player_injury"]
+    assert config.escalation.rules == [
+        "need_to_know_watchlist",  # FR-38, added Step 45 (dormant until Step 46)
+        "freeze_alert",
+        "watched_player_injury",
+    ]
     assert "Yordan Alvarez" in config.escalation.watched_players
     assert config.delivery.target
 
@@ -447,3 +451,49 @@ def test_the_real_config_parses_its_venues_section() -> None:
     assert [venue.kind for venue in config.venues.venues] == ["zach_shows"]
     assert "zachtheater.org" in config.venues.venues[0].url  # one "t" — the working host
     assert config.retrieval.exempt_beats == ["venues"]
+
+
+# --------------------------------------------------------------------------- #
+# Step 45 — the bar config (FR-36/FR-38 config halves)
+# --------------------------------------------------------------------------- #
+
+
+def test_v5_blocks_are_required_once_the_section_exists() -> None:
+    """The bar is part of the beat's definition now; a section without it fails loudly."""
+    base = {key: value for key, value in __import__("tests.helpers", fromlist=["NEED_TO_KNOW_CONFIG"]).NEED_TO_KNOW_CONFIG.items()}
+    for missing, message in (
+        ("watchlist", r"\[need_to_know\].*watchlist|watchlist"),
+        ("bar", r"\[need_to_know\].*bar|bar"),
+    ):
+        broken = {key: value for key, value in base.items() if key != missing}
+        from tests.helpers import make_config
+
+        with pytest.raises(ConfigError, match=message):
+            make_config(need_to_know=broken)
+
+
+def test_bar_validation_rules_each_have_a_raising_case() -> None:
+    with pytest.raises(ConfigError, match="min_sources must be at least 1"):
+        _ntk_config(corroboration={"min_sources": 0})
+    with pytest.raises(ConfigError, match="at least one term"):
+        _ntk_config(watchlist={"terms": []})
+    with pytest.raises(ConfigError, match="duplicate watchlist term"):
+        _ntk_config(watchlist={"terms": ["ERCOT", "ercot"]})
+    with pytest.raises(ConfigError, match="delivers nothing by definition"):
+        _ntk_config(bar={"deliver": [], "exclude": ["x"]})
+    with pytest.raises(ConfigError, match="deliberate exclusions"):
+        _ntk_config(bar={"deliver": ["x"], "exclude": []})
+
+
+def test_the_real_config_carries_the_bar_and_the_escalation_rule() -> None:
+    """Sarah's interview values ship; the watchlist rule is registered and configured."""
+    from forecaster.escalation import NEED_TO_KNOW_WATCHLIST, RULES
+
+    config = load_config(REAL_CONFIG)
+    assert config.need_to_know is not None
+    assert config.need_to_know.corroboration.min_sources == 2
+    assert "ERCOT" in config.need_to_know.watchlist
+    assert len(config.need_to_know.bar.deliver) == 3
+    assert config.need_to_know.bar.exclude == ["election outcomes", "deaths of public figures"]
+    assert NEED_TO_KNOW_WATCHLIST in config.escalation.rules
+    assert NEED_TO_KNOW_WATCHLIST in RULES

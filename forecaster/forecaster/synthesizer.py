@@ -42,6 +42,14 @@ from typing import Any, Mapping, Sequence
 from forecaster.agent import AgentClientLike, AgentResponse, DEFAULT_EFFORT
 from forecaster.escalation import OrderedItems, apply_escalation
 from forecaster.memory.dedup import DedupDecision, assess_item
+from forecaster.memory.retrieval import SAME_RUN_SENT_ITEM_ID
+
+#: FR-40 — one-way cross-beat deferral. Beats named here additionally compare their
+#: cleared candidates against the run's already-kept items from OTHER beats, and a
+#: suppression driven by such a neighbour is recorded as a deferral naming the covering
+#: beat. Dedup policy, not beat registration: adding a beat still edits nothing here,
+#: and no other beat ever sees a deferring beat's candidates as neighbours.
+CROSS_BEAT_DEFER = ("need_to_know",)
 from forecaster.memory.preferences import Preferences, SuppressionDecision, suppression_match
 from forecaster.trace import ProvenanceReport, check_provenance
 
@@ -200,11 +208,22 @@ def _apply_dedup(
                 neighbours = retriever.neighbours_for(text, beat=beat, now=now)
                 same_run = getattr(retriever, "same_run_neighbours", None)
                 if same_run is not None and prior:
-                    neighbours = sorted(
-                        [*neighbours, *same_run(text, prior, beat=beat)],
-                        key=lambda neighbour: neighbour.similarity,
-                        reverse=True,
-                    )
+                    neighbours = [*neighbours, *same_run(text, prior, beat=beat)]
+                # FR-40: a deferring beat also sees the other beats' kept items —
+                # stamped with their source beat, so a deferral can name its cover.
+                if same_run is not None and beat in CROSS_BEAT_DEFER:
+                    for other_beat, other_prior in kept_this_run.items():
+                        if other_beat == beat or not other_prior:
+                            continue
+                        neighbours = [
+                            *neighbours,
+                            *same_run(text, other_prior, beat=other_beat),
+                        ]
+                neighbours = sorted(
+                    neighbours,
+                    key=lambda neighbour: neighbour.similarity,
+                    reverse=True,
+                )
             except Exception as exc:  # noqa: BLE001 - invariant 4: never silence a digest
                 neighbours = []
                 if trace is not None:
@@ -227,13 +246,36 @@ def _apply_dedup(
             )
             decisions.append((beat, decision))
 
+            # FR-40: a suppression whose strongest same-run neighbour lives in another
+            # beat is a deferral, and the trace names the cover — "already told, by the
+            # beat whose job that story was" is a different fact from "adds nothing".
+            covering_beat: str | None = None
+            if decision.action == "suppress" and beat in CROSS_BEAT_DEFER:
+                for neighbour in decision.neighbours:
+                    if (
+                        neighbour.sent_item_id == SAME_RUN_SENT_ITEM_ID
+                        and neighbour.beat != beat
+                    ):
+                        covering_beat = neighbour.beat
+                        break
+
             if trace is not None:
-                trace.decision(
-                    beat=beat,
-                    decision=f"dedup_{decision.action}",
-                    reason=decision.reason,
-                    **decision.as_record(),
-                )
+                if covering_beat is not None:
+                    trace.decision(
+                        beat=beat,
+                        decision="ntk_deferred",
+                        reason=f"already covered by the {covering_beat} beat this run: "
+                        + decision.reason,
+                        covering_beat=covering_beat,
+                        **decision.as_record(),
+                    )
+                else:
+                    trace.decision(
+                        beat=beat,
+                        decision=f"dedup_{decision.action}",
+                        reason=decision.reason,
+                        **decision.as_record(),
+                    )
 
             if decision.action == "suppress":
                 continue

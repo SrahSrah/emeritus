@@ -615,6 +615,21 @@ def corroborating_sources(
     )
 
 
+def chunks_for(connection: sqlite3.Connection, url: str) -> list[tuple[int, str]]:
+    """The stored chunks of one article, ``(chunk_id, text)`` in ordinal order.
+
+    FR-36/FR-38 write delivered items from the candidate's own chunks, and each chunk
+    becomes its own trace observation so FR-26 can check the sentence against exactly
+    the passages it was written from — the news beat's pattern, reused.
+    """
+    return [
+        (int(row[0]), str(row[1]))
+        for row in connection.execute(
+            "SELECT id, text FROM chunks WHERE url = ? ORDER BY ordinal", (url,)
+        )
+    ]
+
+
 def article_count(connection: sqlite3.Connection) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM articles").fetchone()[0])
 
@@ -642,6 +657,7 @@ __all__ = [
     "chunk_article",
     "corroborating_sources",
     "chunk_count",
+    "chunks_for",
     "connect",
     "index_article",
     "purge_expired",

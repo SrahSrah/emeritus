@@ -199,12 +199,28 @@ class NewsConfig:
 class CorroborationConfig:
     """FR-33. A third retrieval problem with a third natural floor.
 
-    Same-story chunk against chunk across outlets is neither line-vs-line (Q5, 0.60) nor
-    query-vs-chunk (Q6, 0.35). These values are reasoned, not measured — parent PRD §9 Q7.
+    `floor` is the project's first **measured** threshold (0.35, sweep of 2026-08-20 —
+    see the config.toml comment and §9 Q7). `window_days` and `min_sources` remain
+    reasoned; `min_sources` is FR-36's mechanical gate, alive at the measured floor.
     """
 
     window_days: int
     floor: float
+    min_sources: int
+
+
+@dataclass(frozen=True)
+class BarConfig:
+    """FR-36. Sarah's definition of "need to know", in plain language, in config.
+
+    Taste is config, not code — the same reasoning as the news topics. `deliver` and
+    `exclude` are interpolated into the judgment prompt; `exclude` exists because her
+    2026-08-14 interview named deliberate exclusions (election outcomes, deaths of
+    public figures), and naming them beats leaving them to inference.
+    """
+
+    deliver: list[str]
+    exclude: list[str]
 
 
 @dataclass(frozen=True)
@@ -225,6 +241,10 @@ class NeedToKnowConfig:
     chunking: ChunkingConfig
     corpus: CorpusConfig
     corroboration: CorroborationConfig
+    #: FR-38. Terms whose presence in a candidate's headline or lead bypasses the gate
+    #: and the judgment and escalates deterministically. Sarah's list, seeded 2026-08-14.
+    watchlist: list[str]
+    bar: BarConfig
 
 
 @dataclass(frozen=True)
@@ -551,6 +571,9 @@ def _parse_need_to_know(
             corroboration_table, "window_days", "need_to_know.corroboration"
         ),
         floor=_require_float(corroboration_table, "floor", "need_to_know.corroboration"),
+        min_sources=_require_int(
+            corroboration_table, "min_sources", "need_to_know.corroboration"
+        ),
     )
     if corroboration.window_days < 1:
         raise ConfigError(
@@ -560,12 +583,51 @@ def _parse_need_to_know(
         raise ConfigError(
             "config.toml: [need_to_know.corroboration].floor must be within 0.0–1.0"
         )
+    if corroboration.min_sources < 1:
+        raise ConfigError(
+            "config.toml: [need_to_know.corroboration].min_sources must be at least 1"
+        )
     if corroboration.window_days > corpus.ttl_days:
         raise ConfigError(
             f"config.toml: [need_to_know.corroboration].window_days "
             f"({corroboration.window_days}) exceeds [need_to_know.corpus].ttl_days "
             f"({corpus.ttl_days}) — the run would corroborate over articles the purge "
             "has already deleted"
+        )
+
+    # FR-38. Required as of v5: the bar is part of the beat's definition, so a section
+    # without its watchlist or bar blocks fails at load, naming what is missing.
+    watchlist_table = _require_table(table, "watchlist")
+    watchlist = _require_str_list(watchlist_table, "terms", "need_to_know.watchlist")
+    if not watchlist:
+        raise ConfigError(
+            "config.toml: [need_to_know.watchlist].terms must name at least one term — "
+            "an empty carve-out leaves the suppress-when-unsure judgment unbounded"
+        )
+    seen_terms: set[str] = set()
+    for term in watchlist:
+        folded = term.casefold()
+        if folded in seen_terms:
+            raise ConfigError(
+                f"config.toml: duplicate watchlist term {term!r} (matching is "
+                "case-insensitive, so duplicates only blur the trace)"
+            )
+        seen_terms.add(folded)
+
+    bar_table = _require_table(table, "bar")
+    bar = BarConfig(
+        deliver=_require_str_list(bar_table, "deliver", "need_to_know.bar"),
+        exclude=_require_str_list(bar_table, "exclude", "need_to_know.bar"),
+    )
+    if not bar.deliver:
+        raise ConfigError(
+            "config.toml: [need_to_know.bar].deliver must name at least one category — "
+            "a bar that delivers nothing by definition is not a bar"
+        )
+    if not bar.exclude:
+        raise ConfigError(
+            "config.toml: [need_to_know.bar].exclude must name at least one category — "
+            "the deliberate exclusions are part of the definition (PRD §9 Q2)"
         )
 
     if enabled and not feeds:
@@ -583,6 +645,8 @@ def _parse_need_to_know(
         chunking=chunking,
         corpus=corpus,
         corroboration=corroboration,
+        watchlist=watchlist,
+        bar=bar,
     )
 
 
@@ -698,6 +762,7 @@ def config_digest(config: Config) -> str:
 
 __all__ = [
     "DEFAULT_CONFIG_PATH",
+    "BarConfig",
     "ChunkingConfig",
     "Config",
     "ConfigError",
