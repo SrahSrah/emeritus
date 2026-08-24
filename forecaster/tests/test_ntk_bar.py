@@ -419,3 +419,64 @@ def test_a_corroborated_watchlist_hit_skips_the_judge_entirely(tmp_path) -> None
     assert {item.fields["via"] for item in story} == {"watchlist"}
     assert client.judge_calls == 0
     assert result.escalation_candidate is True
+
+
+# --------------------------------------------------------------------------- #
+# Step 48 — the pulse line
+# --------------------------------------------------------------------------- #
+
+
+def _pulse_of(result):
+    pulses = [
+        item
+        for item in result.items
+        if item.fields.get("text_origin") is None and "need-to-know bar" in item.text
+    ]
+    return pulses[0] if pulses else None
+
+
+def test_a_suppressing_night_pulses_with_supported_counts(tmp_path) -> None:
+    result, trace = _run_gated(tmp_path, ScriptedJudgeAndWriter("PASS drudgery"))
+
+    pulse = _pulse_of(result)
+    assert pulse is not None
+    assert "3 stories watched, max corroboration 1" in pulse.text
+    assert pulse.fields["as_of"] == "2026-08-24"
+    assert result.checkable_fields == {"ntk_watched": 3, "ntk_max_corroboration": 1}
+    assert check_provenance(trace.path, pulse.text).violations == []
+
+
+def test_a_delivering_night_has_no_pulse(tmp_path) -> None:
+    result, _ = _run_gated(tmp_path, ScriptedJudgeAndWriter("DELIVER local safety"))
+    assert _pulse_of(result) is None
+    assert result.checkable_fields == {}
+
+
+def test_an_abstention_night_pulses_the_abstention(tmp_path) -> None:
+    result, trace = _run_gated(tmp_path, RaisingJudge())
+
+    pulse = _pulse_of(result)
+    assert pulse is not None
+    assert "couldn't be judged tonight (2 candidate(s) unassessed)" in pulse.text
+    assert result.checkable_fields == {"ntk_unassessed": 2}
+    assert check_provenance(trace.path, pulse.text).violations == []
+
+
+def test_the_pulse_reframes_but_never_suppresses_against_last_nights(tmp_path) -> None:
+    """A status line under the original date rule: the as_of differs nightly."""
+    result, _ = _run_gated(tmp_path, ScriptedJudgeAndWriter("PASS"))
+    pulse = _pulse_of(result)
+
+    yesterday = dict(pulse.fields)
+    yesterday["as_of"] = "2026-08-23"
+    neighbour = Neighbour(
+        sent_item_id=1,
+        beat="need_to_know",
+        sent_at="2026-08-23T19:00:00",
+        rendered_text=pulse.text,
+        checkable_fields=yesterday,
+        similarity=1.0,
+    )
+    decision = assess_item(pulse, [neighbour], agent_client=_no_model(), beat="need_to_know")
+    assert decision.action == "reframe"
+    assert decision.forced is True

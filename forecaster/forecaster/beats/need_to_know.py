@@ -130,15 +130,25 @@ class NeedToKnowBeat:
         # judgment entirely and escalates via the deterministic rule. Then the gated
         # judgment (FR-36) over everything the watchlist did not already claim.
         story_items = self._watchlist_pass(context, settings, candidates)
-        story_items += self._judgment_pass(context, settings, candidates)
+        judged_items, unassessed = self._judgment_pass(context, settings, candidates)
+        story_items += judged_items
         hits = [c.watchlist_term for c in candidates if c.watchlist_term]
+
+        # FR-39. A quiet night says so in the inbox, with its numbers on the record —
+        # Checkpoint 3's complaint made structural: a beat that never went out must not
+        # read like a slow night.
+        items = self._unavailability_items(context, failed_sources) + story_items
+        checkable: dict[str, Any] = {}
+        if not story_items:
+            pulse, checkable = self._pulse_item(context, candidates, unassessed)
+            items.append(pulse)
 
         return BeatResult(
             beat=self.name,
-            items=self._unavailability_items(context, failed_sources) + story_items,
-            # Still empty: delivered items are model-written, so their claims are
-            # policed by FR-26 over linked chunk observations, not by typed fields.
-            checkable_fields={},
+            items=items,
+            # Story items are model-written and policed by FR-26 over linked chunks;
+            # the pulse line is code-assembled, so its counts are typed claims.
+            checkable_fields=checkable,
             available=True,
             escalation_candidate=bool(hits),
             escalation_reason=(
@@ -395,9 +405,59 @@ class NeedToKnowBeat:
                 return term
         return None
 
+    def _pulse_item(
+        self, context: BeatContext, candidates: list[_Candidate], unassessed: int
+    ) -> tuple[BeatItem, dict[str, Any]]:
+        """FR-39 — the quiet-night line, its tally traced so the claim is supportable.
+
+        The tally is itself recorded as an observation: the counts the line states are
+        computed in code from this run's candidates, and FR-11's support check needs a
+        linked payload containing them. Code-assembled, never model-written; dated, so
+        FR-19's date rule makes it reframe-only, like every status line in the house.
+        """
+        watched = len(candidates)
+        max_count = max((candidate.count for candidate in candidates), default=0)
+        observation_id = context.trace.tool_call(
+            beat=self.name,
+            adapter="ntk.pulse_tally",
+            arguments={"watched": watched},
+        )
+        context.trace.observation(
+            observation_id,
+            payload={
+                "watched": watched,
+                "max_corroboration": max_count,
+                "unassessed": unassessed,
+            },
+        )
+        ref = ObservationRef(observation_id, "ntk.pulse_tally")
+
+        if unassessed:
+            text = (
+                f"The need-to-know bar couldn't be judged tonight "
+                f"({unassessed} candidate(s) unassessed)."
+            )
+            checkable: dict[str, Any] = {"ntk_unassessed": unassessed}
+        else:
+            text = (
+                f"Nothing cleared the need-to-know bar tonight ({watched} stories "
+                f"watched, max corroboration {max_count})."
+            )
+            checkable = {
+                "ntk_watched": watched,
+                "ntk_max_corroboration": max_count,
+            }
+        item = BeatItem(
+            beat=self.name,
+            text=text,
+            fields={"as_of": context.now.date().isoformat()},
+            observations=[ref],
+        )
+        return item, checkable
+
     def _judgment_pass(
         self, context: BeatContext, settings: Any, candidates: list[_Candidate]
-    ) -> list[BeatItem]:
+    ) -> tuple[list[BeatItem], int]:
         """FR-36 — gate, then judge, suppress when unsure.
 
         The invariants live in code, not the prompt: watchlist hits never reach this
@@ -414,6 +474,7 @@ class NeedToKnowBeat:
             if candidate.watchlist_term is None and candidate.count >= gate
         ]
         items: list[BeatItem] = []
+        unassessed = 0
         for index, candidate in enumerate(queue):
             try:
                 response = context.agent_client.complete(
@@ -443,6 +504,7 @@ class NeedToKnowBeat:
                 )
                 break
 
+
             verdict = (response.text or "").strip()
             if verdict.upper().startswith("DELIVER"):
                 items.append(self._write_item(context, candidate, via="bar"))
@@ -461,7 +523,7 @@ class NeedToKnowBeat:
                     reason=(verdict.splitlines()[0][:200] if verdict else "no verdict"),
                     url=candidate.entry.url,
                 )
-        return items
+        return items, unassessed
 
     def _judge_system(self, settings: Any) -> str:
         """Sarah's bar, from config, with the inverted default stated in words."""

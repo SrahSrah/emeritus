@@ -315,16 +315,19 @@ def _run_ntk(tmp_path: Path, *, routes=None):
     )
 
 
-def test_need_to_know_emits_no_items_on_a_healthy_night(tmp_path: Path) -> None:
-    """v4's contract: the digest never hears from this beat unless a source is down.
+def test_need_to_know_quiet_nights_emit_one_dated_pulse_line(tmp_path: Path) -> None:
+    """The v5 contract (FR-39): quiet is inbox-visible as one code-assembled, dated line.
 
-    This beat is exercised here without joining the date-rule parametrize above, because
-    on a healthy night it has no items to check — which is itself the property under
-    test. Its only possible items are the dated status lines checked below.
+    v4 asserted zero items here; the pulse line replaced designed silence with designed
+    accounting. It is a status item, so the original date rule governs it — reframe-only
+    against last night's near-identical pulse, never suppressed.
     """
     result = _run_ntk(tmp_path)
     assert result.available
-    assert result.items == []
+    (pulse,) = result.items
+    assert pulse.fields.get("text_origin") is None
+    assert DATE_KEYS & set(pulse.fields)
+    assert "Nothing cleared the need-to-know bar" in pulse.text
 
 
 def test_need_to_know_unavailability_lines_carry_a_date(tmp_path: Path) -> None:

@@ -107,12 +107,20 @@ def _observation_ids(trace) -> set[str]:
 # --------------------------------------------------------------------------- #
 
 
-def test_a_healthy_run_emits_no_items_and_accounts_for_every_candidate(tmp_path) -> None:
+def test_a_healthy_run_emits_only_the_pulse_and_accounts_for_every_candidate(tmp_path) -> None:
+    """v4 asserted zero items here; FR-39 (Step 48) made the quiet night inbox-visible.
+
+    Nothing clears the bar on the real captures (no watchlist term, gate unmet), so the
+    single permitted item is the code-assembled pulse line with its counts declared.
+    """
     result, trace, _ = _run(tmp_path)
 
     assert result.available
-    assert result.items == []
-    assert result.checkable_fields == {}
+    (pulse,) = result.items
+    assert pulse.fields.get("text_origin") is None
+    assert "Nothing cleared the need-to-know bar tonight" in pulse.text
+    assert pulse.fields["as_of"] == "2026-08-14"
+    assert result.checkable_fields["ntk_watched"] > 0
 
     observed = _decisions(trace, "corroboration_observed")
     assert observed, "the captured feeds have in-window entries; each must be accounted"
@@ -142,12 +150,13 @@ def test_counts_match_the_observation_payloads(tmp_path) -> None:
         assert sorted(payload.get("corroborators") or {}) == decision["sources"]
 
 
-def test_a_quiet_night_records_no_candidates_and_nothing_else(tmp_path) -> None:
+def test_a_quiet_night_records_no_candidates_and_a_zero_count_pulse(tmp_path) -> None:
     """Ten days after capture, every entry is outside the window. That is quiet, not broken."""
     result, trace, _ = _run(tmp_path, now=NOW + timedelta(days=10))
 
     assert result.available
-    assert result.items == []
+    (pulse,) = result.items
+    assert "0 stories watched, max corroboration 0" in pulse.text
     quiet = _decisions(trace, "no_candidates")
     assert len(quiet) == 1
     assert "quiet night" in quiet[0]["reason"]
@@ -173,11 +182,12 @@ def test_one_dead_feed_yields_a_dated_status_line_and_the_rest_still_observe(tmp
     result, trace, _ = _run(tmp_path, routes=_routes_with_dead_feed())
 
     assert result.available
-    assert len(result.items) == 1
+    assert len(result.items) == 2, "the outage line plus the FR-39 pulse"
     line = result.items[0]
     assert "BBC World" in line.text
     assert line.fields["source"] == "BBC World"
     assert line.fields["as_of"] == "2026-08-14"
+    assert "Nothing cleared" in result.items[1].text
 
     assert len(_decisions(trace, "source_unavailable")) == 1
     assert _decisions(trace, "corroboration_observed"), (
