@@ -165,11 +165,13 @@ min_sources = 2
 [need_to_know.watchlist]
 # FR-38. A hit bypasses the gate and the judgment, always delivers, and escalates via
 # the deterministic need_to_know_watchlist rule. This list is the bound on the bar's
-# suppress-when-unsure default — Sarah's seed (2026-08-14), hers to edit. Matching is
-# case-insensitive, whole-word, against headline + lead.
+# suppress-when-unsure default — Sarah's, hers to edit. Matching is case-insensitive,
+# whole-word, against headline + lead.
+# 2026-08-24, Sarah's call after the bar's first live night: the seed's bare geography
+# terms ("Austin", "Texas") matched ordinary Tribune coverage 7 times in one run and
+# escalated all of it — §8's predicted over-fire, measured. Systems and event terms
+# only from here; the judgment handles geography with the reasons on record.
 terms = [
-  "Austin",
-  "Texas",
   "ERCOT",
   "Austin Water",
   "boil notice",
