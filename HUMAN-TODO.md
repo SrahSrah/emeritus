@@ -41,7 +41,9 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 The code is built and its test suite is green (265 tests, no network, no model calls).
 Four things below are **blocking a first real run** — everything else is done.
 
-- [ ] **① Mint a Claude Code OAuth token** and put it in `forecaster/.env` as
+- [x] **① Mint a Claude Code OAuth token** — done (verified 2026-08-24: token in `.env`,
+      every live trace since 2026-08-04 records `auth_mode=subscription_oauth`). Original
+      steps kept below for the day the token rotates. Put it in `forecaster/.env` as
       `CLAUDE_CODE_OAUTH_TOKEN`. Only you can do this — it's an account action.
       ```powershell
       claude setup-token
@@ -58,7 +60,9 @@ Four things below are **blocking a first real run** — everything else is done.
       ever is, and `scripts\run_nightly.ps1` strips it before anything else (verified: with
       the key deliberately set, the script logged `ANTHROPIC_API_KEY present: False`).
 
-- [ ] **② Do the first end-to-end run** once ① is done. Uses the fake deliverer — nothing
+- [x] **② Do the first end-to-end run** — done: live dry runs since 2026-08-04, most
+      recently 2026-08-24 (full digest, provenance 0 violations). All used the fake
+      deliverer, so nothing has been sent — that's ③. Uses the fake deliverer — nothing
       is sent — but a real agent client and the two live APIs.
       ```powershell
       cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
@@ -70,6 +74,13 @@ Four things below are **blocking a first real run** — everything else is done.
 - [ ] **③ Create an SMTP app password** for the delivery account and add it to the same
       gitignored `.env` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
       `SMTP_FROM`, `SMTP_TO`). Gmail requires an app password, not your login password.
+      **This is now the single blocker on real delivery** (verified 2026-08-24): the six
+      keys sit in `.env` with **empty values** since the 08-04 copy from `.env.example`,
+      every run ever has delivered via `FakeDeliverer`, and the two nights the scheduled
+      task fired for real (08-18, 08-19) it crashed at the send step on exactly this.
+      Gmail path: https://myaccount.google.com/apppasswords (needs 2-Step Verification) →
+      app password named `forecaster` → `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
+      user/from/to = your address, password = the 16-char app password.
       Then send one real digest — **this is FR-12's acceptance and it is yours to run; no
       agent will send it**:
       ```powershell
@@ -79,8 +90,20 @@ Four things below are **blocking a first real run** — everything else is done.
       ```
       Confirm it arrived in the inbox.
 
-- [ ] **④ Register the nightly scheduled task.** Changes system settings, so it is yours
-      to run:
+- [~] **④ Register the nightly scheduled task.** Registered and armed (verified
+      2026-08-24: fires 19:00 daily, real-send mode). Two caveats before calling it done:
+      it **refuses to start on battery** (`DisallowStartIfOnBatteries` — the 08-24 09:00
+      attempt was refused with 0x800710E0 for exactly this), and it neither wakes the
+      laptop nor catches up missed slots (`WakeToRun`/`StartWhenAvailable` both off), so
+      a lid-closed 7 pm is a silent miss. To loosen (your call — a caught-up run fires
+      *late*, which the delivery metric then counts as late rather than missed):
+      ```powershell
+      $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+      Set-ScheduledTask -TaskName 'Forecaster Nightly' -Settings $s
+      ```
+      FR-14's actual acceptance (three consecutive unattended nights on subscription
+      auth) still needs ③ first — both real-mode attempts so far died at the send step.
+      Original registration steps, for re-creating the task:
       ```powershell
       schtasks /Create /TN "Forecaster Nightly" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\Users\Sarah\Documents\31 Emeritus\forecaster\scripts\run_nightly.ps1\"" /SC DAILY /ST 19:00 /RL LIMITED
       ```
