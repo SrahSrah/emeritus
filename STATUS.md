@@ -1,6 +1,6 @@
 # STATUS — Emeritus
 
-_Last updated: 2026-08-14_
+_Last updated: 2026-08-24_
 
 > **Graduated from the playground on 2026-07-27.** Source: `playground/emeritus`.
 > Home: `C:\Users\Sarah\Documents\31 Emeritus` → https://github.com/SrahSrah/emeritus (private).
@@ -8,6 +8,17 @@ _Last updated: 2026-08-14_
 > `feature/forecaster` branch of `SrahSrah/playground` if you want to cite process in a checkpoint.
 
 ## Where things stand
+
+**Spec 2026-08-24 — the r/WallStreetBets beat, the last unbuilt Checkpoint 1 beat.**
+[`docs/prd/wsb-beat/PRD.md`](docs/prd/wsb-beat/PRD.md), FR-48 … FR-52; parent FR-17 amended —
+all four FR-17 beats now have child specs. Spec only, no code yet; DIVERGENCES row 10 closes
+when the build increment merges. The framing decision *is* the spec: Checkpoint 1's "stock
+market picks" killed in favor of mention-volume counting (the narrowing Checkpoints 2/3/5
+already submitted) — counts computed in code, zero model calls, a counts-not-picks invariant
+enforced by test. Endpoints re-verified at spec time: `.rss` 200 (Atom, 25 hot posts), JSON
+403, a second request 12 s later 429, and reddit robots.txt is now a blanket `Disallow: /` —
+Sarah's call (interview, four decisions recorded in the PRD): fetch on the FR-20
+feed-syndication precedent, never spoof, dark via FR-18 if Reddit ever refuses the feed.
 
 Checkpoints 1.1, 2.x and **3.1 submitted** (3.1 on 2026-08-02). The capstone is built through
 **increment 3**: 34 build steps, **419 tests green**, no network and no model calls in the suite.
