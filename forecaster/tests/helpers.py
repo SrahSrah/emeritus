@@ -94,7 +94,9 @@ NEED_TO_KNOW_CONFIG: dict[str, Any] = {
     "corpus": {"path": "data/corpus.db", "ttl_days": 7},
     "corroboration": {"window_days": 2, "floor": 0.55, "min_sources": 2},
     # v5: required blocks. Test values, deliberately small; matching is case-insensitive.
-    "watchlist": {"terms": ["ERCOT", "boil notice"]},
+    # Terms chosen to be ABSENT from the captured real feeds (the TT capture mentions
+    # ERCOT), so v4-era fixture runs stay watchlist-quiet unless a test opts in.
+    "watchlist": {"terms": ["boil notice", "wildfire evacuation"]},
     "bar": {
         "deliver": ["local safety", "world emergencies"],
         "exclude": ["election outcomes"],

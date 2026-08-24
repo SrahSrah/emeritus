@@ -48,8 +48,8 @@ log**, repair this file, and say so.
 
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
-| 45 | Bar config: min_sources, watchlist, bar lists | **done** | — | 553 tests (+3 net of 550). v5 blocks REQUIRED once [need_to_know] exists; watchlist dupes rejected case-insensitively; bar deliver/exclude both non-empty by rule. `need_to_know_watchlist` escalation rule registered DORMANT (injury-rule landing pattern) and configured first in the rules list; Step 46 populates its signal. |
-| 46 | Watchlist carve-out + deterministic escalation | todo | — | |
+| 45 | Bar config: min_sources, watchlist, bar lists | **done** | `75c5078` | 553 tests (+3 net of 550). v5 blocks REQUIRED once [need_to_know] exists; watchlist dupes rejected case-insensitively; bar deliver/exclude both non-empty by rule. `need_to_know_watchlist` escalation rule registered DORMANT (injury-rule landing pattern) and configured first in the rules list; Step 46 populates its signal. |
+| 46 | Watchlist carve-out + deterministic escalation | **done** | — | 558 tests (+5). Match = headline + first stored chunk, whole-word, case-insensitive (a term in the BODY hits too — test construction learned that the specced way). Items model-written via the news beat's copied contract; corpus gained `chunks_for`; helpers watchlist terms changed to ones absent from the real captures (TT capture mentions ERCOT). Invariant-2 unsuppressibility proven on the real produced item; tampered-number FR-26 test bites at the item layer. |
 | 47 | Importance judgment: gate → judge → suppress-when-unsure | todo | — | |
 | 48 | Pulse line: quiet nights and abstentions | todo | — | |
 | 49 | Cross-beat deferral, one-way | todo | — | |
