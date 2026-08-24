@@ -74,12 +74,12 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
           `feature/need-to-know-beat`, 498 tests green, zero model calls. The beat runs, delivers
           nothing by design, and proves its silence in the trace; `--ntk-metric` reports the
           corroboration distribution that tunes the bar.
-    - [ ] **v5 (the bar, FR-36 + FR-38 … FR-41) — decided, not built.** Sarah's interview answers
-          are in the child PRD §9 Q2: FR-9b split, suppress-when-unsure, watchlist bypass +
-          deterministic escalation, quiet-night pulse line, one-way deferral, 2–3 nights/fortnight
-          band. Needs its own BUILD-PROMPTS decomposition. All numbers remain
-          reasoned-not-measured (parent §9 Q7) — ideally let a few nights of v4 distribution
-          accumulate first (HUMAN-TODO ④).
+    - [x] **v5 (the bar, FR-36 + FR-38 … FR-41) — built 2026-08-24.** Steps 45–50 on
+          `feature/need-to-know-bar`, 581 tests green. Suppress-when-unsure judgment over
+          Sarah's config categories, watchlist bypass + deterministic escalation, the
+          provenance-checked pulse line, one-way deferral naming its cover, and metric
+          conditions (d)–(f) with nightly gate-pass counts. `floor` is measured (0.35,
+          2026-08-20 sweep); `min_sources`/window/band remain reasoned targets (parent §9 Q7).
   - [~] Austin live music and theatre — re-scoped 2026-08-16 to **named-venue listings**:
         [docs/prd/venue-listings/PRD.md](docs/prd/venue-listings/PRD.md), FR-42 … FR-47.
     - [x] **v1 (ZACH, FR-42 … FR-46) — built 2026-08-16.** Steps 40–44 on
