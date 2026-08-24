@@ -211,3 +211,189 @@ def test_the_cli_flag_reports_and_exits_cleanly(tmp_path, monkeypatch, capsys) -
     out = capsys.readouterr().out
     assert "need-to-know metric" in out
     assert "corroboration distribution" in out
+
+
+# --------------------------------------------------------------------------- #
+# Step 50 — the bar phase: (d), (e), (f), and the gate-pass count
+# --------------------------------------------------------------------------- #
+
+
+def _write_v5_trace(
+    directory: Path,
+    run_id: str,
+    *,
+    at: str = "2026-08-25T19:00:00+00:00",
+    gate_passers: int = 1,
+    delivered: int = 1,
+    suppressed: int = 0,
+    unassessed: int = 0,
+    watchlist_urls: list[str] | None = None,
+    suppress_a_watchlist_url: bool = False,
+    defer_alongside_watchlist: bool = False,
+    pulse_watched: int | None = None,
+) -> Path:
+    """A v5-shaped run: corroboration decisions carry min_sources; bar outcomes follow."""
+    trace = Trace(run_id, directory=directory)
+    trace.run_start(auth_mode="subscription_oauth", config_digest="test", at=at)
+
+    watchlist_urls = watchlist_urls or []
+    urls: list[str] = []
+    total = gate_passers + len(watchlist_urls) + 1  # +1 sub-gate candidate
+    for index in range(total):
+        url = (
+            watchlist_urls[index]
+            if index < len(watchlist_urls)
+            else f"https://x.test/{index}"
+        )
+        urls.append(url)
+        is_watchlist = index < len(watchlist_urls)
+        passes = is_watchlist or index < len(watchlist_urls) + gate_passers
+        observation_id = trace.tool_call(
+            beat="need_to_know",
+            adapter="corpus.corroborating_sources",
+            arguments={"url": url},
+        )
+        corroborators = (
+            {"Other Wire": [{"chunk_id": 1, "url": url, "similarity": 0.9}]}
+            if passes
+            else {}
+        )
+        trace.observation(
+            observation_id,
+            payload={
+                "url": url,
+                "source": "BBC World",
+                "text_source": "article",
+                "corroborators": corroborators,
+            },
+        )
+        trace.decision(
+            beat="need_to_know",
+            decision="corroboration_observed",
+            reason="observed",
+            url=url,
+            source="BBC World",
+            count=len(corroborators),
+            sources=sorted(corroborators),
+            observation=observation_id,
+            min_sources=1,
+        )
+
+    for url in watchlist_urls:
+        trace.decision(
+            beat="need_to_know", decision="watchlist_hit", reason="matched", url=url,
+            term="boil notice",
+        )
+    for index in range(delivered):
+        trace.decision(
+            beat="need_to_know", decision="ntk_delivered", reason="DELIVER", url=urls[len(watchlist_urls) + index],
+        )
+    for index in range(suppressed):
+        url = (
+            watchlist_urls[0]
+            if suppress_a_watchlist_url and watchlist_urls
+            else urls[len(watchlist_urls) + delivered + index]
+        )
+        trace.decision(
+            beat="need_to_know", decision="ntk_suppressed", reason="PASS", url=url,
+        )
+    if unassessed:
+        trace.decision(
+            beat="need_to_know",
+            decision="ntk_judgment_unavailable",
+            reason="down",
+            unassessed=unassessed,
+        )
+    if defer_alongside_watchlist:
+        trace.decision(
+            beat="need_to_know", decision="ntk_deferred", reason="covered",
+            covering_beat="news",
+        )
+
+    checkable = {}
+    if pulse_watched is not None:
+        checkable = {"ntk_watched": pulse_watched}
+    trace._write(  # noqa: SLF001
+        "beat_result",
+        beat="need_to_know",
+        items=[],
+        checkable_fields=checkable,
+        available=True,
+        error=None,
+        escalation_candidate=bool(watchlist_urls),
+        escalation_reason=None,
+        escalation_signals={},
+        observations=[],
+    )
+    trace.close()
+    return trace.path
+
+
+def test_a_clean_v5_run_passes_d_and_e_and_reports_the_band(tmp_path) -> None:
+    path = _write_v5_trace(tmp_path, "v5-good", gate_passers=2, delivered=1, suppressed=1)
+    report = check_ntk_metric([path])
+
+    assert report.condition("judgment_accounted").passed
+    assert report.condition("carveout_held").passed
+    band = report.condition("calibration_band")
+    assert band.passed and "report-only" in band.title
+    (night,) = report.gate_passes
+    assert report.gate_passes[night] == 2
+    assert report.delivering_nights[night] is True
+
+
+def test_a_gate_passer_without_an_outcome_fails_d(tmp_path) -> None:
+    path = _write_v5_trace(tmp_path, "v5-lost", gate_passers=2, delivered=1, suppressed=0)
+    report = check_ntk_metric([path])
+    condition = report.condition("judgment_accounted")
+    assert not condition.passed
+    assert "2 gate-passing" in condition.detail
+
+
+def test_a_pulse_count_mismatch_fails_d(tmp_path) -> None:
+    path = _write_v5_trace(
+        tmp_path, "v5-pulse", gate_passers=1, delivered=0, suppressed=1, pulse_watched=99
+    )
+    report = check_ntk_metric([path])
+    assert not report.condition("judgment_accounted").passed
+    assert "pulse claims 99" in report.condition("judgment_accounted").detail
+
+
+def test_a_suppressed_watchlist_hit_fails_e(tmp_path) -> None:
+    path = _write_v5_trace(
+        tmp_path,
+        "v5-carveout",
+        gate_passers=0,
+        delivered=0,
+        suppressed=1,
+        watchlist_urls=["https://x.test/boil"],
+        suppress_a_watchlist_url=True,
+    )
+    report = check_ntk_metric([path])
+    condition = report.condition("carveout_held")
+    assert not condition.passed
+    assert "watchlist hit suppressed" in condition.detail
+
+
+def test_a_deferral_on_a_watchlist_night_fails_e(tmp_path) -> None:
+    path = _write_v5_trace(
+        tmp_path,
+        "v5-defer",
+        gate_passers=1,
+        delivered=1,
+        watchlist_urls=["https://x.test/boil"],
+        defer_alongside_watchlist=True,
+    )
+    report = check_ntk_metric([path])
+    assert not report.condition("carveout_held").passed
+    assert "invariant 2" in report.condition("carveout_held").detail
+
+
+def test_pre_v5_traces_report_d_and_e_as_not_applicable(tmp_path) -> None:
+    """History is not recomputed under a config it never ran with."""
+    path = _write_trace(tmp_path, "pre-v5", candidates=[CANDIDATE])
+    report = check_ntk_metric([path])
+    assert report.condition("judgment_accounted").applicable is False
+    assert report.condition("carveout_held").applicable is False
+    assert report.gate_passes == {}
+    assert "pre-v5" in report.summary() or "gate-pass n/a" in report.summary()

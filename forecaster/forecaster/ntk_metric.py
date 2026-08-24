@@ -46,6 +46,12 @@ class NtkMetricReport:
     nights_accumulated: int = 0
     #: night (YYYY-MM-DD) → list of corroboration counts observed that night.
     distribution: dict[str, list[int]] = field(default_factory=dict)
+    #: night → candidates that cleared the mechanical gate (count >= min_sources).
+    #: Only nights whose decisions carry `min_sources` (v5 onward) appear here —
+    #: pre-v5 history is not recomputed under a config it never ran with.
+    gate_passes: dict[str, int] = field(default_factory=dict)
+    #: night → True when at least one story item delivered (bar or watchlist).
+    delivering_nights: dict[str, bool] = field(default_factory=dict)
     #: source name → {"article": n, "summary": n} — §8's fetch-degradation watch.
     text_sources: dict[str, dict[str, int]] = field(default_factory=dict)
     caveats: list[str] = field(default_factory=list)
@@ -74,9 +80,14 @@ class NtkMetricReport:
             )
             for night in sorted(self.distribution):
                 counts = self.distribution[night]
+                gate = (
+                    f", gate-pass {self.gate_passes[night]}"
+                    if night in self.gate_passes
+                    else ", gate-pass n/a (pre-v5 trace)"
+                )
                 lines.append(
                     f"    {night}: {len(counts)} candidate(s), "
-                    f"max {max(counts)}, median {median(counts):g}"
+                    f"max {max(counts)}, median {median(counts):g}{gate}"
                 )
         if self.text_sources:
             lines.append("  text sources (a thinning corpus shows up here first):")
@@ -114,6 +125,9 @@ def check_ntk_metric(trace_paths: Iterable[str | Path]) -> NtkMetricReport:
 
     unaccounted: list[str] = []
     provenance_failures: list[str] = []
+    judgment_unaccounted: list[str] = []
+    carveout_violations: list[str] = []
+    bar_ran_anywhere = False
     nights: set[str] = set()
 
     for path in (Path(item) for item in trace_paths):
@@ -181,6 +195,68 @@ def check_ntk_metric(trace_paths: Iterable[str | Path]) -> NtkMetricReport:
                 int(decision.get("count") or 0) for decision in observed
             )
 
+        # ---- v5, FR-41: the bar phase ---------------------------------------- #
+        watchlist_hits = _ntk_decisions(records, "watchlist_hit")
+        delivered = _ntk_decisions(records, "ntk_delivered")
+        suppressed = _ntk_decisions(records, "ntk_suppressed")
+        deferred = _ntk_decisions(records, "ntk_deferred")
+        abstentions = _ntk_decisions(records, "ntk_judgment_unavailable")
+        v5_run = any(
+            decision.get("min_sources") is not None for decision in observed
+        ) or bool(watchlist_hits or delivered or suppressed or abstentions)
+        if not v5_run:
+            continue
+        bar_ran_anywhere = True
+
+        hit_urls = {str(record.get("url")) for record in watchlist_hits}
+        gate_passers = [
+            decision
+            for decision in observed
+            if decision.get("min_sources") is not None
+            and int(decision.get("count") or 0) >= int(decision.get("min_sources"))
+            and str(decision.get("url")) not in hit_urls
+        ]
+        if night:
+            report.gate_passes[night] = len(gate_passers)
+            report.delivering_nights[night] = bool(delivered or watchlist_hits)
+
+        # (d) — every gate-passing candidate ends in exactly one recorded outcome,
+        # and the pulse line's declared counts match the tally.
+        unassessed = sum(int(record.get("unassessed") or 0) for record in abstentions)
+        accounted = len(delivered) + len(suppressed) + unassessed
+        if accounted != len(gate_passers):
+            judgment_unaccounted.append(
+                f"{path.name}: {len(gate_passers)} gate-passing candidate(s) but "
+                f"{accounted} outcome(s) recorded"
+            )
+        for result in results:
+            checkable = dict(result.get("checkable_fields") or {})
+            if "ntk_watched" in checkable and checkable["ntk_watched"] != len(observed):
+                judgment_unaccounted.append(
+                    f"{path.name}: pulse claims {checkable['ntk_watched']} watched but "
+                    f"{len(observed)} were observed"
+                )
+            if "ntk_unassessed" in checkable and checkable["ntk_unassessed"] != unassessed:
+                judgment_unaccounted.append(
+                    f"{path.name}: pulse claims {checkable['ntk_unassessed']} unassessed "
+                    f"but the abstention records tally {unassessed}"
+                )
+
+        # (e) — the carve-out held. A watchlist hit may never be suppressed, and a
+        # watchlist night can never defer at all: the escalated result skips the
+        # dedup judgment wholesale (FR-19 invariant 2), so any deferral alongside a
+        # hit means the invariant broke somewhere.
+        suppressed_hit_urls = hit_urls & {
+            str(record.get("url")) for record in suppressed
+        }
+        for url in sorted(suppressed_hit_urls):
+            carveout_violations.append(f"{path.name}: watchlist hit suppressed: {url}")
+        if hit_urls and deferred:
+            carveout_violations.append(
+                f"{path.name}: {len(deferred)} deferral(s) on a watchlist night — "
+                "invariant 2 should have made the result untouchable"
+            )
+
     report.nights_accumulated = len(nights)
 
     report.conditions.append(
@@ -229,6 +305,53 @@ def check_ntk_metric(trace_paths: Iterable[str | Path]) -> NtkMetricReport:
             ),
         )
     )
+    report.conditions.append(
+        Condition(
+            key="judgment_accounted",
+            title="(d) no unaccounted judgment",
+            passed=not judgment_unaccounted,
+            applicable=bar_ran_anywhere,
+            detail=(
+                "every gate-passing candidate ended in exactly one recorded outcome"
+                if bar_ran_anywhere and not judgment_unaccounted
+                else "; ".join(judgment_unaccounted[:3])
+                if judgment_unaccounted
+                else "no run examined carries bar decisions (pre-v5 traces)"
+            ),
+        )
+    )
+    report.conditions.append(
+        Condition(
+            key="carveout_held",
+            title="(e) the carve-out held",
+            passed=not carveout_violations,
+            applicable=bar_ran_anywhere,
+            detail=(
+                "zero watchlist hits suppressed or deferred"
+                if bar_ran_anywhere and not carveout_violations
+                else "; ".join(carveout_violations[:3])
+                if carveout_violations
+                else "no run examined carries bar decisions (pre-v5 traces)"
+            ),
+        )
+    )
+    if bar_ran_anywhere:
+        delivering = sum(1 for value in report.delivering_nights.values() if value)
+        window = len(report.delivering_nights)
+        report.conditions.append(
+            Condition(
+                key="calibration_band",
+                title="(f) calibration band (report-only)",
+                passed=True,  # never pass/fail: a loud or quiet fortnight is reality
+                applicable=True,
+                detail=(
+                    f"{delivering} delivering night(s) over {window} bar night(s) "
+                    "accumulated; Sarah's target is 2–3 per 14 — drift is a retuning "
+                    "signal, not a failure"
+                ),
+            )
+        )
+
     report.caveats.append(
         "(c) counts nights with distribution records, not real scheduled nights — a "
         f"trace cannot tell a 7 pm run from a development rerun. TARGET_NIGHTS is "
