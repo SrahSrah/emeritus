@@ -48,7 +48,7 @@ log**, repair this file, and say so.
 
 | # | Step | Status | Commit | Notes |
 |---|---|---|---|---|
-| 45 | Bar config: min_sources, watchlist, bar lists | todo | — | |
+| 45 | Bar config: min_sources, watchlist, bar lists | **done** | — | 553 tests (+3 net of 550). v5 blocks REQUIRED once [need_to_know] exists; watchlist dupes rejected case-insensitively; bar deliver/exclude both non-empty by rule. `need_to_know_watchlist` escalation rule registered DORMANT (injury-rule landing pattern) and configured first in the rules list; Step 46 populates its signal. |
 | 46 | Watchlist carve-out + deterministic escalation | todo | — | |
 | 47 | Importance judgment: gate → judge → suppress-when-unsure | todo | — | |
 | 48 | Pulse line: quiet nights and abstentions | todo | — | |

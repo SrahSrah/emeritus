@@ -92,7 +92,13 @@ NEED_TO_KNOW_CONFIG: dict[str, Any] = {
     ],
     "chunking": {"target_chars": 900, "max_chars": 1200, "overlap_chars": 150},
     "corpus": {"path": "data/corpus.db", "ttl_days": 7},
-    "corroboration": {"window_days": 2, "floor": 0.55},
+    "corroboration": {"window_days": 2, "floor": 0.55, "min_sources": 2},
+    # v5: required blocks. Test values, deliberately small; matching is case-insensitive.
+    "watchlist": {"terms": ["ERCOT", "boil notice"]},
+    "bar": {
+        "deliver": ["local safety", "world emergencies"],
+        "exclude": ["election outcomes"],
+    },
 }
 
 

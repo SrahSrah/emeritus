@@ -31,7 +31,7 @@ target = "sarah.rachel.hernandez@gmail.com"
 
 [escalation]
 # Rules are evaluated in this order, and this order breaks ties (FR-10).
-rules = ["freeze_alert", "watched_player_injury"]
+rules = ["need_to_know_watchlist", "freeze_alert", "watched_player_injury"]
 freeze_threshold_f = 32.0
 # Horizon in days. v1 data only covers the next morning's run window — see
 # BUILD-PROGRESS.md; extending the forecast range is an open decision.
@@ -158,6 +158,37 @@ ttl_days = 7
 # separate questions). Measured on three nights ≠ tuned on fourteen — parent §9 Q7.
 window_days = 2
 floor = 0.35
+# FR-36's mechanical gate: how many OTHER configured sources must carry a story before
+# the model is even consulted. Alive at the measured floor (~2 gate-passes/night).
+min_sources = 2
+
+[need_to_know.watchlist]
+# FR-38. A hit bypasses the gate and the judgment, always delivers, and escalates via
+# the deterministic need_to_know_watchlist rule. This list is the bound on the bar's
+# suppress-when-unsure default — Sarah's seed (2026-08-14), hers to edit. Matching is
+# case-insensitive, whole-word, against headline + lead.
+terms = [
+  "Austin",
+  "Texas",
+  "ERCOT",
+  "Austin Water",
+  "boil notice",
+  "evacuation",
+  "grid emergency",
+]
+
+[need_to_know.bar]
+# FR-36. Sarah's categories (interview, 2026-08-14), interpolated into the judgment
+# prompt. Taste is config, not code. The exclusions are deliberate and named on purpose.
+deliver = [
+  "local or personal safety for Austin and Texas",
+  "national and world emergencies",
+  "market and economy shocks",
+]
+exclude = [
+  "election outcomes",
+  "deaths of public figures",
+]
 
 # Sarah's taste, not a design decision. Nothing in the code knows these ids.
 [[news.topics]]
