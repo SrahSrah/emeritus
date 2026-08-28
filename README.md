@@ -26,6 +26,13 @@ source is unreachable, the digest names the outage rather than filling the gap.
 | Local theatre listings | the venue's own calendar page | live |
 | r/WallStreetBets mention counts | Reddit RSS, counted in code | live |
 
+**The newest beat is the thesis at its purest.** Checkpoint 1 promised "stock market
+picks" from r/WallStreetBets; that framing died on the record. What shipped counts ticker
+mentions on the night's hot page — in code, zero model calls, one polite fetch per night
+(a metric fails any trace with two) — and a test reconstructs the delivered line
+character-for-character from the counted values, so no code path can append commentary
+unnoticed. The digest reports attention, never advice: no prices, no "up/down," no picks.
+
 **Architecture, in one paragraph.** A planner reads the date and a preference file and decides
 which beats run; six per-beat workers each run their own ReAct loop against their own tools
 and return typed items carrying provenance; a synthesizer retrieves each candidate line's
