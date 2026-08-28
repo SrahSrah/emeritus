@@ -1,0 +1,17 @@
+# BUILD PROGRESS — r/WallStreetBets beat, v1
+
+Resumable ledger for [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). One row per step, updated as the
+build lands. If this file and `git log` disagree, trust git and repair this file.
+
+| Step | What | State |
+|---|---|---|
+| 51 | `[wsb]` config + `fetch_feed` `beat` keyword | todo |
+| 52 | real fixture + `count_mentions` (FR-48) | todo |
+| 53 | `WsbMentionsBeat` + quiet/broken + registration (FR-49, FR-50) | todo |
+| 54 | counts-not-picks invariant (FR-51) | todo |
+| 55 | `wsb_metric.py` + `--wsb-metric` (FR-52) | todo |
+| 56 | reconcile the record | todo |
+
+## Notes discovered during the build
+
+_(appended as they happen)_
