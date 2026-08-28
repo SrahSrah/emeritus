@@ -16,8 +16,7 @@ weather = true
 news = true
 need_to_know = true
 venues = true
-# Flips true in Step 53, once the beat exists to register.
-wsb = false
+wsb = true
 
 [location]
 city = "Austin"

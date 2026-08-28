@@ -142,7 +142,7 @@ def test_adding_the_dummy_beat_required_no_edit_to_planner_synthesizer_or_delive
             elif isinstance(node, ast.Import):
                 modules.extend(alias.name for alias in node.names)
         assert not any(
-            name in module for module in modules for name in ("astros", "weather", "dummy")
+            name in module for module in modules for name in ("astros", "weather", "dummy", "wsb")
         ), f"{relative} names a concrete beat"
 
 
