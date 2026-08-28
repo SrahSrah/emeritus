@@ -1,6 +1,6 @@
 # PRD: r/WallStreetBets beat — mention volume, counted, never picked
 
-**Project:** emeritus (capstone) · **Status:** Draft · **Feature ID:** `wsb-beat` · **Target path:** `forecaster/forecaster/beats/wsb.py`
+**Project:** emeritus (capstone) · **Status:** Built (v1, 2026-08-28) · **Feature ID:** `wsb-beat` · **Target path:** `forecaster/forecaster/beats/wsb.py`
 
 > Child of [`docs/prd/forecaster/PRD.md`](../forecaster/PRD.md). Taken FR numbers: 1–19 (parent),
 > 20–30 and 37 (ai-news), 31–36 and 38–41 (need-to-know), 42–47 (venue-listings). This spec owns
@@ -343,6 +343,12 @@ Downstream must not invent answers to these.
 
 ## 12. Changelog
 
+- **v1 built — 2026-08-28:** FR-48 … FR-52 shipped as Steps 51–56 on `feature/wsb-beat`
+  (see [BUILD-PROGRESS.md](BUILD-PROGRESS.md)), 622 tests green, spec built as written —
+  no FR amended during the build. Real fixture captured at build time (25 entries, one
+  request). §9 unchanged: Q1 (extractor precision) remains unmeasured, Q2 (weekly shape)
+  remains deferred with the phrasing nuance recorded at DIVERGENCES row 10's closure,
+  Q3 (comment depth) remains not proposed.
 - **v1 — 2026-08-24:** Initial PRD, from the 2026-08-16 endpoint sweep re-verified at spec
   time (new data: `top?t=week` works under patient spacing; robots.txt is now `Disallow: /`)
   and Sarah's four interview decisions of 2026-08-24: fetch on the FR-20 feed precedent with

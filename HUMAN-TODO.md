@@ -162,6 +162,13 @@ gates real work.
          cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
          uv run python -c "import os; from forecaster.agent import load_env; load_env(); import httpx; r = httpx.get('https://app.ticketmaster.com/discovery/v2/venues.json', params={'keyword': 'Bass Concert Hall', 'stateCode': 'TX', 'apikey': os.environ['TICKETMASTER_API_KEY']}, timeout=20); print(r.status_code); [print(v['name'], v['id']) for v in r.json().get('_embedded', {}).get('venues', [])]"
          ```
+- [ ] **Grow the `[wsb]` stoplist as false positives annoy you.** The counter is pattern +
+      stoplist by your 2026-08-24 decision, and all-caps WSB titles make every short
+      uppercase word a candidate (`CALLS` is not a ticker; `CAKE` is). Every match is
+      post-attributed in the trace, so a wrong one is findable in minutes: open the
+      night's trace, find the `wsb.count_mentions` observation, and add the offender to
+      `stoplist` in `forecaster\config.toml`. No code change. Until you've spot-checked
+      accumulated nights, no checkpoint may call the counts "accurate" (child §9 Q1).
 - [ ] **Review the need-to-know feed list and watchlist seed terms** in
       [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 and FR-38 before
       its build. Four feeds verified free and keyless on 2026-08-14: BBC World, NPR News,

@@ -9,6 +9,21 @@ _Last updated: 2026-08-28_
 
 ## Where things stand
 
+**Increment 7 built 2026-08-28 — the r/WallStreetBets beat (FR-48 … FR-52). Every
+Checkpoint 1 beat now delivers.** Steps 51–56 on `feature/wsb-beat`, one commit each,
+**622 tests green** (from 583). One fetch of the hot page per night through the FR-20
+adapter (which gained a `beat` keyword so drop records label honestly), a pure
+pattern+stoplist counter traced as a tool call so every delivered count has an
+observation for FR-11 to check, one code-assembled item (count-descending, alphabetical
+ties, deterministic truncation), quiet-vs-broken structurally distinct with no third
+state, and the counts-not-picks invariant enforced by a character-exact template test
+plus a raising client on every path. `--wsb-metric` audits the two-hop count provenance
+and the one-request politeness budget. Real fixture captured live at build time (25
+entries, one request). DIVERGENCES row 10 closes at this increment's merge, with the
+nightly-vs-"this week" nuance recorded in the row (child §9 Q2). Reasoned, not measured:
+the extractor's precision (child §9 Q1) — a checkpoint may say "counted," never
+"accurately."
+
 **Spec 2026-08-24 — the r/WallStreetBets beat, the last unbuilt Checkpoint 1 beat.**
 [`docs/prd/wsb-beat/PRD.md`](docs/prd/wsb-beat/PRD.md), FR-48 … FR-52; parent FR-17 amended —
 all four FR-17 beats now have child specs. Spec only, no code yet; DIVERGENCES row 10 closes
@@ -155,6 +170,7 @@ game in progress; `"In Progress"` is the `detailedState`. The adapter exposes bo
 
 | Date | What happened |
 |---|---|
+| 2026-08-28 | **Increment 7 built — the r/WallStreetBets beat (FR-48 … FR-52).** Steps 51–56 on `feature/wsb-beat` (stacked on the PR #24 spec branch plus current `dev`), one commit each, **622 tests green** (from 583). The last Checkpoint 1 beat: one nightly hot-page fetch (a second request is structurally impossible to sneak in — `--wsb-metric`'s condition (c) fails any trace with two Reddit-host fetches), pattern+stoplist counting traced as a `wsb.count_mentions` tool call, one templated item with checkable counts, quiet/zero-entries/refused all distinct and all dated. FR-51's counts-not-picks invariant is a character-exact reconstruction test: appending any commentary to the item text fails the suite. `fetch_feed` gained a `beat` keyword (default `"news"`, callers untouched) so this beat's drop records label honestly. Real fixture captured at build time. Row 10 closes at merge; nightly-vs-weekly phrasing nuance recorded in the row. |
 | 2026-08-28 | **Post-launch state verified against the artifacts** (session task: reconcile trackers with the 08-24 launch evening). FR-12 receipt confirmed in the inbox itself — "Forecaster — tonight's digest", 2026-08-25T00:13:33Z, matching the trace's delivery event to the second — so ③ is ticked on evidence. FR-14 measured at **0 of 3 nights**: the 08-24 19:00 scheduled run exited 1 at the send step (SMTP values were filled ~19:10, after it fired — `nightly-20260824-190002.log`, known cause, not a code bug), and 08-25/26/27 the task never started (battery/no-wake settings; a never-started night leaves no artifact at all). Next chance: tonight 19:00. PR #24 (WSB spec) still open awaiting Sarah's review. |
 | 2026-08-24 | **First real email sent — FR-12's acceptance, run by Sarah.** App password created ~7:07 pm CT, six SMTP values filled in `.env`, `--send-test` run by hand: trace `20260825T001009-67993125`, all five beats, provenance 0 violations, `EmailDeliverer success: true` at 7:13 pm CT. The pipeline's first delivery to a human inbox. |
 | 2026-08-24 | **Increment 6 built — the need-to-know bar (v5, FR-36 + FR-38 … FR-41).** Steps 45–50 on `feature/need-to-know-bar`, one commit each, **581 tests green** (from 550). The beat now delivers: config-owned bar categories with named exclusions; the watchlist carve-out (whole-word, headline + first chunk) bypassing gate and judgment and escalating via the deterministic `need_to_know_watchlist` rule; the gated suppress-when-unsure judgment with **named abstention** on failure (a deliberate inversion of FR-19(d), safe because it is loud); the provenance-checked pulse line (quiet nights now inbox-visible, counts supported by a traced tally); one-way cross-beat deferral that names its cover; and metric conditions (d)–(f) with nightly gate-pass counts (pre-v5 history reported n/a, never recomputed). Highlight from the build: FR-30 quarantined a test fixture's ungrounded figure — the guardrail caught its own author. Seam: planner/delivery untouched; synthesizer edited only in Step 49 as dedup machinery. All six Checkpoint 1 beats now deliver or account for themselves; only r/WSB remains unbuilt. |
