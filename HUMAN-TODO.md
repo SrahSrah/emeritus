@@ -41,7 +41,9 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 The code is built and its test suite is green (265 tests, no network, no model calls).
 Four things below are **blocking a first real run** — everything else is done.
 
-- [ ] **① Mint a Claude Code OAuth token** and put it in `forecaster/.env` as
+- [x] **① Mint a Claude Code OAuth token** — done (verified 2026-08-24: token in `.env`,
+      every live trace since 2026-08-04 records `auth_mode=subscription_oauth`). Original
+      steps kept below for the day the token rotates. Put it in `forecaster/.env` as
       `CLAUDE_CODE_OAUTH_TOKEN`. Only you can do this — it's an account action.
       ```powershell
       claude setup-token
@@ -58,7 +60,9 @@ Four things below are **blocking a first real run** — everything else is done.
       ever is, and `scripts\run_nightly.ps1` strips it before anything else (verified: with
       the key deliberately set, the script logged `ANTHROPIC_API_KEY present: False`).
 
-- [ ] **② Do the first end-to-end run** once ① is done. Uses the fake deliverer — nothing
+- [x] **② Do the first end-to-end run** — done: live dry runs since 2026-08-04, most
+      recently 2026-08-24 (full digest, provenance 0 violations). All used the fake
+      deliverer, so nothing has been sent — that's ③. Uses the fake deliverer — nothing
       is sent — but a real agent client and the two live APIs.
       ```powershell
       cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
@@ -67,20 +71,40 @@ Four things below are **blocking a first real run** — everything else is done.
       ```
       It should print the digest and write a trace under `data\runs\`.
 
-- [ ] **③ Create an SMTP app password** for the delivery account and add it to the same
-      gitignored `.env` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
-      `SMTP_FROM`, `SMTP_TO`). Gmail requires an app password, not your login password.
-      Then send one real digest — **this is FR-12's acceptance and it is yours to run; no
-      agent will send it**:
-      ```powershell
-      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
-      Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
-      uv run python -m forecaster.cli --send-test
-      ```
-      Confirm it arrived in the inbox.
+- [x] **③ Create an SMTP app password and send one real digest** — **done 2026-08-24,
+      receipt verified 2026-08-28**. Sarah created the app password (~7:07 pm CT, Google's
+      security alert confirms it), filled the six SMTP values in `.env`, and ran
+      `--send-test` herself: trace `20260825T001009-67993125` records `EmailDeliverer`
+      `success: true` to her address at 00:13:34Z. The digest is in the inbox —
+      "Forecaster — tonight's digest", received 2026-08-25T00:13:33Z, matching the trace
+      to the second. **FR-12's acceptance is met.** For rotation someday:
+      https://myaccount.google.com/apppasswords → app password named `forecaster` →
+      `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, user/from/to = your address, then
+      `uv run python -m forecaster.cli --send-test` and confirm receipt.
 
-- [ ] **④ Register the nightly scheduled task.** Changes system settings, so it is yours
-      to run:
+- [~] **④ Register the nightly scheduled task.** Registered and armed (verified
+      2026-08-24: fires 19:00 daily, real-send mode). Two caveats before calling it done:
+      it **refuses to start on battery** (`DisallowStartIfOnBatteries` — the 08-24 09:00
+      attempt was refused with 0x800710E0 for exactly this), and it neither wakes the
+      laptop nor catches up missed slots (`WakeToRun`/`StartWhenAvailable` both off), so
+      a lid-closed 7 pm is a silent miss. To loosen (your call — a caught-up run fires
+      *late*, which the delivery metric then counts as late rather than missed):
+      ```powershell
+      $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+      Set-ScheduledTask -TaskName 'Forecaster Nightly' -Settings $s
+      ```
+      **Measured state as of 2026-08-28: FR-14 is at 0 of 3 nights.** ③ is done, so the
+      send step no longer blocks — but no scheduled run has succeeded yet:
+      - **08-24 19:00**: the task fired and exited 1 at the send step
+        (`data\logs\nightly-20260824-190002.log`) — the SMTP values were still empty;
+        Sarah filled them ~19:10, *after* it ran. Known cause, not a code bug.
+      - **08-25, 08-26, 08-27**: the task never started — no log, no trace, Task
+        Scheduler still shows last run 08-24. The battery/no-wake caveat above is live,
+        and a never-started night is invisible even to `missed_run` (the runner backfills
+        only when it next runs). Loosening the settings (block above) is still your call.
+      Next chance is tonight, 08-28 19:00 — laptop plugged in and awake, or settings
+      loosened, and it should be unattended night 1 of 3.
+      Original registration steps, for re-creating the task:
       ```powershell
       schtasks /Create /TN "Forecaster Nightly" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\Users\Sarah\Documents\31 Emeritus\forecaster\scripts\run_nightly.ps1\"" /SC DAILY /ST 19:00 /RL LIMITED
       ```
@@ -138,6 +162,13 @@ gates real work.
          cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
          uv run python -c "import os; from forecaster.agent import load_env; load_env(); import httpx; r = httpx.get('https://app.ticketmaster.com/discovery/v2/venues.json', params={'keyword': 'Bass Concert Hall', 'stateCode': 'TX', 'apikey': os.environ['TICKETMASTER_API_KEY']}, timeout=20); print(r.status_code); [print(v['name'], v['id']) for v in r.json().get('_embedded', {}).get('venues', [])]"
          ```
+- [ ] **Grow the `[wsb]` stoplist as false positives annoy you.** The counter is pattern +
+      stoplist by your 2026-08-24 decision, and all-caps WSB titles make every short
+      uppercase word a candidate (`CALLS` is not a ticker; `CAKE` is). Every match is
+      post-attributed in the trace, so a wrong one is findable in minutes: open the
+      night's trace, find the `wsb.count_mentions` observation, and add the offender to
+      `stoplist` in `forecaster\config.toml`. No code change. Until you've spot-checked
+      accumulated nights, no checkpoint may call the counts "accurate" (child §9 Q1).
 - [ ] **Review the need-to-know feed list and watchlist seed terms** in
       [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md) §6 and FR-38 before
       its build. Four feeds verified free and keyless on 2026-08-14: BBC World, NPR News,

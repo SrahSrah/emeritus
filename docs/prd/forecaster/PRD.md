@@ -273,6 +273,18 @@ worth writing about each week.
     client, and the Ticketmaster fallback is gated on a developer account whose signup failed
     2026-08-16 — child FR-47 `[Later]`). Only **r/WallStreetBets** now remains `[Later]` here,
     unspecced.
+  - **Amended 2026-08-24 — r/WallStreetBets is specced separately, and FR-17 is now fully
+    delegated.** Child spec at [`docs/prd/wsb-beat/PRD.md`](../wsb-beat/PRD.md), which owns
+    **FR-48 … FR-52**. The framing decision is the spec: Checkpoint 1's "stock market picks"
+    cannot survive the honesty rules (a pick is a judgment the model would have to originate,
+    and adjacent to investment guidance this project will not give), so the beat is
+    **mention-volume reporting** — the framing Checkpoints 2/3/5 already put on the record —
+    counted in code from the one keyless path that measured open (`.rss`, Atom, 25 hot posts;
+    the JSON endpoints 403). Structured and venues-shaped: zero model calls, counts as
+    `checkable_fields`, a counts-not-picks invariant enforced by test (child FR-51). Nightly
+    hot with a nightly item, per Sarah's 2026-08-24 interview; the checkpoints' "this week"
+    phrasing is tracked as the child's §9 Q2. With this, all four FR-17 beats have child
+    specs; this requirement closes when the wsb build increment merges (DIVERGENCES row 10).
 
 ## 6. Technical & data notes
 

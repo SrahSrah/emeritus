@@ -68,7 +68,12 @@ Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
       landing satisfies that spec's FR-36/FR-40 dependency.
 - [ ] **FR-17 — the remaining three beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
-  - [ ] r/WallStreetBets mention volume
+  - [x] **r/WallStreetBets mention volume — built 2026-08-28** (FR-48 … FR-52, Steps 51–56 on
+        `feature/wsb-beat`, 622 tests green). Spec: [docs/prd/wsb-beat/PRD.md](docs/prd/wsb-beat/PRD.md).
+        Mention counts, never picks: zero model calls, one fetch per night (metric-audited),
+        counts-not-picks enforced by a template-equality test. Open by design: extractor
+        precision unmeasured (child §9 Q1 — stoplist is Sarah's to grow), weekly shape
+        deferred (child §9 Q2), comment depth behind keyed OAuth not proposed (child §9 Q3).
   - [~] "need-to-know" news — spec: [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md).
     - [x] **v4 (observation, FR-31 … FR-35) — built 2026-08-14.** Steps 35–39 on
           `feature/need-to-know-beat`, 498 tests green, zero model calls. The beat runs, delivers
