@@ -91,6 +91,27 @@ def test_real_config_loads_with_the_expected_typed_fields() -> None:
     assert config.delivery.target
 
 
+def test_contact_email_expands_from_the_environment(monkeypatch) -> None:
+    """The tracked config carries ${CONTACT_EMAIL}; the gitignored .env supplies it."""
+    monkeypatch.setenv("CONTACT_EMAIL", "someone@example.org")
+    config = load_config(REAL_CONFIG)
+
+    assert config.delivery.target == "someone@example.org"
+    assert config.news is not None
+    assert "someone@example.org" in config.news.user_agent
+    assert "${CONTACT_EMAIL}" not in config.news.user_agent
+
+
+def test_contact_email_falls_back_to_a_placeholder(monkeypatch) -> None:
+    """Unset, the token still resolves — a fresh clone must run, not crash on identity."""
+    monkeypatch.delenv("CONTACT_EMAIL", raising=False)
+    config = load_config(REAL_CONFIG)
+
+    assert config.delivery.target == "your.email@example.com"
+    assert config.news is not None
+    assert "your.email@example.com" in config.news.user_agent
+
+
 def test_enabled_beats_differs_by_config_alone(tmp_path: Path) -> None:
     """FR-1's structural half: the beat set is a function of the file, nothing else."""
     both = load_config(_write(tmp_path, "both.toml", TWO_BEATS))

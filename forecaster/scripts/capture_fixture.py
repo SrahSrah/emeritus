@@ -23,7 +23,7 @@ extension:
 
     uv run python scripts/capture_fixture.py --raw article_arstechnica.html \\
         "https://arstechnica.com/..." \\
-        --user-agent "forecaster/0.1 (sarah.rachel.hernandez@gmail.com)"
+        --user-agent "forecaster/0.1 (your.email@example.com)"
 
 Fixtures that were hand-edited afterwards (an in-progress game in the offseason, a
 below-freezing Austin morning in July) must be recorded as synthetic in
@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -41,8 +42,11 @@ import httpx
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
 
-# Contact string required by api.weather.gov. Not a secret.
-USER_AGENT = "forecaster-capstone (sarah.rachel.hernandez@gmail.com)"
+# Contact string required by api.weather.gov. Not a secret. Set CONTACT_EMAIL in your
+# environment (or pass --user-agent) so the header carries a reachable address.
+USER_AGENT = "forecaster-capstone ({})".format(
+    os.environ.get("CONTACT_EMAIL", "").strip() or "your.email@example.com"
+)
 
 
 def capture(

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import tomllib
 from dataclasses import dataclass, field
 from datetime import time
@@ -71,6 +72,22 @@ def _require_str(table: Mapping[str, Any], key: str, section: str) -> str:
     if not isinstance(value, str) or not value:
         raise ConfigError(f"config.toml: [{section}].{key} must be a non-empty string")
     return value
+
+
+CONTACT_TOKEN = "${CONTACT_EMAIL}"
+CONTACT_PLACEHOLDER = "your.email@example.com"
+
+
+def _expand_contact(value: str) -> str:
+    """Expand ``${CONTACT_EMAIL}`` from the environment (the gitignored ``.env``).
+
+    The tracked config carries the token instead of a real address so the public repo
+    holds no personal email; without CONTACT_EMAIL set, the placeholder keeps every
+    consumer functional (NWS and the feed hosts require *a* User-Agent, not a verified
+    one).
+    """
+    contact = os.environ.get("CONTACT_EMAIL", "").strip() or CONTACT_PLACEHOLDER
+    return value.replace(CONTACT_TOKEN, contact)
 
 
 def _require_str_list(table: Mapping[str, Any], key: str, section: str) -> list[str]:
@@ -324,7 +341,7 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
     delivery_table = _require_table(data, "delivery")
     delivery = DeliveryConfig(
         kind=_require_str(delivery_table, "kind", "delivery"),
-        target=_require_str(delivery_table, "target", "delivery"),
+        target=_expand_contact(_require_str(delivery_table, "target", "delivery")),
     )
 
     escalation_table = _require_table(data, "escalation")
@@ -470,7 +487,7 @@ def _parse_news(data: Mapping[str, Any], *, news_enabled: bool) -> NewsConfig | 
         )
 
     return NewsConfig(
-        user_agent=_require_str(news_table, "user_agent", "news"),
+        user_agent=_expand_contact(_require_str(news_table, "user_agent", "news")),
         fetch_delay_seconds=_require_float(
             news_table, "fetch_delay_seconds", "news"
         ),
@@ -637,7 +654,7 @@ def _parse_need_to_know(
         )
 
     return NeedToKnowConfig(
-        user_agent=_require_str(table, "user_agent", "need_to_know"),
+        user_agent=_expand_contact(_require_str(table, "user_agent", "need_to_know")),
         fetch_delay_seconds=_require_float(table, "fetch_delay_seconds", "need_to_know"),
         timeout_seconds=_require_float(table, "timeout_seconds", "need_to_know"),
         min_body_chars=_require_int(table, "min_body_chars", "need_to_know"),
@@ -695,7 +712,7 @@ def _parse_venues(data: Mapping[str, Any], *, enabled: bool) -> VenuesConfig | N
         )
 
     return VenuesConfig(
-        user_agent=_require_str(table, "user_agent", "venues"),
+        user_agent=_expand_contact(_require_str(table, "user_agent", "venues")),
         timeout_seconds=_require_float(table, "timeout_seconds", "venues"),
         window_days=window_days,
         venues=entries,
