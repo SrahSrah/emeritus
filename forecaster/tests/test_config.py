@@ -518,3 +518,55 @@ def test_the_real_config_carries_the_bar_and_the_escalation_rule() -> None:
     assert config.need_to_know.bar.exclude == ["election outcomes", "deaths of public figures"]
     assert NEED_TO_KNOW_WATCHLIST in config.escalation.rules
     assert NEED_TO_KNOW_WATCHLIST in RULES
+
+
+# --------------------------------------------------------------------------- #
+# Step 51 — the [wsb] section
+# --------------------------------------------------------------------------- #
+
+
+def test_the_real_config_parses_its_wsb_section() -> None:
+    config = load_config(REAL_CONFIG)
+    assert config.wsb is not None
+    assert config.wsb.feed_url == "https://www.reddit.com/r/wallstreetbets/.rss"
+    assert config.wsb.top_n == 5
+    assert "YOLO" in config.wsb.stoplist
+
+
+def test_a_config_with_no_wsb_section_is_still_valid() -> None:
+    from tests.helpers import make_config
+
+    assert make_config().wsb is None
+
+
+def test_enabling_wsb_without_a_wsb_section_raises() -> None:
+    from tests.helpers import make_config
+
+    with pytest.raises(ConfigError, match=r"no \[wsb\] section"):
+        make_config(beats={"wsb": True})
+
+
+def test_each_wsb_validation_rule_has_a_raising_case() -> None:
+    from tests.helpers import WSB_CONFIG, make_config
+
+    with pytest.raises(ConfigError, match=r"\[wsb\].top_n must be at least 1"):
+        make_config(wsb={**WSB_CONFIG, "top_n": 0})
+    with pytest.raises(ConfigError, match="list of strings"):
+        make_config(wsb={**WSB_CONFIG, "stoplist": "DD"})
+    with pytest.raises(ConfigError, match="duplicate"):
+        make_config(wsb={**WSB_CONFIG, "stoplist": ["DD", "dd"]})
+
+
+def test_the_wsb_stoplist_is_config_not_code() -> None:
+    """FR-48's config half: two stoplists, two parsed results, zero code edits.
+
+    Entries are normalized to upper at load so the counter compares one canonical form.
+    """
+    from tests.helpers import WSB_CONFIG, make_config
+
+    one = make_config(wsb={**WSB_CONFIG, "stoplist": ["dd"]})
+    two = make_config(wsb={**WSB_CONFIG, "stoplist": ["dd", "yolo"]})
+    assert one.wsb is not None and two.wsb is not None
+    assert one.wsb.stoplist == ["DD"]
+    assert two.wsb.stoplist == ["DD", "YOLO"]
+    assert one.wsb.stoplist != two.wsb.stoplist

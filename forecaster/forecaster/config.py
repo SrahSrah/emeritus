@@ -289,6 +289,24 @@ class VenuesConfig:
 
 
 @dataclass(frozen=True)
+class WsbConfig:
+    """FR-48/FR-49. Mention counting only — no knob here could turn a count into a pick.
+
+    ``stoplist`` is Sarah's forum-vocabulary list, config-owned like the watchlist and
+    the news topics; entries are normalized to upper at load so matching stays
+    case-exact in one place. ``top_n`` bounds the *reported* slice only — the count
+    observation always carries the full table (PRD §6 trace contract). Every value is
+    reasoned, not measured (child §9 Q1).
+    """
+
+    feed_url: str
+    user_agent: str
+    timeout_seconds: float
+    top_n: int
+    stoplist: list[str]
+
+
+@dataclass(frozen=True)
 class Config:
     run: RunConfig
     beats: dict[str, bool]
@@ -300,6 +318,7 @@ class Config:
     news: NewsConfig | None = None
     need_to_know: NeedToKnowConfig | None = None
     venues: VenuesConfig | None = None
+    wsb: WsbConfig | None = None
     source_path: Path | None = None
     raw: Mapping[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
@@ -390,6 +409,7 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
     )
     _reject_corpus_ttl_conflict(news, need_to_know)
     venues = _parse_venues(data, enabled=beats.get("venues", False))
+    wsb = _parse_wsb(data, enabled=beats.get("wsb", False))
 
     return Config(
         run=run,
@@ -402,6 +422,7 @@ def parse_config(data: Mapping[str, Any], source_path: Path | None = None) -> Co
         news=news,
         need_to_know=need_to_know,
         venues=venues,
+        wsb=wsb,
         source_path=source_path,
         raw=dict(data),
     )
@@ -716,6 +737,39 @@ def _parse_venues(data: Mapping[str, Any], *, enabled: bool) -> VenuesConfig | N
         timeout_seconds=_require_float(table, "timeout_seconds", "venues"),
         window_days=window_days,
         venues=entries,
+    )
+
+
+def _parse_wsb(data: Mapping[str, Any], *, enabled: bool) -> WsbConfig | None:
+    """Parse `[wsb]` if present. Absent is fine **unless** the beat is on.
+
+    Same contract as every beat section. The stoplist is normalized to upper here so the
+    counter compares one canonical form; a duplicate after normalization is a config
+    mistake that would only blur the trace, so it fails loudly.
+    """
+    if "wsb" not in data:
+        if enabled:
+            raise ConfigError(
+                "config.toml: [beats].wsb is true but there is no [wsb] section. "
+                "The beat has no feed to read and no stoplist to count with."
+            )
+        return None
+
+    table = _require_table(data, "wsb")
+
+    top_n = _require_int(table, "top_n", "wsb")
+    if top_n < 1:
+        raise ConfigError("config.toml: [wsb].top_n must be at least 1")
+
+    stoplist = [term.upper() for term in _require_str_list(table, "stoplist", "wsb")]
+    _reject_duplicates(stoplist, "wsb", "stoplist entry")
+
+    return WsbConfig(
+        feed_url=_require_str(table, "feed_url", "wsb"),
+        user_agent=_expand_contact(_require_str(table, "user_agent", "wsb")),
+        timeout_seconds=_require_float(table, "timeout_seconds", "wsb"),
+        top_n=top_n,
+        stoplist=stoplist,
     )
 
 
