@@ -13,6 +13,9 @@ run_window_end = "08:00"
 # One flag per beat. Adding a beat = one class + one entry here (FR-2).
 astros = true
 weather = true
+news = true
+need_to_know = true
+venues = true
 
 [location]
 city = "Austin"
@@ -23,12 +26,14 @@ timezone = "America/Chicago"
 
 [delivery]
 # "email" sends via SMTP using the .env credentials; "fake" captures in memory.
+# ${CONTACT_EMAIL} is expanded from the gitignored .env at load time (see .env.example);
+# unset, it falls back to a placeholder so nothing personal lives in this tracked file.
 kind = "email"
-target = "sarah.rachel.hernandez@gmail.com"
+target = "${CONTACT_EMAIL}"
 
 [escalation]
 # Rules are evaluated in this order, and this order breaks ties (FR-10).
-rules = ["freeze_alert", "watched_player_injury"]
+rules = ["need_to_know_watchlist", "freeze_alert", "watched_player_injury"]
 freeze_threshold_f = 32.0
 # Horizon in days. v1 data only covers the next morning's run window — see
 # BUILD-PROGRESS.md; extending the forecast range is an open decision.
@@ -39,3 +44,165 @@ watched_players = ["Yordan Alvarez", "Framber Valdez", "Jeremy Peña"]
 # Houston Astros. MLB Stats API team id.
 mlb_team_id = 117
 name = "Astros"
+
+[retrieval]
+# FR-9b — semantic dedup against the sent-item ledger. `enabled = false` restores the
+# exact v1 behaviour (every item included, ledger write-only).
+enabled = true
+# Static embeddings: no torch, ~512 dims, fetched once to the local HF cache.
+model = "minishlab/potion-retrieval-32M"
+# How many prior items to retrieve per candidate, and how similar they must be to count.
+# k is small on purpose — a generous k drags in loosely related items and the judgment
+# step starts reading their presence as evidence the story is old.
+k = 5
+similarity_floor = 0.60
+# Only compare against items sent within this many days.
+window_days = 14
+# FR-44 — beats whose items bypass dedup entirely, with an explicit dedup_exempt record.
+# Sarah's call (2026-08-16): a standing listing should repeat nightly while she decides.
+# Remove a beat from this list to put it back under the normal FR-9b pass.
+exempt_beats = ["venues"]
+
+[news]
+# FR-20 … FR-29. Every source here is free and keyless — RSS for discovery, then the
+# article page itself for the body. No news API returns full article text at any price,
+# so paying would not have bought this. Measured 2026-08-04: feed summaries run 111–975
+# chars (one chunk), fetched article bodies run 3,233–6,838 (a real document).
+user_agent = "forecaster/0.1 (${CONTACT_EMAIL})"
+# Politeness, per host. robots.txt on the configured publishers declares no crawl delay.
+fetch_delay_seconds = 1.0
+timeout_seconds = 15
+# Below this, extraction is treated as failed and the feed summary is used instead —
+# marked `text_source = "summary"`, never padded out with invented text.
+min_body_chars = 600
+feeds = [
+  { name = "Ars Technica",  url = "https://feeds.arstechnica.com/arstechnica/index" },
+  { name = "TechCrunch AI", url = "https://techcrunch.com/category/artificial-intelligence/feed/" },
+  { name = "The Verge",     url = "https://www.theverge.com/rss/index.xml" },
+  { name = "OpenAI",        url = "https://openai.com/news/rss.xml" },
+  { name = "DeepMind",      url = "https://deepmind.google/blog/rss.xml" },
+]
+
+[news.chunking]
+target_chars = 900
+max_chars = 1200
+overlap_chars = 150
+
+[news.corpus]
+# A SEPARATE file from ledger.db. The ledger is the permanent record of what was
+# delivered and cannot be rebuilt; article chunks are disposable and reconstructible
+# from the feeds in one run, and would otherwise dwarf it (~1,400 vectors a week
+# against the ledger's ~35).
+path = "data/corpus.db"
+ttl_days = 7
+
+[news.retrieval]
+# NOT the same numbers as [retrieval]. Matching a topic query to an article chunk is a
+# weaker match than line-against-line, hence the lower floor; news goes stale faster
+# than it should be forgotten, hence window_days < ttl_days.
+# Reasoned, NOT measured — PRD §9 Q6. Do not describe these as tuned.
+k = 6
+similarity_floor = 0.35
+window_days = 3
+# One long article must not fill the whole context for a topic.
+max_chunks_per_article = 2
+
+[venues]
+# FR-42 … FR-46 — named-venue listings, the 2026-08-16 re-scope: what's playing in the
+# next two weeks at venues Sarah named, repeated nightly on purpose (see
+# [retrieval].exempt_beats). v1 is ZACH only; Bass Concert Hall is FR-47 [Later], gated
+# on the Ticketmaster developer account. NOTE the domain: zachtheater.org, one "t" —
+# the intuitive spelling bounces through a ticketing-session redirect.
+user_agent = "forecaster/0.1 (${CONTACT_EMAIL})"
+timeout_seconds = 15
+window_days = 14
+venues = [
+  { name = "ZACH Theatre", kind = "zach_shows", url = "https://www.zachtheater.org/tickets/shows/" },
+]
+
+[need_to_know]
+# FR-31 … FR-35, the observation increment: fetch, index, count corroboration, deliver
+# NOTHING. General news wires, not AI trade press — all four verified free and keyless
+# 2026-08-14. The Guardian blocked the fetch; AP and Reuters have no open feed.
+# NOTE deliberately absent keys: min_sources, watchlist, bar — those are v5 (the bar),
+# and a knob nothing consumes would be inventing the bar through config.
+user_agent = "forecaster/0.1 (${CONTACT_EMAIL})"
+fetch_delay_seconds = 1.0
+timeout_seconds = 15
+min_body_chars = 600
+feeds = [
+  { name = "BBC World",      url = "https://feeds.bbci.co.uk/news/world/rss.xml" },
+  { name = "NPR News",       url = "https://feeds.npr.org/1001/rss.xml" },
+  { name = "Al Jazeera",     url = "https://www.aljazeera.com/xml/rss/all.xml" },
+  { name = "Texas Tribune",  url = "https://feeds.texastribune.org/feeds/main/" },
+]
+
+[need_to_know.chunking]
+target_chars = 900
+max_chars = 1200
+overlap_chars = 150
+
+[need_to_know.corpus]
+# The SAME file as [news.corpus] — the corpus is a shared, disposable cache of what
+# publishers said this week, beat-agnostic like ledger.db is on the durable side.
+# Config validation errors if these two blocks share a path but disagree on ttl_days.
+path = "data/corpus.db"
+ttl_days = 7
+
+[need_to_know.corroboration]
+# FR-33. A third retrieval problem with a third natural floor: same-story chunk against
+# chunk across outlets. floor was reasoned at 0.55 ("closer to line-vs-line than
+# query-vs-chunk") and MEASURED WRONG: over three live nights (162 articles, sweep
+# 2026-08-20, scripts/corroboration_sweep.py) no candidate reached 2 sources above 0.40,
+# while 0.35 yields ~2 gate-passing candidates/night — genuinely co-covered stories.
+# Cross-outlet same-story prose is looser than reasoned. 0.35 equals the news beat's
+# topic floor by coincidence of measurement, not shared derivation (Q6 and Q7 stay
+# separate questions). Measured on three nights ≠ tuned on fourteen — parent §9 Q7.
+window_days = 2
+floor = 0.35
+# FR-36's mechanical gate: how many OTHER configured sources must carry a story before
+# the model is even consulted. Alive at the measured floor (~2 gate-passes/night).
+min_sources = 2
+
+[need_to_know.watchlist]
+# FR-38. A hit bypasses the gate and the judgment, always delivers, and escalates via
+# the deterministic need_to_know_watchlist rule. This list is the bound on the bar's
+# suppress-when-unsure default — Sarah's, hers to edit. Matching is case-insensitive,
+# whole-word, against headline + lead.
+# 2026-08-24, Sarah's call after the bar's first live night: the seed's bare geography
+# terms ("Austin", "Texas") matched ordinary Tribune coverage 7 times in one run and
+# escalated all of it — §8's predicted over-fire, measured. Systems and event terms
+# only from here; the judgment handles geography with the reasons on record.
+terms = [
+  "ERCOT",
+  "Austin Water",
+  "boil notice",
+  "evacuation",
+  "grid emergency",
+]
+
+[need_to_know.bar]
+# FR-36. Sarah's categories (interview, 2026-08-14), interpolated into the judgment
+# prompt. Taste is config, not code. The exclusions are deliberate and named on purpose.
+deliver = [
+  "local or personal safety for Austin and Texas",
+  "national and world emergencies",
+  "market and economy shocks",
+]
+exclude = [
+  "election outcomes",
+  "deaths of public figures",
+]
+
+# Sarah's taste, not a design decision. Nothing in the code knows these ids.
+[[news.topics]]
+id = "claude"
+query = "Anthropic Claude model releases, capabilities, and pricing"
+
+[[news.topics]]
+id = "agents"
+query = "AI agents, tool use, and agent frameworks"
+
+[[news.topics]]
+id = "evals"
+query = "model evaluations, benchmarks, and safety testing"

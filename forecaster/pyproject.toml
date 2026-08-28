@@ -12,6 +12,8 @@ dependencies = [
     # "America/Chicago" without this. FR-3 requires UTC -> local conversion, and the
     # target machine is Windows 11, so this is required rather than optional.
     "tzdata; sys_platform == 'win32'",
+    "sqlite-vec>=0.1.9",
+    "model2vec>=0.8.2",
 ]
 
 [project.optional-dependencies]

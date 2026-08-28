@@ -10,11 +10,47 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [x] FR-1 … FR-9, FR-10 … FR-15, FR-18 — all 16 MVP requirements, 221 tests green.
 
+## Shipped in v2 — the Module 3 increment (2026-08-02)
+
+- [x] **FR-9b — retrieval-backed dedup / "what's new" framing.** model2vec static embeddings
+      indexed by sqlite-vec inside the existing `ledger.db`; retrieval narrows to the k nearest
+      same-beat items, a model judgment decides include/reframe/suppress.
+- [x] **FR-19 — retrieval safety invariants.** Five rules enforced around the model, one test
+      each. The load-bearing one: a differing checkable value can never be suppressed.
+- [x] **PRD §9 Q3 answered** — identity is a read-time relation, not a stored property. This is
+      why there is still no identity column.
+- 265 tests green, no network, no model calls, no torch, no paid dependency.
+
+## Shipped in v3 — the AI news beat (2026-08-04)
+
+Branch `feature/ai-news-beat`, PR open into `dev`. Spec:
+[docs/prd/ai-news-beat/PRD.md](docs/prd/ai-news-beat/PRD.md) · ledger:
+[BUILD-PROGRESS.md](docs/prd/ai-news-beat/BUILD-PROGRESS.md).
+
+- [x] **FR-20 … FR-25** — RSS/Atom adapter, article-body fetch (robots-respecting, rate-limited,
+      falls back to the feed summary rather than inventing text), paragraph-aware chunking with
+      overlap, a **separate** `corpus.db` with its own TTL, topic-query retrieval, and the beat that
+      assembles them. Free and keyless throughout: **no news API returns full article text at any
+      price**, so paying would not have bought the feature.
+- [x] **FR-26 — grounded-text provenance.** Neither the support check nor the fidelity check can see
+      a number the model *invented* into a sentence, because every other beat assembles its text in
+      code. `check_provenance` grew a case.
+- [x] **FR-27 — grounded-value suppression veto.** FR-19's first invariant inverts for a
+      document-shaped beat; transplanted from typed fields to prose. **The load-bearing one.**
+- [x] **FR-28 — per-source failure**, and **FR-29 — the metric checker** (`--news-metric`).
+- 419 tests green, no network, no model calls, no new paid dependency. FR-2's seam intact.
+
+- [ ] **DIVERGENCES row 6 retires at merge** — the Checkpoint 3 forward commitment is paid.
+- [ ] **DIVERGENCES row 4 does NOT retire at merge.** It needs §2(c): 14 consecutive nights with at
+      least one suppression on organically accumulated history. This build made the traffic; only
+      HUMAN-TODO ④ can make the nights. `--news-metric` reports "N of 14" and cannot claim it early.
+
 ## Blocked on a decision, not on effort
 
-- [ ] **FR-9b — ledger dedup / "what's new" framing.** Blocked on PRD §9 Q3 (item identity:
-      URL, entity+date, or model judgment?). The ledger is write-only until this is answered,
-      and tests actively enforce that — no identity column, no similarity check, no read path.
+- [ ] **Validate the retrieval thresholds.** `k = 5`, `similarity_floor = 0.60`,
+      `window_days = 14` are reasoned, **not measured** — nothing has run against a real
+      multi-week ledger. The trace records every neighbour and score so they can be tuned from
+      evidence. PRD §9 Q5. Don't let a checkpoint describe them as tuned.
 - [ ] **Multi-day freeze horizon.** `freeze_horizon_days` exists in config but the weather
       adapter fetches only the next morning's window. Extending it is a scope decision.
 - [ ] **Injury data source.** FR-10's injury escalation rule is implemented and **dormant** —
@@ -24,12 +60,36 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 
 - [ ] **FR-16 — reply-driven feedback loop.** Reply to the digest in plain English; parse it
       into a durable preference rule. Needs an inbox-read path, which v1 doesn't have.
-- [ ] **FR-17 — the remaining four beats**, each a `Beat` implementation plus a config entry,
+- [x] **FR-37 — within-run cross-item dedup. Shipped 2026-08-14** (PR #12, ai-news PRD; 455 tests
+      green). FR-9b compared candidates only against the *ledger*; two items in the same run
+      covering one story reached the digest twice — observed live 2026-08-13. The dedup pass now
+      hands the run's already-kept same-beat items to `assess_item` as extra neighbours, every
+      FR-19 invariant unchanged. Decided as its own increment in the need-to-know spec's §4; its
+      landing satisfies that spec's FR-36/FR-40 dependency.
+- [ ] **FR-17 — the remaining three beats**, each a `Beat` implementation plus a config entry,
       with no change to planner, synthesizer, or delivery:
-  - [ ] AI / Claude news
   - [ ] r/WallStreetBets mention volume
-  - [ ] "need-to-know" news (the bar is higher than daily drudgery)
-  - [ ] Austin live music and theatre
+  - [~] "need-to-know" news — spec: [docs/prd/need-to-know-news/PRD.md](docs/prd/need-to-know-news/PRD.md).
+    - [x] **v4 (observation, FR-31 … FR-35) — built 2026-08-14.** Steps 35–39 on
+          `feature/need-to-know-beat`, 498 tests green, zero model calls. The beat runs, delivers
+          nothing by design, and proves its silence in the trace; `--ntk-metric` reports the
+          corroboration distribution that tunes the bar.
+    - [x] **v5 (the bar, FR-36 + FR-38 … FR-41) — built 2026-08-24.** Steps 45–50 on
+          `feature/need-to-know-bar`, 581 tests green. Suppress-when-unsure judgment over
+          Sarah's config categories, watchlist bypass + deterministic escalation, the
+          provenance-checked pulse line, one-way deferral naming its cover, and metric
+          conditions (d)–(f) with nightly gate-pass counts. `floor` is measured (0.35,
+          2026-08-20 sweep); `min_sources`/window/band remain reasoned targets (parent §9 Q7).
+  - [~] Austin live music and theatre — re-scoped 2026-08-16 to **named-venue listings**:
+        [docs/prd/venue-listings/PRD.md](docs/prd/venue-listings/PRD.md), FR-42 … FR-47.
+    - [x] **v1 (ZACH, FR-42 … FR-46) — built 2026-08-16.** Steps 40–44 on
+          `feature/venue-listings-beat`, 548 tests green, zero model calls. Listings quote the
+          venue's own dates verbatim; dedup off by config with every repeat on the record
+          (`dedup_exempt`); `--venues-metric`'s load-bearing condition is never-suppressed.
+    - [ ] **FR-47 — Bass Concert Hall via Ticketmaster** `[Later]`, gated on the developer
+          account (signup failed 2026-08-16; retry steps in HUMAN-TODO; free tier verified,
+          ~1 call/night vs 5,000/day). Lands as a new parser `kind` + a config entry — no stub
+          shipped.
 
 ## Likely, but unconfirmed
 

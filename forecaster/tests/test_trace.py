@@ -340,3 +340,136 @@ def test_explicit_digest_argument_overrides_the_recorded_one(tmp_path: Path) -> 
 
     assert check_provenance(path).ok
     assert not check_provenance(path, tampered).ok
+
+
+# --------------------------------------------------------------------------- #
+# Two true claims that share a sentence shape (found live 2026-08-04)
+# --------------------------------------------------------------------------- #
+#
+# The first real nightly run against a live series failed the provenance check on two
+# mirrored violations. Both scorelines were true and both were observation-backed:
+# Toronto 0, Houston 0 (tonight, Warmup) and Toronto 3, Houston 1 (last night, Final).
+# A numbers-are-wildcards template built from either one matches the other's sentence,
+# so the check compared numbers across two different games and called it tampering.
+#
+# The beat was right; the checker was wrong. These pin both halves of the fix.
+
+
+def _series_trace(directory: Path, digest: str) -> Path:
+    """The shape of the run that failed: one live game, one final, same two teams."""
+    trace = Trace("series", directory=directory)
+    trace.run_start(auth_mode="subscription_oauth", config_digest="test")
+
+    observation_id = trace.tool_call(
+        beat="astros", adapter="mlb.fetch_schedule", arguments={"teamId": 117}
+    )
+    trace.observation(
+        observation_id,
+        payload={
+            "games": [
+                {"state": "Live", "detailed_state": "Warmup",
+                 "away": "Toronto Blue Jays", "away_score": 0,
+                 "home": "Houston Astros", "home_score": 0},
+                {"state": "Final", "detailed_state": "Final",
+                 "away": "Toronto Blue Jays", "away_score": 3,
+                 "home": "Houston Astros", "home_score": 1},
+            ]
+        },
+    )
+
+    trace._write(  # noqa: SLF001 - the record the beat emits
+        "beat_result",
+        beat="astros",
+        items=[
+            {
+                "beat": "astros",
+                "text": "Live now: Toronto Blue Jays 0, Houston Astros 0.",
+                "fields": {"game_date": "2026-08-04"},
+                "observations": [observation_id],
+            },
+            {
+                "beat": "astros",
+                "text": "Last completed: Toronto Blue Jays 3, Houston Astros 1.",
+                "fields": {"game_date": "2026-08-03"},
+                "observations": [observation_id],
+            },
+        ],
+        checkable_fields={
+            "live_score": "Toronto Blue Jays 0, Houston Astros 0",
+            "live_game_state": "Warmup",
+            "last_completed_score": "Toronto Blue Jays 3, Houston Astros 1",
+            "last_completed_state": "Final",
+        },
+        available=True,
+        error=None,
+        escalation_candidate=False,
+        escalation_reason=None,
+        escalation_signals={},
+        observations=[observation_id],
+    )
+    trace.digest(digest, order=["astros"])
+    trace.close()
+    return trace.path
+
+
+def test_two_observed_scores_of_the_same_shape_do_not_fail_each_other(tmp_path: Path) -> None:
+    """The live regression, verbatim from the 2026-08-04 run that failed."""
+    path = _series_trace(
+        tmp_path,
+        "Live now: Toronto Blue Jays 0, Houston Astros 0.\n"
+        "Last completed: Toronto Blue Jays 3, Houston Astros 1.",
+    )
+
+    report = check_provenance(path)
+
+    assert report.ok, report.summary()
+
+
+def test_a_score_the_model_altered_is_still_caught_in_the_same_situation(
+    tmp_path: Path,
+) -> None:
+    """The fix may not buy its false-positive relief by going blind.
+
+    Same two-game night, but the final is reported 4-1 when the observation says 3-1.
+    That sentence matches the shape and matches **no** observation, which is exactly the
+    fabricated-box-score failure the check exists for.
+    """
+    path = _series_trace(
+        tmp_path,
+        "Live now: Toronto Blue Jays 0, Houston Astros 0.\n"
+        "Last completed: Toronto Blue Jays 4, Houston Astros 1.",
+    )
+
+    report = check_provenance(path)
+
+    assert not report.ok
+    assert {v.kind for v in report.violations} == {"altered_claim"}
+    assert all("4, Houston Astros 1" in v.detail for v in report.violations)
+    # The true score is never itself flagged — only the invented one.
+    assert not any("3, Houston Astros 1'," in v.detail for v in report.violations)
+
+
+def test_an_invented_third_game_is_caught(tmp_path: Path) -> None:
+    """A plausible extra line that no observation backs."""
+    path = _series_trace(
+        tmp_path,
+        "Live now: Toronto Blue Jays 0, Houston Astros 0.\n"
+        "Last completed: Toronto Blue Jays 3, Houston Astros 1.\n"
+        "Earlier: Toronto Blue Jays 7, Houston Astros 2.",
+    )
+
+    report = check_provenance(path)
+
+    assert not report.ok
+    assert any("7, Houston Astros 2" in v.detail for v in report.violations)
+
+
+def test_the_fix_is_case_insensitive_like_the_template_it_guards(tmp_path: Path) -> None:
+    """`_template` compiles IGNORECASE — the exemption has to match that or it misfires."""
+    path = _series_trace(
+        tmp_path,
+        "live now: toronto blue jays 0, houston astros 0.\n"
+        "last completed: TORONTO BLUE JAYS 3, HOUSTON ASTROS 1.",
+    )
+
+    assert check_provenance(path).ok

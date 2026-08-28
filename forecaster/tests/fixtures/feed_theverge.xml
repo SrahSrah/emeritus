@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?><feed
+	xmlns="http://www.w3.org/2005/Atom"
+	xmlns:thr="http://purl.org/syndication/thread/1.0"
+	xml:lang="en-US"
+	>
+	<title type="text">The Verge</title>
+	<subtitle type="text">The Verge is about technology and how it makes us feel. Founded in 2011, we offer our audience everything from breaking news to reviews to award-winning features and investigations, on our site, in video, and in podcasts.</subtitle>
+
+	<updated>2026-08-04T22:02:46+00:00</updated>
+
+	<link rel="alternate" type="text/html" href="https://www.theverge.com" />
+	<id>https://www.theverge.com/rss/index.xml</id>
+	<link rel="self" type="application/atom+xml" href="https://www.theverge.com/rss/index.xml" />
+
+	<icon>https://platform.theverge.com/wp-content/uploads/sites/2/2025/01/verge-rss-large_80b47e.png?w=150&amp;h=150&amp;crop=1</icon>
+		<entry>
+			
+			<author>
+				<name>Stevie Bonifield</name>
+			</author>
+			
+			<title type="html"><![CDATA[Now you can securely link multiple phones to one Signal account]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/tech/975407/signal-linked-devices-sync" />
+			<id>https://www.theverge.com/?p=975407</id>
+			<updated>2026-08-04T18:02:46-04:00</updated>
+			<published>2026-08-04T18:02:46-04:00</published>
+			<category scheme="https://www.theverge.com" term="Apps" /><category scheme="https://www.theverge.com" term="News" /><category scheme="https://www.theverge.com" term="Privacy" /><category scheme="https://www.theverge.com" term="Tech" />
+							<summary type="html"><![CDATA[You can link more devices with one phone number on Signal now, including an Android phone or iPhone. Signal already supported linking PCs and iPads, but not additional phones. When you link a device on Signal, you can check and respond to new messages across all of your linked devices. You can also choose whether [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="Illustration depicts the signal logo against a black and red background" data-caption="" data-portal-copyright="Illustration by Alex Castro / The Verge" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/2025/06/acastro_STK459_02.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">You can <a href="https://signal.org/blog/linked-devices-and-android-tablets/">link more devices</a> with one phone number on Signal now, including an Android phone or iPhone. Signal already supported <a href="https://signal.org/blog/a-synchronized-start-for-linked-devices/">linking PCs and iPads</a>, but not additional phones. When you link a device on Signal, you can check and respond to new messages across all of your linked devices. You can also choose whether or not to transfer an end-to-end encrypted copy of your previous messages to each newly linked device to mitigate the risk of devices that might be shared, lost, or compromised.</p>
+<p class="wp-block-paragraph">The update is rolling out now with Signal version 8.20 on Android and version 8.22 for iPhone / iPad. </p>
+<p class="wp-block-paragraph">Signal also says it has made "significant interface …</p>
+<p><a href="https://www.theverge.com/tech/975407/signal-linked-devices-sync">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Stevie Bonifield</name>
+			</author>
+			
+			<title type="html"><![CDATA[AMD&#8217;s datacenter business is booming while gaming takes a backseat]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/tech/975381/amd-q2-2026-earnings-ai-gaming-ryzen" />
+			<id>https://www.theverge.com/?p=975381</id>
+			<updated>2026-08-04T16:59:24-04:00</updated>
+			<published>2026-08-04T16:57:49-04:00</published>
+			<category scheme="https://www.theverge.com" term="AI" /><category scheme="https://www.theverge.com" term="AMD" /><category scheme="https://www.theverge.com" term="Business" /><category scheme="https://www.theverge.com" term="News" /><category scheme="https://www.theverge.com" term="Tech" />
+							<summary type="html"><![CDATA[Driven by demand for AI capacity, AMD's data center revenue more than doubled year-over-year in its latest earnings report, reaching $6.7 billion. That's up from $5.8 billion in Q1, and jumping 107 percent from the $3.2 billion it reported for the same period a year ago. At the same time, AMD's gaming revenue fell 31 [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="" data-caption="" data-portal-copyright="Illustration by Alex Castro / The Verge" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/chorus/uploads/chorus_asset/file/24002467/acastro_STK081_amd_02.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">Driven by demand for AI capacity, AMD's data center revenue more than doubled year-over-year in its <a href="https://ir.amd.com/news-events/press-releases/detail/1295/amd-reports-second-quarter-2026-financial-results">latest earnings report</a>, reaching $6.7 billion. That's up from <a href="https://www.theverge.com/tech/924889/amds-revenue-jumps-38-percent-from-last-year-as-q1-data-center-sales-hit-5-8-billion">$5.8 billion in Q1</a>, and jumping 107 percent from the $3.2 billion it reported for the same period a year ago.</p>
+<p class="wp-block-paragraph">At the same time, AMD's gaming revenue fell 31 percent compared to last year, to $779 million, as price hikes and component shortages slowed sales for the Xbox Series X / S, PS5, and Valve's Steam Deck.</p>
+<img src="https://platform.theverge.com/wp-content/uploads/sites/2/2026/08/amd-q2-2026-earnings-slides-screenshot.png?quality=90&amp;strip=all&amp;crop=0,0,100,100" alt="A screenshot of slides from AMD&apos;s Q2 2026 earnings presentation" title="A screenshot of slides from AMD&apos;s Q2 2026 earnings presentation" data-has-syndication-rights="1" data-caption="" data-portal-copyright="Image: AMD">
+<p class="wp-block-paragraph">"Revenue increased 50 percent year-over-year to a record $11.5 billion, driven by continued strength in our Data Center business, which represented 58% of company revenue i …</p>
+<p><a href="https://www.theverge.com/tech/975381/amd-q2-2026-earnings-ai-gaming-ryzen">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Elizabeth Lopatto</name>
+			</author>
+			
+			<title type="html"><![CDATA[SpaceX made more revenue as an AI company than a space company]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/science/975335/spacex-made-more-money-as-a-neocloud" />
+			<id>https://www.theverge.com/?p=975335</id>
+			<updated>2026-08-04T17:42:17-04:00</updated>
+			<published>2026-08-04T16:47:55-04:00</published>
+			<category scheme="https://www.theverge.com" term="AI" /><category scheme="https://www.theverge.com" term="Business" /><category scheme="https://www.theverge.com" term="Science" /><category scheme="https://www.theverge.com" term="Space" /><category scheme="https://www.theverge.com" term="SpaceX" /><category scheme="https://www.theverge.com" term="Tech" /><category scheme="https://www.theverge.com" term="xAI" />
+							<summary type="html"><![CDATA[SpaceX's AI revenue grew more than three times to $2.6 billion from the year before, mostly because of deals that the company made to provide compute to other AI companies, according to SpaceX's quarterly earnings. The AI division, which the company said in its documents to go public was the source of most of its [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="" data-caption="" data-portal-copyright="Image: NurPhoto via Getty Images" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/2026/08/gettyimages-2286629860.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">SpaceX's AI revenue grew more than three times to $2.6 billion from the year before, mostly because of deals that the company made to provide compute to other AI companies, according to SpaceX's quarterly earnings. The AI division, which the company said in its documents to go public was the source of most of its value, lost $1.5 billion this quarter, slightly less than in the same quarter last year.</p>
+<p class="wp-block-paragraph">SpaceX made deals with <a href="https://www.theverge.com/science/935229/spacex-anthropic-ipo-ai-capacity-deal-colossus">Anthropic in May</a> and <a href="https://www.cnbc.com/2026/06/05/google-to-pay-spacex-920-million-a-month-for-xai-compute-capacity.html">Google in June</a> to provide compute to the other two AI companies, putting it in competition with <a href="https://www.theverge.com/ai-artificial-intelligence/822011/coreweave-debt-data-center-ai">other neoclouds such as CoreWeave</a>. The increased presence in AI is also driving the company to spend mor …</p>
+<p><a href="https://www.theverge.com/science/975335/spacex-made-more-money-as-a-neocloud">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Jay Peters</name>
+			</author>
+			
+			<title type="html"><![CDATA[EA is now a private company]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/games/974736/ea-private-company-deal-closed" />
+			<id>https://www.theverge.com/?p=974736</id>
+			<updated>2026-08-04T17:25:06-04:00</updated>
+			<published>2026-08-04T16:18:14-04:00</published>
+			<category scheme="https://www.theverge.com" term="Entertainment" /><category scheme="https://www.theverge.com" term="Gaming" /><category scheme="https://www.theverge.com" term="News" />
+							<summary type="html"><![CDATA[Electronic Arts has officially become a private company. Last September, EA announced that an investor group led by Saudi Arabia's Public Investment Fund (PIF), Silver Lake, and Affinity Partners would be taking the company private in a $55 billion deal, and on Tuesday, EA said the deal successfully closed. The PIF will reportedly own 93.4 [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="" data-caption="" data-portal-copyright="" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/2026/08/ss_34588453e785e37518c3e448c91563c25ea0de95.1920x1080.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">Electronic Arts has officially become a private company. Last September, <a href="https://www.theverge.com/news/787112/electronic-arts-55-billion-privacte-acquisition-pif-silver-lake-affinity-partners">EA announced</a> that an investor group led by Saudi Arabia's Public Investment Fund (PIF), Silver Lake, and Affinity Partners would be taking the company private in a $55 billion deal, and on Tuesday, <a href="https://www.businesswire.com/news/home/20260804173096/en/EA-Announces-Completion-of-Acquisition-by-PIF-Silver-Lake-and-Affinity-Partners">EA said the deal successfully closed</a>. The PIF will <a href="https://www.wsj.com/business/deals/saudi-fund-to-own-almost-all-of-electronic-arts-after-buyout-661e92be">reportedly own</a> 93.4 percent of the new company.</p>
+<p class="wp-block-paragraph">The deal includes $20 billion of debt financing - making it the largest leveraged buyout ever - which could mean <a href="https://www.theverge.com/games/787723/ea-private-deal-buyout-future-games-layoffs">big changes at EA to justify the deal</a>. As of late, EA has been focusing heavily on its big tentpole franchises, including things like <em>Battlefield</em>, its sports games l …</p>
+<p><a href="https://www.theverge.com/games/974736/ea-private-company-deal-closed">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Emma Roth</name>
+			</author>
+			
+			<title type="html"><![CDATA[Telegram CEO says an extortionist planted CSAM in a chat to get it pulled from the App Store]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/tech/975300/telegram-app-store-takedown-extortion-pavel-durov" />
+			<id>https://www.theverge.com/?p=975300</id>
+			<updated>2026-08-04T15:22:41-04:00</updated>
+			<published>2026-08-04T15:11:05-04:00</published>
+			<category scheme="https://www.theverge.com" term="Apple" /><category scheme="https://www.theverge.com" term="Apps" /><category scheme="https://www.theverge.com" term="News" /><category scheme="https://www.theverge.com" term="Tech" />
+							<summary type="html"><![CDATA[Telegram CEO Pavel Durov blames an extortionist for planting child sexual abuse material (CSAM) in a public chat to get the app temporarily removed from Apple's App Store on Monday night. "Apple removed Telegram from the App Store before contacting us," Durov says in a post on X. "This creates a potential systemic risk for [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="Photo illustration of Telegram CEO Pavel Durov with the Telegram logo." data-caption="" data-portal-copyright="Image: Cath Virginia / The Verge, Getty Images" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/chorus/uploads/chorus_asset/file/25589996/STK207_STK085__PAVEL_DUROV_TELEGRAM_C.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">Telegram CEO Pavel Durov blames an extortionist for planting child sexual abuse material (CSAM) in a public chat <a href="https://www.theverge.com/tech/974951/telegram-apple-app-store-removed">to get the app temporarily removed</a> from Apple's App Store on Monday night. "Apple removed Telegram from the App Store before contacting us," Durov <a href="https://x.com/durov/status/2084686326540996625?s=20">says in a post on X</a>. "This creates a potential systemic risk for every mobile app that hosts user-generated content. If an app used by more than a billion people can be removed from the App Store without prior warning, any app can be."</p>
+<p class="wp-block-paragraph">Durov adds, "Extortionists have found a way to manipulate Apple into overreacting." Apple didn't immediately respond to <em>The Verge</em>'s request for comment.</p> …
+<p><a href="https://www.theverge.com/tech/975300/telegram-app-store-takedown-extortion-pavel-durov">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Mia Sato</name>
+			</author>
+			
+			<title type="html"><![CDATA[How an OpenAI influencer trip backfired ]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/tech/975173/openai-influencers-brand-trip-ai-backlash-marketing" />
+			<id>https://www.theverge.com/?p=975173</id>
+			<updated>2026-08-04T14:16:11-04:00</updated>
+			<published>2026-08-04T13:46:41-04:00</published>
+			<category scheme="https://www.theverge.com" term="AI" /><category scheme="https://www.theverge.com" term="Analysis" /><category scheme="https://www.theverge.com" term="Creators" /><category scheme="https://www.theverge.com" term="Culture" /><category scheme="https://www.theverge.com" term="Entertainment" /><category scheme="https://www.theverge.com" term="Internet Culture" /><category scheme="https://www.theverge.com" term="OpenAI" /><category scheme="https://www.theverge.com" term="Report" /><category scheme="https://www.theverge.com" term="Tech" />
+							<summary type="html"><![CDATA[The brand trip is a right of passage for influencers. It's a mark of legitimacy that a sponsor wants to invite them on an all-expenses-paid vacation, often with luxurious freebies and activities. Trips can also spur hard feelings from uninvited influencers, trigger criticism from the public, and project a certain frivolousness. Usually it is fast [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="" data-caption="" data-portal-copyright="Instagram: @nat.lucyy" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/2026/08/Screenshot-2026-08-04-at-2.13.49-PM.png?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">The brand trip is a right of passage for influencers. It's a mark of legitimacy that a sponsor wants to invite them on an all-expenses-paid vacation, often with luxurious freebies and activities. Trips can also spur hard feelings from uninvited influencers, trigger criticism from the public, and project a certain frivolousness. </p>
+<p class="wp-block-paragraph">Usually it is <a href="https://www.theverge.com/2023/6/30/23779058/shein-influencer-trip-backlash-ads-forced-labor">fast fashion companies</a> or <a href="https://www.thecut.com/2023/05/why-black-women-creators-are-accusing-tarte-of-mistreatment.html">beauty brands</a> flying out influencers with the goal of flooding social media with sponsored content. This time, it was a major AI company.</p>
+<p class="wp-block-paragraph">Over the weekend, several influencers began posting about OpenAI's "first ever brand trip," which appears to have taken place outside of N …</p>
+<p><a href="https://www.theverge.com/tech/975173/openai-influencers-brand-trip-ai-backlash-marketing">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Brad Bourque</name>
+			</author>
+			
+			<title type="html"><![CDATA[Lenovo&#8217;s Legion Go S with SteamOS is down to its lowest price ever]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/gadgets/975113/lenovo-legion-go-s-steamos-deal-sale" />
+			<id>https://www.theverge.com/?p=975113</id>
+			<updated>2026-08-04T13:35:04-04:00</updated>
+			<published>2026-08-04T13:35:04-04:00</published>
+			<category scheme="https://www.theverge.com" term="Deals" /><category scheme="https://www.theverge.com" term="Gadgets" /><category scheme="https://www.theverge.com" term="Gaming" /><category scheme="https://www.theverge.com" term="PC Gaming" /><category scheme="https://www.theverge.com" term="Verge Shopping" />
+							<summary type="html"><![CDATA[Memory and storage prices will be inflated for the foreseeable future, so we’re always happy to find a good deal on capable gaming hardware, like this discount on the Lenovo Legion Go S with a Z2 Go processor and SteamOS. Normally $1,137.41 (and selling for close to $1,000 at Best Buy), Lenovo has the handheld [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="" data-caption="Lenovo’s Legion Go S with SteamOS. | Photo by Sean Hollister / The Verge" data-portal-copyright="Photo by Sean Hollister / The Verge" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/2025/07/lenovo-legion-go-s-steamos-sean-hollister-331A1210.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+	Lenovo’s Legion Go S with SteamOS. | Photo by Sean Hollister / The Verge	</figcaption>
+</figure>
+<p class="wp-block-paragraph">Memory and storage prices will be inflated for the foreseeable future, so we’re always happy to find a good deal on capable gaming hardware, like this discount on the <strong>Lenovo Legion Go S</strong> with a Z2 Go processor and SteamOS. Normally $1,137.41 (and selling for close to $1,000 at <a href="https://www.bestbuy.com/product/legion-go-s-8-120hz-gaming-handheld-amd-ryzen-z2-go-steamos-16gb-with-512gb-ssd/JJGSHG74VG/sku/6619192">Best Buy</a>), <a href="https://www.lenovo.com/us/vipmembers/perksoffer/en/p/handheld/legion-go-s/83l30030us">Lenovo</a> has the handheld console on sale for just $635.54 when you use code <strong>EXTRASAVEAFF</strong> at checkout, the lowest price we’ve seen yet for this model.</p>
+<div class="product-block"><h3>Lenovo Legion Go S with SteamOS (Z2 Go)</h3>
+<figure class="product-image"><img width="300" height="200" src="https://platform.theverge.com/wp-content/uploads/sites/2/2025/07/lenovo-legion-go-s-steamos-sean-hollister-331A1198.jpg?w=300" class="attachment-medium size-medium" alt="" /></figure>
+<h3>Where to Buy:</h3><ul><li><a href="https://www.lenovo.com/us/vipmembers/perksoffer/en/p/handheld/legion-go-s/83l30030us"> <strike>$1137.41</strike> $635.54 at <strong>Lenovo (w/ code EXTRASAVEAFF)</strong></a></li></ul></div>
+<p class="wp-block-paragraph">We reviewed both the Windows and SteamOS versions of this gaming handheld when it released in 2024, and found the latter to be a <em>much</em> more appealing option, largely thanks to the improved user experience that Windows has shown signs that it’s slowly catching up to. The Z2 Go chip isn’t all that impressive, with similar performance to the <a href="https://www.theverge.com/games/938340/valve-steam-deck-price-increase">more expensive</a> OLED Steam Deck, but it’s still a solid choice for indie games and more spec-intensive titles if you turn the settings down. The 8-inch IPS panel goes up to 120Hz, and has variable refresh rate, which helps the Legion Go S stand out among other options at the same price.</p>
+
+<h5 class="wp-block-heading"><a href="https://www.theverge.com/reviews/704903/lenovo-legion-go-s-steam-os-review-z2-go-z1-extreme">Read our Lenovo Legion Go S (SteamOS) review</a>.</h5>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Robert Hart</name>
+			</author>
+			
+			<title type="html"><![CDATA[‘Not healthy’ LLM use is more common than you think]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/ai-artificial-intelligence/975180/llm-ai-chatbot-use-not-healthy" />
+			<id>https://www.theverge.com/?p=975180</id>
+			<updated>2026-08-04T13:33:46-04:00</updated>
+			<published>2026-08-04T13:33:46-04:00</published>
+			<category scheme="https://www.theverge.com" term="AI" /><category scheme="https://www.theverge.com" term="Tech" />
+							<summary type="html"><![CDATA[Hank Green, a popular YouTuber and science communicator, said he is stepping back from production amid intense criticism over his use of AI. Green described his AI usage as "not healthy," but stressed that he used it for finding research sources and not to write scripts. Much of the ensuing firestorm in this corner of [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="" data-caption="" data-portal-copyright="Image: Getty Images" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/2026/08/gettyimages-2253306515.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">Hank Green, a popular YouTuber and science communicator, <a href="https://www.theverge.com/tech/973893/hank-green-says-his-youtube-channel-may-need-to-pause-after-admitting-to-relying-on-ai-for-research">said</a> he is stepping back from production amid intense criticism over his use of AI. Green described his AI usage as "not healthy," but stressed that he used it for finding research sources and not to write scripts.</p>
+<p class="wp-block-paragraph">Much of the ensuing firestorm in this corner of the internet has centered on how a creator can square a brand built on authenticity and credibility with a technology trained on the (often uncompensated) works of others, and which has a well-known tendency to generate plausible-sounding falsehoods. Some <a href="https://techcrunch.com/2026/08/01/youtuber-hank-green-says-his-ai-usage-is-not-healthy/">attention</a> has fallen on Green's description of what appears to be an unh …</p>
+<p><a href="https://www.theverge.com/ai-artificial-intelligence/975180/llm-ai-chatbot-use-not-healthy">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Jess Weatherbed</name>
+			</author>
+			
+			<title type="html"><![CDATA[BMW’s in-car Spider-Man ad is villain behavior]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/transportation/975172/bmw-spider-man-movie-infotainment-ad" />
+			<id>https://www.theverge.com/?p=975172</id>
+			<updated>2026-08-04T13:32:31-04:00</updated>
+			<published>2026-08-04T13:17:14-04:00</published>
+			<category scheme="https://www.theverge.com" term="BMW" /><category scheme="https://www.theverge.com" term="Cars" /><category scheme="https://www.theverge.com" term="Entertainment" /><category scheme="https://www.theverge.com" term="News" /><category scheme="https://www.theverge.com" term="Transportation" />
+							<summary type="html"><![CDATA[When a premium car brand like BMW says it has a "special surprise" in store for drivers, I'd expect something more luxurious than having a movie commercial beamed onto the dashboard. That's exactly what's happening to many BMW owners, however, who are being shown banner ads for Spider-man: Brand New Day on their Control Display [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="Spider-Man leaping over a BMW" data-caption="With great power comes great responsibility… to not justify ads in the name of movie promotions. | Image: BMW / Sony Pictures" data-portal-copyright="Image: BMW / Sony Pictures" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/2026/08/BMW-Spider-Man-promotional-image.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+	With great power comes great responsibility… to not justify ads in the name of movie promotions. | Image: BMW / Sony Pictures	</figcaption>
+</figure>
+<p class="wp-block-paragraph">When a premium car brand like BMW says it has a "special surprise" in store for drivers, I'd expect something more luxurious than having a movie commercial beamed onto the dashboard. That's exactly what's happening to many BMW owners, however, who are being shown banner ads for <em>Spider-man: Brand New Day</em> on their Control Display upon starting the vehicle.</p>
+<p class="wp-block-paragraph">In a statement to <a href="https://www.theautopian.com/bmw-is-showing-commercials-on-their-cars-dash-screens-and-they-want-you-to-think-its-a-treat/"><em>The Autopian</em></a>, BMW confirmed that the ads are definitely real, serving as part of "a broader brand partnership" with the new Marvel movie. <a href="https://www.press.bmwgroup.com/global/article/detail/T0459622EN/bmw-brings-modern-mobility-to-the-sony-pictures-film-%E2%80%9Cspider-man%E2%84%A2:-brand-new-day%E2%80%9D">BMW's own announcement</a> also confirms that the ads are running from July 27th until August 10th, and reveals how widespread they are:</p>
+<blockquote class="wp-block-quote is-layout-flow wp-block-quote-is-layout-flow">
+<p class="wp-block-paragraph"> …</p></blockquote>
+<p><a href="https://www.theverge.com/transportation/975172/bmw-spider-man-movie-infotainment-ad">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+			<entry>
+			
+			<author>
+				<name>Emma Roth</name>
+			</author>
+			
+			<title type="html"><![CDATA[T-Mobile’s $0-down financing plan bundles taxes and fees]]></title>
+			<link rel="alternate" type="text/html" href="https://www.theverge.com/tech/975115/t-mobile-financing-eip-flex-36-plan" />
+			<id>https://www.theverge.com/?p=975115</id>
+			<updated>2026-08-04T12:07:02-04:00</updated>
+			<published>2026-08-04T12:07:02-04:00</published>
+			<category scheme="https://www.theverge.com" term="Mobile" /><category scheme="https://www.theverge.com" term="News" /><category scheme="https://www.theverge.com" term="T-Mobile" /><category scheme="https://www.theverge.com" term="Tech" />
+							<summary type="html"><![CDATA[T-Mobile is launching a new financing option that will allow you to pay for a device, taxes, and fees over 36 months. In an update on Tuesday, T-Mobile says its new Equipment Installment Plan (EIP) Flex 36 requires no upfront payment and will come with a 0 percent APR for a limited time. Even if [&#8230;]]]></summary>
+			
+							<content type="html">
+											<![CDATA[
+
+						
+<figure>
+
+<img alt="Illustration of the T-Mobile logo, the letter T in a pink box with two squares on either side of it, in front of a blue and aqua background." data-caption="" data-portal-copyright="Illustration: Alex Castro / The Verge" data-has-syndication-rights="1" src="https://platform.theverge.com/wp-content/uploads/sites/2/chorus/uploads/chorus_asset/file/23962441/acastro_STK067__02.jpg?quality=90&#038;strip=all&#038;crop=0,0,100,100" />
+	<figcaption>
+		</figcaption>
+</figure>
+<p class="wp-block-paragraph">T-Mobile is launching a new financing option that will allow you to pay for a device, taxes, and fees over 36 months. In <a href="https://www.t-mobile.com/news/un-carrier/eip-flex-36">an update on Tuesday</a>, T-Mobile says its new Equipment Installment Plan (EIP) Flex 36 requires no upfront payment and will come with a 0 percent APR for a limited time.</p>
+<p class="wp-block-paragraph">Even if you are financing a device, carriers typically require you to pay sales tax, an activation fee, or a down payment at checkout. T-Mobile says its new plan eliminates that by allowing you to pay off all of these costs over time - <a href="https://www.t-mobile.com/brand/live-stream">though its website</a> notes only "well-qualified customers" will pay $0 upfront. The EIP Flex 36 financing option is available …</p>
+<p><a href="https://www.theverge.com/tech/975115/t-mobile-financing-eip-flex-36-plan">Read the full story at The Verge.</a></p>
+						]]>
+									</content>
+			
+					</entry>
+	</feed>

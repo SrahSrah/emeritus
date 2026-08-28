@@ -49,6 +49,13 @@ watched_players = ["Yordan Alvarez"]
 [team]
 mlb_team_id = 117
 name = "Astros"
+
+[retrieval]
+enabled = false
+model = "test-hashing-embedder"
+k = 5
+similarity_floor = 0.60
+window_days = 14
 """
 
 ONE_BEAT = TWO_BEATS.replace("weather = true", "weather = false")
@@ -75,9 +82,34 @@ def test_real_config_loads_with_the_expected_typed_fields() -> None:
 
     assert config.team.mlb_team_id == 117
     assert config.escalation.freeze_threshold_f == pytest.approx(32.0)
-    assert config.escalation.rules == ["freeze_alert", "watched_player_injury"]
+    assert config.escalation.rules == [
+        "need_to_know_watchlist",  # FR-38, added Step 45 (dormant until Step 46)
+        "freeze_alert",
+        "watched_player_injury",
+    ]
     assert "Yordan Alvarez" in config.escalation.watched_players
     assert config.delivery.target
+
+
+def test_contact_email_expands_from_the_environment(monkeypatch) -> None:
+    """The tracked config carries ${CONTACT_EMAIL}; the gitignored .env supplies it."""
+    monkeypatch.setenv("CONTACT_EMAIL", "someone@example.org")
+    config = load_config(REAL_CONFIG)
+
+    assert config.delivery.target == "someone@example.org"
+    assert config.news is not None
+    assert "someone@example.org" in config.news.user_agent
+    assert "${CONTACT_EMAIL}" not in config.news.user_agent
+
+
+def test_contact_email_falls_back_to_a_placeholder(monkeypatch) -> None:
+    """Unset, the token still resolves — a fresh clone must run, not crash on identity."""
+    monkeypatch.delenv("CONTACT_EMAIL", raising=False)
+    config = load_config(REAL_CONFIG)
+
+    assert config.delivery.target == "your.email@example.com"
+    assert config.news is not None
+    assert "your.email@example.com" in config.news.user_agent
 
 
 def test_enabled_beats_differs_by_config_alone(tmp_path: Path) -> None:
@@ -143,3 +175,346 @@ def test_no_module_but_config_hardcodes_the_location_or_timezone() -> None:
             if needle in text:
                 offenders.append(f"{path.relative_to(PROJECT_ROOT)}: {needle}")
     assert offenders == []
+
+
+# --------------------------------------------------------------------------- #
+# Step 24 — the news section
+# --------------------------------------------------------------------------- #
+
+
+def _news_config(**overrides: object) -> Config:
+    """Parse a base config with `[news]` merged in, applying section overrides."""
+    from tests.helpers import NEWS_CONFIG, make_config
+
+    news = {key: value for key, value in NEWS_CONFIG.items()}
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(news.get(key), dict):
+            news[key] = {**news[key], **value}
+        else:
+            news[key] = value
+    return make_config(news=news)
+
+
+def test_the_real_config_parses_its_news_section() -> None:
+    config = load_config(REAL_CONFIG)
+    assert config.news is not None
+    assert config.news.chunking.target_chars == 900
+    assert config.news.corpus.ttl_days == 7
+    assert config.news.retrieval.k == 6
+    assert config.news.retrieval.similarity_floor == 0.35
+    assert [feed.name for feed in config.news.feeds][0] == "Ars Technica"
+    assert [topic.id for topic in config.news.topics] == ["claude", "agents", "evals"]
+
+
+def test_the_news_beat_is_enabled_and_registered() -> None:
+    """Flipped on in Step 32. Enabling a beat nobody registered is a LookupError."""
+    from forecaster.beats.base import load_builtin_beats, registered_beats
+
+    load_builtin_beats()
+    config = load_config(REAL_CONFIG)
+
+    assert config.beats["news"] is True
+    assert "news" in enabled_beats(config)
+    assert "news" in registered_beats()
+
+
+def test_a_config_with_no_news_section_is_still_valid() -> None:
+    """Every config that predates the news beat is still a config."""
+    from tests.helpers import make_config
+
+    assert make_config().news is None
+
+
+def test_enabling_news_without_a_news_section_raises() -> None:
+    from tests.helpers import make_config
+
+    with pytest.raises(ConfigError, match=r"no \[news\] section"):
+        make_config(beats={"news": True})
+
+
+@pytest.mark.parametrize(
+    "overrides,message",
+    [
+        ({"chunking": {"overlap_chars": 900}}, "less than target_chars"),
+        ({"chunking": {"overlap_chars": -1}}, "must not be negative"),
+        ({"chunking": {"target_chars": 2000}}, "must not exceed max_chars"),
+        ({"retrieval": {"k": 0}}, r"\[news.retrieval\].k must be at least 1"),
+        ({"retrieval": {"similarity_floor": 1.5}}, "within 0.0"),
+        ({"retrieval": {"window_days": 0}}, "window_days must be at least 1"),
+        ({"retrieval": {"max_chunks_per_article": 0}}, "max_chunks_per_article"),
+        ({"corpus": {"ttl_days": 0}}, "ttl_days must be at least 1"),
+        ({"retrieval": {"window_days": 30}}, "exceeds"),
+        ({"user_agent": ""}, "non-empty string"),
+    ],
+)
+def test_each_news_validation_rule_has_a_raising_case(overrides, message) -> None:
+    """A config that would silently misbehave at 2 am fails here instead."""
+    with pytest.raises(ConfigError, match=message):
+        _news_config(**overrides)
+
+
+def test_a_window_wider_than_the_ttl_is_rejected() -> None:
+    """Retrieving over articles the purge already deleted is a config bug, not a quirk."""
+    with pytest.raises(ConfigError, match="already deleted"):
+        _news_config(retrieval={"window_days": 8})
+
+
+def test_duplicate_feed_names_and_topic_ids_are_rejected() -> None:
+    """A duplicate makes a trace entry ambiguous — same reasoning as suppression ids."""
+    with pytest.raises(ConfigError, match="duplicate name"):
+        _news_config(
+            feeds=[
+                {"name": "Ars Technica", "url": "https://a.test/feed"},
+                {"name": "Ars Technica", "url": "https://b.test/feed"},
+            ]
+        )
+    with pytest.raises(ConfigError, match="duplicate id"):
+        _news_config(
+            topics=[
+                {"id": "claude", "query": "one"},
+                {"id": "claude", "query": "two"},
+            ]
+        )
+
+
+def test_enabling_news_with_no_feeds_or_no_topics_raises() -> None:
+    from tests.helpers import NEWS_CONFIG, make_config
+
+    with pytest.raises(ConfigError, match="nothing to read"):
+        make_config(beats={"news": True}, news={**NEWS_CONFIG, "feeds": []})
+    with pytest.raises(ConfigError, match="retrieval has no query"):
+        make_config(beats={"news": True}, news={**NEWS_CONFIG, "topics": []})
+
+
+def test_news_retrieval_is_a_separate_setting_from_ledger_retrieval() -> None:
+    """Q5 and Q6 are siblings. Conflating the two sets would answer one with the other."""
+    config = load_config(REAL_CONFIG)
+    assert config.news is not None
+    assert config.retrieval.k != config.news.retrieval.k
+    assert config.retrieval.similarity_floor != config.news.retrieval.similarity_floor
+    assert config.retrieval.window_days != config.news.retrieval.window_days
+
+
+# --------------------------------------------------------------------------- #
+# Step 35 — the need_to_know section (FR-31 config half, FR-32 TTL rule)
+# --------------------------------------------------------------------------- #
+
+
+def _ntk_config(*, enabled: bool = False, **overrides: object) -> Config:
+    """Parse a base config with `[need_to_know]` merged in, applying overrides."""
+    from tests.helpers import NEED_TO_KNOW_CONFIG, make_config
+
+    ntk = {key: value for key, value in NEED_TO_KNOW_CONFIG.items()}
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(ntk.get(key), dict):
+            ntk[key] = {**ntk[key], **value}
+        else:
+            ntk[key] = value
+    beats = {"need_to_know": True} if enabled else {}
+    return make_config(beats=beats, need_to_know=ntk)
+
+
+def test_a_config_with_no_need_to_know_section_is_still_valid() -> None:
+    """Every config that predates this beat is still a config."""
+    from tests.helpers import make_config
+
+    assert make_config().need_to_know is None
+
+
+def test_enabling_need_to_know_without_its_section_raises() -> None:
+    from tests.helpers import make_config
+
+    with pytest.raises(ConfigError, match=r"no \[need_to_know\] section"):
+        make_config(beats={"need_to_know": True})
+
+
+@pytest.mark.parametrize(
+    "overrides,message",
+    [
+        ({"chunking": {"overlap_chars": 900}}, "less than target_chars"),
+        ({"corroboration": {"floor": 1.5}}, "within 0.0"),
+        ({"corroboration": {"window_days": 0}}, "window_days must be at least 1"),
+        ({"corroboration": {"window_days": 30}}, "corroborate over articles"),
+        ({"corpus": {"ttl_days": 0}}, "ttl_days must be at least 1"),
+        ({"user_agent": ""}, "non-empty string"),
+    ],
+)
+def test_each_need_to_know_validation_rule_has_a_raising_case(overrides, message) -> None:
+    with pytest.raises(ConfigError, match=message):
+        _ntk_config(**overrides)
+
+
+def test_enabling_need_to_know_with_no_feeds_raises() -> None:
+    with pytest.raises(ConfigError, match="nothing to read"):
+        _ntk_config(enabled=True, feeds=[])
+
+
+def _both_beats_config(**ntk_overrides: object) -> Config:
+    """Both document-shaped sections present — the TTL rule only fires with two tenants."""
+    from tests.helpers import NEED_TO_KNOW_CONFIG, NEWS_CONFIG, make_config
+
+    ntk = {key: value for key, value in NEED_TO_KNOW_CONFIG.items()}
+    for key, value in ntk_overrides.items():
+        if isinstance(value, dict) and isinstance(ntk.get(key), dict):
+            ntk[key] = {**ntk[key], **value}
+        else:
+            ntk[key] = value
+    return make_config(news=NEWS_CONFIG, need_to_know=ntk)
+
+
+def test_shared_corpus_path_with_unequal_ttls_is_rejected() -> None:
+    """FR-32: whichever beat purges first would silently shorten the other's window."""
+    with pytest.raises(ConfigError) as excinfo:
+        _both_beats_config(corpus={"path": "data/corpus.db", "ttl_days": 14})
+    message = str(excinfo.value)
+    assert "[news.corpus]" in message
+    assert "[need_to_know.corpus]" in message
+    assert "disagree on ttl_days" in message
+
+
+def test_corpus_lifecycle_agreement_loads_fine() -> None:
+    """Same path + same TTL is the shipped default; distinct paths may differ freely."""
+    shared = _both_beats_config()  # helper defaults: same path, same ttl
+    assert shared.need_to_know is not None and shared.news is not None
+    split = _both_beats_config(corpus={"path": "data/ntk_corpus.db", "ttl_days": 14})
+    assert split.need_to_know is not None
+    assert split.need_to_know.corpus.ttl_days == 14
+
+
+def test_the_real_config_parses_its_need_to_know_section() -> None:
+    """Enabled as of Step 38; the corroboration floor is the 2026-08-20 measured value.
+
+    This test used to assert the floor differed from Q5's and Q6's floors, as a proxy
+    for "three distinct retrieval questions". The measured retune landed on 0.35 — the
+    same number as the news topic floor, by coincidence of measurement, not shared
+    derivation. So the proxy is retired and the measured value is pinned instead: anyone
+    changing it should be changing it on evidence (scripts/corroboration_sweep.py), and
+    this assertion is where they find that out.
+    """
+    config = load_config(REAL_CONFIG)
+    assert config.need_to_know is not None
+    assert config.beats.get("need_to_know") is True
+    assert config.news is not None
+    assert config.need_to_know.corroboration.floor == 0.35
+    assert config.retrieval.similarity_floor == 0.60  # Q5's question is still its own
+
+
+# --------------------------------------------------------------------------- #
+# Step 40 — the venues section + the dedup exemption (FR-43/FR-44 config halves)
+# --------------------------------------------------------------------------- #
+
+
+def _venues_config(*, enabled: bool = False, **overrides: object) -> Config:
+    from tests.helpers import VENUES_CONFIG, make_config
+
+    venues = {key: value for key, value in VENUES_CONFIG.items()}
+    for key, value in overrides.items():
+        venues[key] = value
+    beats = {"venues": True} if enabled else {}
+    return make_config(beats=beats, venues=venues)
+
+
+def test_a_config_with_no_venues_section_is_still_valid() -> None:
+    from tests.helpers import make_config
+
+    assert make_config().venues is None
+
+
+def test_enabling_venues_without_its_section_raises() -> None:
+    from tests.helpers import make_config
+
+    with pytest.raises(ConfigError, match=r"no \[venues\] section"):
+        make_config(beats={"venues": True})
+
+
+def test_venues_validation_rules_each_have_a_raising_case() -> None:
+    with pytest.raises(ConfigError, match="nothing to read"):
+        _venues_config(enabled=True, venues=[])
+    with pytest.raises(ConfigError, match="window_days must be at least 1"):
+        _venues_config(window_days=0)
+    with pytest.raises(ConfigError, match="duplicate name"):
+        _venues_config(
+            venues=[
+                {"name": "ZACH Theatre", "kind": "zach_shows", "url": "https://a.test/"},
+                {"name": "ZACH Theatre", "kind": "zach_shows", "url": "https://b.test/"},
+            ]
+        )
+    with pytest.raises(ConfigError, match="non-empty string"):
+        _venues_config(venues=[{"name": "ZACH Theatre", "kind": "", "url": "https://a.test/"}])
+
+
+def test_an_unknown_kind_is_not_a_config_error() -> None:
+    """Config stays ignorant of code; a bad kind surfaces at run time as a failed venue."""
+    config = _venues_config(
+        venues=[{"name": "Somewhere", "kind": "not_a_parser", "url": "https://a.test/"}]
+    )
+    assert config.venues is not None
+    assert config.venues.venues[0].kind == "not_a_parser"
+
+
+def test_exempt_beats_defaults_empty_and_parses_when_present() -> None:
+    from tests.helpers import make_config
+
+    assert make_config().retrieval.exempt_beats == []
+    config = make_config(retrieval={"exempt_beats": ["venues"]})
+    assert config.retrieval.exempt_beats == ["venues"]
+    with pytest.raises(ConfigError, match="list of beat names"):
+        make_config(retrieval={"exempt_beats": "venues"})
+    with pytest.raises(ConfigError, match="list of beat names"):
+        make_config(retrieval={"exempt_beats": [""]})
+
+
+def test_the_real_config_parses_its_venues_section() -> None:
+    """Enabled as of Step 42, already exempt from dedup."""
+    config = load_config(REAL_CONFIG)
+    assert config.venues is not None
+    assert config.beats.get("venues") is True
+    assert [venue.kind for venue in config.venues.venues] == ["zach_shows"]
+    assert "zachtheater.org" in config.venues.venues[0].url  # one "t" — the working host
+    assert config.retrieval.exempt_beats == ["venues"]
+
+
+# --------------------------------------------------------------------------- #
+# Step 45 — the bar config (FR-36/FR-38 config halves)
+# --------------------------------------------------------------------------- #
+
+
+def test_v5_blocks_are_required_once_the_section_exists() -> None:
+    """The bar is part of the beat's definition now; a section without it fails loudly."""
+    base = {key: value for key, value in __import__("tests.helpers", fromlist=["NEED_TO_KNOW_CONFIG"]).NEED_TO_KNOW_CONFIG.items()}
+    for missing, message in (
+        ("watchlist", r"\[need_to_know\].*watchlist|watchlist"),
+        ("bar", r"\[need_to_know\].*bar|bar"),
+    ):
+        broken = {key: value for key, value in base.items() if key != missing}
+        from tests.helpers import make_config
+
+        with pytest.raises(ConfigError, match=message):
+            make_config(need_to_know=broken)
+
+
+def test_bar_validation_rules_each_have_a_raising_case() -> None:
+    with pytest.raises(ConfigError, match="min_sources must be at least 1"):
+        _ntk_config(corroboration={"min_sources": 0})
+    with pytest.raises(ConfigError, match="at least one term"):
+        _ntk_config(watchlist={"terms": []})
+    with pytest.raises(ConfigError, match="duplicate watchlist term"):
+        _ntk_config(watchlist={"terms": ["ERCOT", "ercot"]})
+    with pytest.raises(ConfigError, match="delivers nothing by definition"):
+        _ntk_config(bar={"deliver": [], "exclude": ["x"]})
+    with pytest.raises(ConfigError, match="deliberate exclusions"):
+        _ntk_config(bar={"deliver": ["x"], "exclude": []})
+
+
+def test_the_real_config_carries_the_bar_and_the_escalation_rule() -> None:
+    """Sarah's interview values ship; the watchlist rule is registered and configured."""
+    from forecaster.escalation import NEED_TO_KNOW_WATCHLIST, RULES
+
+    config = load_config(REAL_CONFIG)
+    assert config.need_to_know is not None
+    assert config.need_to_know.corroboration.min_sources == 2
+    assert "ERCOT" in config.need_to_know.watchlist
+    assert len(config.need_to_know.bar.deliver) == 3
+    assert config.need_to_know.bar.exclude == ["election outcomes", "deaths of public figures"]
+    assert NEED_TO_KNOW_WATCHLIST in config.escalation.rules
+    assert NEED_TO_KNOW_WATCHLIST in RULES

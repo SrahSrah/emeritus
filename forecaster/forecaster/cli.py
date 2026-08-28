@@ -34,7 +34,7 @@ from forecaster.beats.base import BeatContext, get_beats, load_builtin_beats, ru
 from forecaster.config import DEFAULT_CONFIG_PATH, Config, config_digest, load_config
 from forecaster.delivery.base import FakeDeliverer
 from forecaster.delivery.email import make_deliverer
-from forecaster.memory.ledger import record_delivered_items
+from forecaster.memory.ledger import connect as connect_ledger, record_delivered_items
 from forecaster.memory.preferences import (
     DEFAULT_PREFERENCES_PATH,
     Preferences,
@@ -106,6 +106,7 @@ class RunReport:
     ledger_rows: int = 0
     missed_runs: int = 0
     error: str | None = None
+    dedup_actions: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -129,12 +130,87 @@ def run_pipeline(
     beats: Sequence[Any] | None = None,
     auth_mode: str | None = None,
     write_ledger: bool = True,
+    embedder: Any = None,
+    corpus_path: str | Path | None = None,
 ) -> RunReport:
-    """One complete run. Returns a report; raises only on a provenance failure."""
+    """One complete run. Returns a report; raises only on a provenance failure.
+
+    `embedder` is injected so the tests never download model weights — the pipeline is
+    otherwise identical. When retrieval is enabled and no embedder is supplied, the real
+    `StaticEmbedder` is constructed here.
+    """
     started = time.monotonic()
     moment = now or datetime.now()
     owns_client = http_client is None
     client = http_client or httpx.Client(timeout=30.0)
+
+    # One ledger connection for the run: FR-9b reads it before composing, and the write
+    # path indexes into it afterwards. Opening it twice would mean two vector schemas.
+    ledger_conn = None
+    retriever = None
+    if config.retrieval.enabled:
+        try:
+            from forecaster.memory.retrieval import LedgerRetriever, StaticEmbedder
+
+            if embedder is None:
+                embedder = StaticEmbedder(config.retrieval.model)
+            ledger_conn = connect_ledger(ledger_path)
+            retriever = LedgerRetriever(
+                connection=ledger_conn,
+                embedder=embedder,
+                k=config.retrieval.k,
+                similarity_floor=config.retrieval.similarity_floor,
+                window_days=config.retrieval.window_days,
+            )
+        except Exception as exc:  # noqa: BLE001 - retrieval is never load-bearing
+            retriever = None
+            print(
+                f"retrieval unavailable ({exc}); running without the ledger check",
+                file=sys.stderr,
+            )
+
+    # FR-23/FR-32. A **separate** file from the ledger, opened for every enabled
+    # document-shaped beat — one whose config section carries a `corpus` block. The
+    # shipped default has both such beats naming the same file (one connection, shared);
+    # distinct paths get distinct connections, and every beat shares the run's one
+    # embedder so the model loads once. A beat's section is found by its own name
+    # (`config.news`, `config.need_to_know`), so this block never needs editing for the
+    # next document-shaped beat.
+    corpus_conns: dict[str, Any] = {}
+
+    def _corpus_path_for(beat_name: str) -> str | None:
+        section = getattr(config, beat_name, None)
+        section_corpus = getattr(section, "corpus", None)
+        if section_corpus is None:
+            return None
+        return str(corpus_path) if corpus_path is not None else str(section_corpus.path)
+
+    document_beats = [
+        name
+        for name, on in config.beats.items()
+        if on and _corpus_path_for(name) is not None
+    ]
+    if document_beats:
+        try:
+            from forecaster.memory import corpus as corpus_module
+            from forecaster.memory.retrieval import StaticEmbedder
+
+            if embedder is None:
+                embedder = StaticEmbedder(config.retrieval.model)
+            for name in document_beats:
+                path = _corpus_path_for(name)
+                key = str(Path(path).resolve())
+                if key not in corpus_conns:
+                    corpus_conns[key] = corpus_module.connect(path)
+        except Exception as exc:  # noqa: BLE001 - FR-18 turns this into an honest line
+            corpus_conns = {}
+            print(f"article corpus unavailable ({exc})", file=sys.stderr)
+
+    def _corpus_for(beat_name: str) -> Any:
+        path = _corpus_path_for(beat_name)
+        if path is None:
+            return None
+        return corpus_conns.get(str(Path(path).resolve()))
 
     # Computed before the trace is opened, so tonight's own file isn't "the last run".
     skipped = missed_slots(last_run_at(trace_dir), moment, config.run.send_time)
@@ -179,6 +255,9 @@ def run_pipeline(
                 scratchpad=Scratchpad(trace=trace),  # a fresh one per beat
                 trace=trace,
                 http_client=client,
+                embedder=embedder,
+                corpus=_corpus_for(entry.beat),
+                agent_client=agent_client,
             )
             result = run_beat_safely(beat, context)
             trace.beat_result(result)
@@ -186,9 +265,16 @@ def run_pipeline(
             report.executed_beats.append(entry.beat)
 
         digest = synthesize(
-            results, config, preferences, trace, agent_client=agent_client
+            results,
+            config,
+            preferences,
+            trace,
+            agent_client=agent_client,
+            retriever=retriever,
+            now=moment,
         )
         report.digest = digest
+        report.dedup_actions = [decision.action for _, decision in digest.dedup]
 
         delivery = deliverer.send(digest)
         report.delivery = delivery
@@ -201,7 +287,11 @@ def run_pipeline(
 
         if write_ledger and getattr(delivery, "success", False):
             report.ledger_rows = record_delivered_items(
-                digest, trace.run_id, path=ledger_path
+                digest,
+                trace.run_id,
+                path=ledger_path,
+                connection=ledger_conn,
+                embedder=embedder if retriever is not None else None,
             )
 
         usage = digest.usage
@@ -229,6 +319,10 @@ def run_pipeline(
             trace.close()
         if owns_client:
             client.close()
+        if ledger_conn is not None:
+            ledger_conn.close()
+        for connection in corpus_conns.values():
+            connection.close()
 
     return report
 
@@ -258,11 +352,62 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Send one real digest to the configured address. Sarah runs this, not the agent.",
     )
+    parser.add_argument(
+        "--news-metric",
+        action="store_true",
+        help=(
+            "Report PRD §2's four news-beat conditions over the traces in data/runs/ "
+            "and exit. Reads only; runs nothing."
+        ),
+    )
+    parser.add_argument(
+        "--ntk-metric",
+        action="store_true",
+        help=(
+            "Report the need-to-know beat's three observation conditions plus its "
+            "corroboration distribution over the traces in data/runs/ and exit. "
+            "Reads only; runs nothing."
+        ),
+    )
+    parser.add_argument(
+        "--venues-metric",
+        action="store_true",
+        help=(
+            "Report the venue-listings beat's three conditions (the load-bearing one: "
+            "never suppressed) over the traces in data/runs/ and exit. Reads only; "
+            "runs nothing."
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.news_metric:
+        # Reporting only: no auth, no config, no run. Reads the traces and exits.
+        from forecaster.news_metric import check_news_metric, trace_files
+        from forecaster.trace import DEFAULT_RUN_DIR
+
+        report = check_news_metric(trace_files(DEFAULT_RUN_DIR))
+        print(report.summary())
+        return 0
+
+    if args.ntk_metric:
+        from forecaster.news_metric import trace_files
+        from forecaster.ntk_metric import check_ntk_metric
+        from forecaster.trace import DEFAULT_RUN_DIR
+
+        print(check_ntk_metric(trace_files(DEFAULT_RUN_DIR)).summary())
+        return 0
+
+    if args.venues_metric:
+        from forecaster.news_metric import trace_files
+        from forecaster.trace import DEFAULT_RUN_DIR
+        from forecaster.venues_metric import check_venues_metric
+
+        print(check_venues_metric(trace_files(DEFAULT_RUN_DIR)).summary())
+        return 0
 
     load_env()
     try:

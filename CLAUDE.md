@@ -24,6 +24,12 @@ per-beat ReAct workers, then a synthesizer that applies escalation rules and com
 message. The thesis the whole capstone argues: **every checkable fact traces to a tool call.**
 The model phrases; it never originates a score or a temperature.
 
+Since 2026-08-02 the synthesizer also runs a **retrieval-backed ledger check** (FR-9b) before
+composing: semantic search over everything already delivered, then a model judgment on whether
+tonight's line adds anything. Similarity finds candidates; it never decides. FR-19's invariants
+are why — a checkable value that differs from its nearest neighbour can be reframed but never
+suppressed, because silence is a worse failure here than repetition.
+
 ## Non-negotiables
 
 - **Auth is subscription OAuth, never an API key.** `CLAUDE_CODE_OAUTH_TOKEN` only.
@@ -45,7 +51,7 @@ Two global skills drive this repo. Run them in this order, once a week:
 
 1. **`/write-next-assignment`** — drafts the next checkpoint into the course Google Doc, in Sarah's
    voice, grounded in what this repo actually does.
-2. **`/continue-build`** — folds what that checkpoint newly promises into the PRD, builds the delta,
+2. **`/continue-capstone-build`** — folds what that checkpoint newly promises into the PRD, builds the delta,
    and opens a PR into `dev` (unmerged — Sarah merges).
 
 They share [docs/DIVERGENCES.md](docs/DIVERGENCES.md): every place the submitted text and the shipped
@@ -57,9 +63,14 @@ file that stops a checkpoint claiming a feature that shipped dormant.
 `docs/prd/forecaster/PRD.md` — numbered functional requirements with acceptance criteria.
 `BUILD-PROMPTS.md` decomposes it; `BUILD-PROGRESS.md` is the resumable ledger.
 
-**PRD §9 lists open questions. Do not invent answers to them.** The live one is item identity
-for the ledger — which is exactly why the ledger is write-only and FR-9b is unimplemented.
-If a change would require answering one, stop and surface it.
+**PRD §9 lists open questions. Do not invent answers to them.** If a change would require
+answering one, stop and surface it.
+
+Q3 (item identity) **was** the live one; Sarah answered it on 2026-08-02 — *identity is a
+relation computed at read time, not a property stored on an item* — which unblocked FR-9b, so
+the ledger is no longer write-only. Still open: **Q2** (rules vs judgment for escalation) and
+**Q5** (the retrieval thresholds are reasoned, not measured — don't let a checkpoint call them
+tuned).
 
 ## Gotchas that cost time already
 
@@ -70,6 +81,20 @@ If a change would require answering one, stop and surface it.
   ErrorRecords. Use `Start-Process` with redirect files.
 - FR-10's injury rule is **dormant**: no v1 endpoint returns injury data. It is implemented and
   tested against a synthetic signal on purpose.
+- **sqlite-vec's KNN returns distance, not similarity.** Over unit vectors,
+  `similarity = 1 - d²/2`. Inverting that means nothing is ever a duplicate and the tests still
+  pass for the wrong reason — there's a test asserting an identical line scores ~1.0.
+- **Static embeddings are near-blind to numerals.** Two different Astros finals score **cosine
+  0.9859**. Never dedup on similarity alone; FR-19's invariants exist for exactly this.
+- **Compare checkable values numerically, not as strings.** The ledger round-trips through JSON,
+  so an int `41` meets a stored `"41.0"`. A string compare reads that as new information and
+  silently disables suppression for every numeric field.
+- **Every `BeatItem` about a point in time must carry a date in `fields`.** FR-19's first
+  invariant fires on a *differing checkable value*, so without a date two off days, or two
+  different games sharing a scoreline, look identical and can be suppressed as repeats. Note
+  `BeatItem.fields` (what dedup compares) is separate from `BeatResult.checkable_fields` (what
+  provenance polices), so adding a date does not widen the provenance surface.
+  `tests/test_time_scoped_items.py` enforces this for every shipped beat.
 
 ## Conventions
 

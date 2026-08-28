@@ -13,11 +13,11 @@ import pytest
 
 from forecaster.tools.mlb import AdapterError
 from forecaster.tools.weather import (
-    USER_AGENT,
     fetch_hourly_forecast,
     next_morning,
     parse_hourly,
     run_window_periods,
+    user_agent,
 )
 from tests.conftest import Route, fixture_client, load_fixture
 
@@ -67,7 +67,7 @@ def test_every_outgoing_request_sends_a_user_agent() -> None:
     assert len(recorder.requests) == 2
     for request in recorder.requests:
         assert "user-agent" in {key.lower() for key in request.headers}
-        assert request.headers["User-Agent"] == USER_AGENT
+        assert request.headers["User-Agent"] == user_agent()
         assert request.headers["User-Agent"].strip()
 
 

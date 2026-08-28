@@ -30,6 +30,19 @@ prose, not claims.
 
 A declared value the digest simply doesn't mention is **not** a violation — FR-11 says
 "appears only if it matches", not "must appear". Those are reported as notes.
+
+## The fourth case, added by FR-26
+
+Checks 1 and 2 above are computed over declared `checkable_fields` and over renderings
+the beat assembled itself. Neither can catch a number the model **invented into a
+sentence**, because both shipped beats build their item text from typed API fields in
+code — the failure could not previously occur. A summary written from a retrieved passage
+is the first place it can.
+
+So a fourth check runs, scoped to items declaring ``fields["text_origin"] ==
+"synthesized"``: every number and every quoted phrase in such an item's text must appear
+in one of the observations **that item** points at. Items without the flag are untouched,
+which is why the Astros and weather beats see no change.
 """
 
 from __future__ import annotations
@@ -335,15 +348,29 @@ def records_of(records: Iterable[Mapping[str, Any]], record_type: str) -> Iterat
 # --------------------------------------------------------------------------- #
 
 
+#: Violation kinds attributable to **one item** rather than to the run as a whole. FR-30
+#: quarantines these; everything else still fails the run outright.
+ITEM_LEVEL_KINDS = frozenset(
+    {"ungrounded_number", "ungrounded_quote", "ungrounded_item"}
+)
+
+
 @dataclass(frozen=True)
 class ProvenanceViolation:
     kind: str
     beat: str
     field_name: str
     detail: str
+    #: The text of the item this violation belongs to, when it belongs to one. FR-30
+    #: needs it to drop the offending line and keep the rest of the digest.
+    item_text: str | None = None
 
     def __str__(self) -> str:
         return f"[{self.kind}] {self.beat}.{self.field_name}: {self.detail}"
+
+    @property
+    def is_item_level(self) -> bool:
+        return self.kind in ITEM_LEVEL_KINDS and self.item_text is not None
 
 
 @dataclass
@@ -358,6 +385,24 @@ class ProvenanceReport:
     @property
     def ok(self) -> bool:
         return not self.violations
+
+    @property
+    def item_violations(self) -> list[ProvenanceViolation]:
+        """Violations FR-30 can quarantine by dropping a single item."""
+        return [violation for violation in self.violations if violation.is_item_level]
+
+    @property
+    def fatal_violations(self) -> list[ProvenanceViolation]:
+        """Violations that still fail the whole run — nothing smaller can be dropped."""
+        return [violation for violation in self.violations if not violation.is_item_level]
+
+    def quarantinable_texts(self) -> list[str]:
+        """The item texts that would have to go for this run to become clean."""
+        seen: list[str] = []
+        for violation in self.item_violations:
+            if violation.item_text and violation.item_text not in seen:
+                seen.append(violation.item_text)
+        return seen
 
     def __bool__(self) -> bool:
         return self.ok
@@ -431,13 +476,238 @@ def _numbers(text: str) -> list[str]:
     return _NUMBER.findall(text)
 
 
+# --------------------------------------------------------------------------- #
+# FR-26 — grounded text, for items the model wrote rather than assembled
+# --------------------------------------------------------------------------- #
+
+#: The flag that opts an item into the grounded-text check. Set by the news beat.
+SYNTHESIZED = "synthesized"
+
+#: A closed mapping, 0 through 20. A model handed "3 papers" may legitimately write
+#: "three papers", and without this the check fires constantly on correct output.
+_NUMBER_WORDS = {
+    "0": "zero", "1": "one", "2": "two", "3": "three", "4": "four", "5": "five",
+    "6": "six", "7": "seven", "8": "eight", "9": "nine", "10": "ten",
+    "11": "eleven", "12": "twelve", "13": "thirteen", "14": "fourteen",
+    "15": "fifteen", "16": "sixteen", "17": "seventeen", "18": "eighteen",
+    "19": "nineteen", "20": "twenty",
+}
+
+#: Quoted spans of four characters or more. Shorter is punctuation, not a quotation.
+_QUOTED = re.compile(r'"([^"]{4,})"')
+
+#: Typographic variants that mean the same character. Publishers emit the curly forms;
+#: a model quoting them back in ASCII is quoting correctly, not paraphrasing.
+_TYPOGRAPHY = {
+    "‘": "'", "’": "'", "‚": "'", "′": "'",
+    "“": '"', "”": '"', "„": '"', "″": '"',
+    "–": "-", "—": "-", "−": "-",
+    " ": " ", " ": " ", " ": " ",
+    "…": "...",
+}
+_TYPOGRAPHY_RE = re.compile("|".join(re.escape(key) for key in _TYPOGRAPHY))
+
+
+def normalize_typography(text: str) -> str:
+    """Fold Unicode punctuation to its ASCII equivalent and collapse whitespace.
+
+    Verbatim quotation has to survive the one difference that is not a difference. An
+    article says ``didn’t`` with a curly apostrophe; a model quoting it writes
+    ``didn't``. Every word matches, in order — flagging that as an ungrounded quote
+    accuses the model of fabricating a sentence it copied faithfully.
+
+    Found live 2026-08-04 on the news beat's first real run. This normalizes **punctuation
+    and whitespace only**, so it cannot let a changed word through: the check still
+    requires every word, in order, verbatim.
+    """
+    folded = _TYPOGRAPHY_RE.sub(lambda match: _TYPOGRAPHY[match.group(0)], text)
+    return re.sub(r"\s+", " ", folded).strip()
+
+
+#: Punctuation a quoter supplies at the end of a quotation. Its presence or absence says
+#: nothing about whether the words inside are the source's.
+_QUOTE_TAIL = ".,;:!? "
+
+
+def _quote_is_grounded(quoted: str, blob: str) -> bool:
+    """Is this quotation's wording present in the passage?
+
+    A quotation's **terminal** punctuation is conventionally the quoter's; its internal
+    words are the source's. A model that truncates a sentence and ends the quote with a
+    period where the article has a comma has changed no word — found live 2026-08-04 on
+    ``"the frontier of capability is not the frontier of risk."``, where the source
+    continues ``…risk, and so we do have to…``.
+
+    Only the **trailing** run is forgiven. Interior punctuation still has to match, so a
+    model cannot join two separate remarks into one invented sentence.
+    """
+    candidate = quoted.lower()
+    if candidate in blob:
+        return True
+    trimmed = candidate.rstrip(_QUOTE_TAIL)
+    return bool(trimmed) and trimmed in blob
+
+
+def _payload_text(payload: Any) -> str:
+    """Everything in an observation, as one searchable string."""
+    if isinstance(payload, str):
+        return payload
+    return json.dumps(payload, default=str)
+
+
+def _number_is_grounded(number: str, blob: str) -> bool:
+    """Digits, or the English word for them if it is 20 or under."""
+    if number in blob:
+        return True
+    word = _NUMBER_WORDS.get(number)
+    if word and re.search(rf"\b{word}\b", blob, re.IGNORECASE):
+        return True
+    # "4" written where the chunk says "4.0", or vice versa.
+    try:
+        value = float(number)
+    except ValueError:
+        return False
+    for candidate in _NUMBER.findall(blob):
+        try:
+            if float(candidate) == value:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _check_failed_sources(
+    records: Sequence[Mapping[str, Any]],
+    digest_text: str,
+    report: "ProvenanceReport",
+) -> None:
+    """FR-28. A beat that reads many sources can fail *partly*, and FR-18 cannot see that.
+
+    ``missing_unavailability_line`` only fires for a beat that is wholly unavailable. A
+    news beat with two of five feeds down is `available=True`, so without this check the
+    digest could quietly carry three feeds' worth of news and never mention the two it
+    could not reach — which reads exactly like a complete picture.
+    """
+    lowered = digest_text.lower()
+    named: set[str] = set()
+
+    for record in records_of(records, "decision"):
+        if record.get("decision") != "source_unavailable":
+            continue
+        source = str(record.get("source") or "")
+        if not source or source in named:
+            continue
+        named.add(source)
+        if source.lower() not in lowered:
+            report.violations.append(
+                ProvenanceViolation(
+                    kind="unnamed_failed_source",
+                    beat=str(record.get("beat", "")),
+                    field_name=source,
+                    detail=(
+                        f"{source} could not be reached but the digest never names it; a "
+                        "partial outage that reads like a complete picture is the failure "
+                        "FR-18 exists to prevent"
+                    ),
+                )
+            )
+
+
+def _check_grounded_text(
+    result: Mapping[str, Any],
+    observations: Mapping[str, Mapping[str, Any]],
+    report: "ProvenanceReport",
+    excluded: frozenset[str] = frozenset(),
+) -> None:
+    """FR-26. Every number and quote in a model-written item must trace to a passage."""
+    beat = str(result.get("beat", ""))
+
+    for item in result.get("items") or []:
+        fields = dict(item.get("fields") or {})
+        if fields.get("text_origin") != SYNTHESIZED:
+            continue
+
+        text = str(item.get("text", ""))
+        if text in excluded:
+            report.notes.append(
+                f"{beat}: an item was withheld from the digest (FR-30), so its prose is "
+                "not policed — the reader was never shown it"
+            )
+            continue
+        linked = [str(oid) for oid in (item.get("observations") or [])]
+        blob = "\n".join(
+            _payload_text(observations[oid].get("payload"))
+            for oid in linked
+            if oid in observations and observations[oid].get("error") is None
+        )
+
+        if not linked:
+            report.violations.append(
+                ProvenanceViolation(
+                    kind="ungrounded_item",
+                    beat=beat,
+                    field_name="observations",
+                    item_text=text,
+                    detail=(
+                        "item declares text_origin='synthesized' but points at no "
+                        "observation, so nothing it says can be traced to a passage"
+                    ),
+                )
+            )
+            continue
+
+        for number in _numbers(text):
+            if not _number_is_grounded(number, blob):
+                report.violations.append(
+                    ProvenanceViolation(
+                        kind="ungrounded_number",
+                        beat=beat,
+                        field_name="text",
+                        item_text=text,
+                        detail=(
+                            f"item text states {number!r}, which appears in none of the "
+                            f"passages it was grounded in ({', '.join(linked)})"
+                        ),
+                    )
+                )
+
+        # Normalized on both sides: the model may fold a publisher's curly punctuation to
+        # ASCII and still be quoting verbatim. Words are untouched, so a changed word
+        # still fails. Normalizing the item text also lets the quote pattern find a span
+        # the model wrapped in curly double quotes.
+        normalized_blob = normalize_typography(blob).lower()
+        for quoted in _QUOTED.findall(normalize_typography(text)):
+            if not _quote_is_grounded(quoted, normalized_blob):
+                report.violations.append(
+                    ProvenanceViolation(
+                        kind="ungrounded_quote",
+                        beat=beat,
+                        field_name="text",
+                        item_text=text,
+                        detail=(
+                            f"item text quotes {quoted!r}, which appears verbatim in none "
+                            f"of the passages it was grounded in ({', '.join(linked)})"
+                        ),
+                    )
+                )
+
+
 def check_provenance(
-    trace_path: str | Path, digest_text: str | None = None
+    trace_path: str | Path,
+    digest_text: str | None = None,
+    *,
+    excluded_items: Iterable[str] = (),
 ) -> ProvenanceReport:
     """Compute PRD §2(a) over one run.
 
     ``digest_text`` defaults to the digest the trace recorded, so the check needs the
     trace file and nothing else.
+
+    ``excluded_items`` is FR-30's hook: item texts the synthesizer withheld from the
+    digest. An item the reader was never shown states nothing to them, so policing its
+    prose would fail a run over a sentence nobody received. Passed explicitly rather than
+    inferred by searching the digest, because the model may rephrase and a substring miss
+    would silently disable the check.
     """
     records = read_trace(trace_path)
     run_id = next((record.get("run_id", "") for record in records), "")
@@ -456,10 +726,19 @@ def check_provenance(
         observations[str(record.get("observation_id"))] = record
 
     report = ProvenanceReport(run_id=run_id)
+    excluded = frozenset(excluded_items)
+
+    _check_failed_sources(records, digest_text, report)
 
     for result in records_of(records, "beat_result"):
         beat = str(result.get("beat", ""))
         available = bool(result.get("available", True))
+
+        # FR-26. Runs for available beats only: an unavailable one has no items, and its
+        # honesty is policed by the unavailability checks below.
+        if available:
+            _check_grounded_text(result, observations, report, excluded)
+
         checkable = dict(result.get("checkable_fields") or {})
         linked_ids = [str(oid) for oid in (result.get("observations") or [])]
         for item in result.get("items") or []:
@@ -532,40 +811,71 @@ def check_provenance(
                 )
 
         # Fidelity: an observation-backed rendering must not appear altered.
+        #
+        # A template is numbers-are-wildcards, so it matches every sentence of the same
+        # shape — including a *different* observation that happens to read the same way.
+        # The Astros beat produces exactly that on any night of a series: "Toronto Blue
+        # Jays 0, Houston Astros 0" (tonight, live) and "Toronto Blue Jays 3, Houston
+        # Astros 1" (last night, final) are two true claims sharing one shape, and each
+        # one's template matches the other's sentence. Comparing their numbers then reads
+        # as tampering.
+        #
+        # So a match is only altered if the passage it matched is **not itself** an
+        # observation-backed rendering. That keeps the real catch — a score the model
+        # changed by one matches the shape and matches no observation — while letting two
+        # genuinely different observed values coexist in one digest.
+        #
+        # Found 2026-08-04 by the first live run that hit a real series. Latent since the
+        # v1 build; it would have fired on most nights the Astros played.
         renderings = [str(value) for value in checkable.values() if isinstance(value, str)]
         renderings.extend(
             str(item.get("text", "")) for item in (result.get("items") or [])
         )
+        backed = {rendering.lower() for rendering in renderings if rendering}
+
+        # One bad passage matches every template of its shape, so without this it is
+        # reported once per rendering — three times, each blaming a different "correct"
+        # value, none of which is the one it was supposed to be. One defect, one line.
+        flagged: set[str] = set()
+
         for rendering in renderings:
             pattern = _template(rendering)
             if pattern is None:
                 continue
             expected = _numbers(rendering)
             for match in pattern.finditer(digest_text):
-                if list(match.groups()) != expected:
-                    report.violations.append(
-                        ProvenanceViolation(
-                            kind="altered_claim",
-                            beat=beat,
-                            field_name="rendered_text",
-                            detail=(
-                                f"digest states {match.group(0)!r} where the "
-                                f"observation-backed value is {rendering!r}"
-                            ),
-                        )
+                if list(match.groups()) == expected:
+                    continue
+                passage = match.group(0)
+                if passage.lower() in backed or passage in flagged:
+                    continue
+                flagged.add(passage)
+                report.violations.append(
+                    ProvenanceViolation(
+                        kind="altered_claim",
+                        beat=beat,
+                        field_name="rendered_text",
+                        detail=(
+                            f"digest states {passage!r}, which matches the shape of an "
+                            f"observation-backed value (e.g. {rendering!r}) but matches "
+                            "no observation this run recorded"
+                        ),
                     )
+                )
 
     return report
 
 
 __all__ = [
     "DEFAULT_RUN_DIR",
+    "SYNTHESIZED",
     "ProvenanceReport",
     "ProvenanceViolation",
     "SecretInTraceError",
     "Trace",
     "TraceError",
     "check_provenance",
+    "normalize_typography",
     "new_run_id",
     "read_trace",
     "records_of",

@@ -1,0 +1,7 @@
+# Hand-built. A publisher that does not want automated readers on its article paths.
+User-agent: *
+Disallow: /articles/
+Disallow: /premium/
+
+User-agent: Googlebot
+Allow: /
