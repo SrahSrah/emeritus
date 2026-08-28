@@ -16,6 +16,7 @@ weather = true
 news = true
 need_to_know = true
 venues = true
+wsb = true
 
 [location]
 city = "Austin"
@@ -206,3 +207,18 @@ query = "AI agents, tool use, and agent frameworks"
 [[news.topics]]
 id = "evals"
 query = "model evaluations, benchmarks, and safety testing"
+
+# FR-48 … FR-52. Mention volume, counted, never picked. One fetch per night — the
+# politeness budget is law (§2c), and a 429 night is an honest-failure night, no retry.
+[wsb]
+feed_url = "https://www.reddit.com/r/wallstreetbets/.rss"
+user_agent = "forecaster/0.1 (${CONTACT_EMAIL})"
+timeout_seconds = 15
+# Tickers reported (the count observation always records the full table).
+top_n = 5
+# Forum vocabulary that collides with plausible tickers. Sarah's list, seeded 2026-08-28;
+# grow it the moment a false positive annoys you. Reasoned, not measured (child §9 Q1).
+stoplist = [
+  "DD", "YOLO", "CEO", "AI", "ATH", "WSB", "IPO", "FOMO", "GDP", "CPI",
+  "FED", "EPS", "ITM", "OTM", "USD", "ETF", "IMO", "LOL", "TLDR", "EDIT",
+]

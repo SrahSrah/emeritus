@@ -250,3 +250,32 @@ def test_feed_summaries_are_short_which_is_why_fr21_exists() -> None:
         f"Ars Technica RSS summaries now run {median} chars. They were ~975 on "
         "2026-08-04. If feeds now carry full articles, FR-21's fetch may be unnecessary."
     )
+
+
+def test_drop_records_carry_the_calling_beats_name(tmp_path: Path) -> None:
+    """FR-49's adapter amendment: `beat="wsb"` labels drops honestly; the default is
+    unchanged, so every existing news call site keeps recording `beat="news"`."""
+    for passed, expected in ((None, "news"), ("wsb", "wsb")):
+        trace = trace_in(tmp_path, f"feed-drop-{expected}")
+        client, _ = fixture_client([Route(MALFORMED_URL, fixture="feed_malformed.xml")])
+        kwargs = {} if passed is None else {"beat": passed}
+        with client:
+            fetch_feed(
+                "https://malformed.test/feed",
+                "Synthetic",
+                client=client,
+                user_agent=USER_AGENT,
+                trace=trace,
+                **kwargs,
+            )
+        trace.close()
+
+        from forecaster.trace import read_trace, records_of
+
+        drops = [
+            record
+            for record in records_of(read_trace(trace.path), "decision")
+            if record["decision"] == "feed_entry_dropped"
+        ]
+        assert drops, "the malformed fixture must produce drops for this test to bite"
+        assert {record["beat"] for record in drops} == {expected}

@@ -311,7 +311,7 @@ def load_builtin_beats() -> None:
     Kept as a function rather than an import at module scope: `base.py` must not depend
     on any concrete beat, or the seam this module exists to protect stops being a seam.
     """
-    from forecaster.beats import astros, need_to_know, news, venues, weather  # noqa: F401
+    from forecaster.beats import astros, need_to_know, news, venues, weather, wsb  # noqa: F401
 
 
 __all__ = [

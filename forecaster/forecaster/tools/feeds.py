@@ -244,12 +244,15 @@ def fetch_feed(
     tz_name: str = "UTC",
     timeout: float = DEFAULT_TIMEOUT,
     trace: Any = None,
+    beat: str = "news",
 ) -> list[FeedEntry]:
     """Fetch and normalize one feed. Raises :class:`AdapterError`; never guesses.
 
     Dropped entries are recorded on ``trace`` when one is supplied, because "the feed
     parsed but three entries had no date" is exactly the kind of quiet thinning that is
-    invisible until the digest goes sparse for no visible reason.
+    invisible until the digest goes sparse for no visible reason. ``beat`` labels those
+    drop records (FR-49): it defaults to ``"news"`` for the original callers, and a
+    non-news beat passes its own name so its drops are never mislabeled or silenced.
     """
     headers = {"User-Agent": user_agent, "Accept": "application/rss+xml, application/xml, text/xml, */*"}
     try:
@@ -275,7 +278,7 @@ def fetch_feed(
     if trace is not None:
         for reason in dropped:
             trace.decision(
-                beat="news",
+                beat=beat,
                 decision="feed_entry_dropped",
                 reason=(
                     f"{source}: {reason} — dropped rather than defaulted, since a "

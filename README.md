@@ -24,10 +24,17 @@ source is unreachable, the digest names the outage rather than filling the gap.
 | AI news | RSS discovery + article fetch, grounded prose | live |
 | Need-to-know news | BBC / NPR / Al Jazeera / Texas Tribune RSS, corroboration-gated | live |
 | Local theatre listings | the venue's own calendar page | live |
-| r/WallStreetBets mention counts | Reddit RSS | specced, unbuilt |
+| r/WallStreetBets mention counts | Reddit RSS, counted in code | live |
+
+**The newest beat is the thesis at its purest.** Checkpoint 1 promised "stock market
+picks" from r/WallStreetBets; that framing died on the record. What shipped counts ticker
+mentions on the night's hot page — in code, zero model calls, one polite fetch per night
+(a metric fails any trace with two) — and a test reconstructs the delivered line
+character-for-character from the counted values, so no code path can append commentary
+unnoticed. The digest reports attention, never advice: no prices, no "up/down," no picks.
 
 **Architecture, in one paragraph.** A planner reads the date and a preference file and decides
-which beats run; five per-beat workers each run their own ReAct loop against their own tools
+which beats run; six per-beat workers each run their own ReAct loop against their own tools
 and return typed items carrying provenance; a synthesizer retrieves each candidate line's
 nearest neighbours from a ledger of everything already sent (local embeddings, sqlite-vec),
 applies deterministic escalation rules, and composes the email. After composition, a
@@ -38,7 +45,8 @@ other; shared awareness routes through the synthesizer.
 Every run writes a JSONL trace to `forecaster/data/runs/` (gitignored): each tool call, each
 observation, each dedup and escalation decision, and the delivery outcome. The per-beat
 evaluation metrics are computed from those traces by CLI commands (`--news-metric`,
-`--ntk-metric`, `--venues-metric`) that report honestly — "3 of 14 nights" stays 3 of 14.
+`--ntk-metric`, `--venues-metric`, `--wsb-metric`) that report honestly — "3 of 14 nights"
+stays 3 of 14.
 
 A sample of real output, from the first delivered digest (2026-08-24):
 

@@ -62,7 +62,7 @@ ARTIFACT_KEYS = DATE_KEYS | {"published", "url", "source"}
 
 #: Beat names this file drives through real fixtures. The coverage test below fails when
 #: a registered beat is missing from it, so a new beat cannot land unexamined.
-COVERED_BEATS = {"astros", "weather", "news", "need_to_know", "venues"}
+COVERED_BEATS = {"astros", "weather", "news", "need_to_know", "venues", "wsb"}
 
 WEATHER_ROUTES = [
     Route(POINTS_URL, fixture="nws_points_austin"),
@@ -450,3 +450,37 @@ def test_the_weather_beat_was_already_protected(tmp_path: Path) -> None:
 
     assert decision.action != "suppress"
     assert client.asked == 0
+
+
+# --------------------------------------------------------------------------- #
+# The wsb beat — dated, code-assembled counts (FR-49); standard dedup path
+# --------------------------------------------------------------------------- #
+
+
+def test_wsb_items_carry_dates_and_are_never_synthesized(tmp_path: Path) -> None:
+    """Both delivered shapes — counts and the quiet line — are code-assembled and dated.
+
+    This beat takes the standard dedup path (no FR-44 exemption), so `as_of` is exactly
+    what keeps a recurring counts line reframe-only rather than suppressible.
+    """
+    from tests.test_beat_wsb import NOW as WSB_NOW, _no_model, _routes
+    from tests.conftest import Route as _Route
+
+    from forecaster.beats.wsb import WsbMentionsBeat
+    from tests.helpers import WSB_CONFIG, make_config
+
+    for fixture in ("feed_wsb.xml", "feed_wsb_nomatch.xml"):
+        result = _run(
+            WsbMentionsBeat(),
+            [_Route(r"reddit\.test/r/wallstreetbets/\.rss", fixture=fixture)],
+            tmp_path,
+            now=WSB_NOW,
+            config=make_config(beats={"wsb": True}, wsb=WSB_CONFIG),
+            agent_client=_no_model(),
+        )
+        assert result.items, f"{fixture} must deliver a line"
+        for item in result.items:
+            assert item.fields.get("text_origin") is None, (
+                "a count line is code-assembled; nothing in this beat is model-written"
+            )
+            assert DATE_KEYS & set(item.fields)

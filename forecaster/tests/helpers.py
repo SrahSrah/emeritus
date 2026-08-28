@@ -118,6 +118,18 @@ VENUES_CONFIG: dict[str, Any] = {
 }
 
 
+#: Opt-in WSB settings, mirroring the other beat-config dicts. A test that needs the
+#: beat passes `make_config(beats={"wsb": True}, wsb=WSB_CONFIG)`. The stoplist is small
+#: on purpose — counter tests build their own lists when the stoplist is the subject.
+WSB_CONFIG: dict[str, Any] = {
+    "feed_url": "https://www.reddit.test/r/wallstreetbets/.rss",
+    "user_agent": "forecaster-test/0.1 (tests@example.test)",
+    "timeout_seconds": 5,
+    "top_n": 5,
+    "stoplist": ["DD", "YOLO", "CEO", "AI"],
+}
+
+
 def make_config(**overrides: Any) -> Config:
     """Deep-ish merge of section overrides onto the base config."""
     data = {section: dict(values) for section, values in BASE_CONFIG.items()}
