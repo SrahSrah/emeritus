@@ -15,6 +15,7 @@ Free, no key, no paid tier.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any, Iterable, Mapping, Sequence
@@ -27,9 +28,21 @@ POINTS_URL = "https://api.weather.gov/points/{lat},{lon}"
 ADAPTER_NAME = "weather.fetch_hourly_forecast"
 DEFAULT_TIMEOUT = 30.0
 
-#: Contact string NWS asks API clients to send. Not a secret; not a credential.
-USER_AGENT = "forecaster-capstone (sarah.rachel.hernandez@gmail.com)"
-HEADERS = {"User-Agent": USER_AGENT, "Accept": "application/geo+json"}
+CONTACT_PLACEHOLDER = "your.email@example.com"
+
+
+def user_agent() -> str:
+    """Contact string NWS asks API clients to send. Not a secret; not a credential.
+
+    Read at call time, not import time: ``load_env()`` populates CONTACT_EMAIL from the
+    gitignored ``.env`` after this module is imported.
+    """
+    contact = os.environ.get("CONTACT_EMAIL", "").strip() or CONTACT_PLACEHOLDER
+    return f"forecaster-capstone ({contact})"
+
+
+def request_headers() -> dict[str, str]:
+    return {"User-Agent": user_agent(), "Accept": "application/geo+json"}
 
 
 @dataclass(frozen=True)
@@ -75,7 +88,7 @@ class HourlyForecast:
 
 def _get(client: httpx.Client, url: str, *, timeout: float, what: str) -> Any:
     try:
-        response = client.get(url, headers=HEADERS, timeout=timeout)
+        response = client.get(url, headers=request_headers(), timeout=timeout)
     except httpx.TimeoutException as exc:
         raise AdapterError(
             f"api.weather.gov timed out after {timeout}s fetching {what}",
@@ -242,9 +255,9 @@ def next_morning(now: datetime) -> date:
 
 __all__ = [
     "ADAPTER_NAME",
-    "HEADERS",
+    "request_headers",
     "POINTS_URL",
-    "USER_AGENT",
+    "user_agent",
     "AdapterError",
     "GridPoint",
     "HourlyForecast",
