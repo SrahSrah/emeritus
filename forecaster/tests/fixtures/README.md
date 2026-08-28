@@ -120,3 +120,8 @@ below-freezing morning, and FR-6's acceptance needs one in each direction. The u
   case FR-42 must distinguish from a redesign.
 - `zach_shows_redesigned.html` — **hand-edited** from the same capture: the `onstage`
   landmark renamed, simulating a redesign. Must raise `VenueParseError`.
+
+- `feed_wsb.xml` — **real**, captured live 2026-08-28 with `capture_fixture.py --raw`
+  from `https://www.reddit.com/r/wallstreetbets/.rss` (one request, identifying UA).
+  Valid Atom, 25 hot-listing entries. Derived hand-edited variants are declared where
+  they are added.

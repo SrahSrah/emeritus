@@ -6,7 +6,7 @@ build lands. If this file and `git log` disagree, trust git and repair this file
 | Step | What | State |
 |---|---|---|
 | 51 | `[wsb]` config + `fetch_feed` `beat` keyword | done — 589 passed (from 583) |
-| 52 | real fixture + `count_mentions` (FR-48) | todo |
+| 52 | real fixture + `count_mentions` (FR-48) | done — fixture live 2026-08-28 (25 entries, one request); 8 counter tests |
 | 53 | `WsbMentionsBeat` + quiet/broken + registration (FR-49, FR-50) | todo |
 | 54 | counts-not-picks invariant (FR-51) | todo |
 | 55 | `wsb_metric.py` + `--wsb-metric` (FR-52) | todo |
