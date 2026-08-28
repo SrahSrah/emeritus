@@ -416,7 +416,7 @@ Module 3 named and the one Checkpoint 3 promised to demonstrate next.
   news = true
 
   [news]
-  user_agent = "forecaster/0.1 (sarah.rachel.hernandez@gmail.com)"
+  user_agent = "forecaster/0.1 (your.email@example.com)"
   fetch_delay_seconds = 1.0
   timeout_seconds = 15
   min_body_chars = 600

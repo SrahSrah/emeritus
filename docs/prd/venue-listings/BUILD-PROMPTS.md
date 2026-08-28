@@ -64,7 +64,7 @@ derivatives, per the house convention. The robots/UA/timeout posture to copy is
 `tools/feeds.py`'s.
 **Task:** **First, capture live** (network is sanctioned outside the suite):
 `capture_fixture.py --raw zach_shows.html "https://www.zachtheater.org/tickets/shows/"
---user-agent "forecaster/0.1 (sarah.rachel.hernandez@gmail.com)"` and
+--user-agent "forecaster/0.1 (your.email@example.com)"` and
 `--raw robots_zach.txt "https://www.zachtheater.org/robots.txt"`. Then derive two hand-edited
 fixtures and note them in the fixtures README: `zach_shows_empty.html` (production cards removed,
 page landmarks intact) and `zach_shows_redesigned.html` (landmarks stripped). Build the parser:
