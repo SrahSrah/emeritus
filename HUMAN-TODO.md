@@ -71,24 +71,16 @@ Four things below are **blocking a first real run** — everything else is done.
       ```
       It should print the digest and write a trace under `data\runs\`.
 
-- [ ] **③ Create an SMTP app password** for the delivery account and add it to the same
-      gitignored `.env` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
-      `SMTP_FROM`, `SMTP_TO`). Gmail requires an app password, not your login password.
-      **This is now the single blocker on real delivery** (verified 2026-08-24): the six
-      keys sit in `.env` with **empty values** since the 08-04 copy from `.env.example`,
-      every run ever has delivered via `FakeDeliverer`, and the two nights the scheduled
-      task fired for real (08-18, 08-19) it crashed at the send step on exactly this.
-      Gmail path: https://myaccount.google.com/apppasswords (needs 2-Step Verification) →
-      app password named `forecaster` → `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
-      user/from/to = your address, password = the 16-char app password.
-      Then send one real digest — **this is FR-12's acceptance and it is yours to run; no
-      agent will send it**:
-      ```powershell
-      cd "C:\Users\Sarah\Documents\31 Emeritus\forecaster"
-      Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
-      uv run python -m forecaster.cli --send-test
-      ```
-      Confirm it arrived in the inbox.
+- [x] **③ Create an SMTP app password and send one real digest** — **done 2026-08-24,
+      receipt verified 2026-08-28**. Sarah created the app password (~7:07 pm CT, Google's
+      security alert confirms it), filled the six SMTP values in `.env`, and ran
+      `--send-test` herself: trace `20260825T001009-67993125` records `EmailDeliverer`
+      `success: true` to her address at 00:13:34Z. The digest is in the inbox —
+      "Forecaster — tonight's digest", received 2026-08-25T00:13:33Z, matching the trace
+      to the second. **FR-12's acceptance is met.** For rotation someday:
+      https://myaccount.google.com/apppasswords → app password named `forecaster` →
+      `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, user/from/to = your address, then
+      `uv run python -m forecaster.cli --send-test` and confirm receipt.
 
 - [~] **④ Register the nightly scheduled task.** Registered and armed (verified
       2026-08-24: fires 19:00 daily, real-send mode). Two caveats before calling it done:
@@ -101,8 +93,17 @@ Four things below are **blocking a first real run** — everything else is done.
       $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
       Set-ScheduledTask -TaskName 'Forecaster Nightly' -Settings $s
       ```
-      FR-14's actual acceptance (three consecutive unattended nights on subscription
-      auth) still needs ③ first — both real-mode attempts so far died at the send step.
+      **Measured state as of 2026-08-28: FR-14 is at 0 of 3 nights.** ③ is done, so the
+      send step no longer blocks — but no scheduled run has succeeded yet:
+      - **08-24 19:00**: the task fired and exited 1 at the send step
+        (`data\logs\nightly-20260824-190002.log`) — the SMTP values were still empty;
+        Sarah filled them ~19:10, *after* it ran. Known cause, not a code bug.
+      - **08-25, 08-26, 08-27**: the task never started — no log, no trace, Task
+        Scheduler still shows last run 08-24. The battery/no-wake caveat above is live,
+        and a never-started night is invisible even to `missed_run` (the runner backfills
+        only when it next runs). Loosening the settings (block above) is still your call.
+      Next chance is tonight, 08-28 19:00 — laptop plugged in and awake, or settings
+      loosened, and it should be unattended night 1 of 3.
       Original registration steps, for re-creating the task:
       ```powershell
       schtasks /Create /TN "Forecaster Nightly" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\Users\Sarah\Documents\31 Emeritus\forecaster\scripts\run_nightly.ps1\"" /SC DAILY /ST 19:00 /RL LIMITED
