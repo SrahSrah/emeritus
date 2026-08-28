@@ -255,3 +255,74 @@ def test_the_count_observation_carries_the_full_table_and_post_total(tmp_path) -
     assert payload["post_total"] == 25
     for ticker, record in payload["tickers"].items():
         assert record["count"] == len(record["post_urls"])
+
+
+# --------------------------------------------------------------------------- #
+# Step 54 / FR-51 — counts, not picks, enforced structurally
+# --------------------------------------------------------------------------- #
+
+
+def test_zero_model_calls_on_every_path(tmp_path) -> None:
+    """(i) A client that raises on contact is injected everywhere the beat can go,
+    and the beat completes anyway. `_run` always injects `_no_model`; this test makes
+    the guarantee explicit per path rather than incidental."""
+    for index, route in enumerate(
+        (
+            Route(FEED_URL, fixture="feed_wsb.xml"),
+            Route(FEED_URL, fixture="feed_wsb_nomatch.xml"),
+            Route(FEED_URL, fixture="feed_wsb_empty.xml"),
+            Route(FEED_URL, text="Too Many Requests", status=429),
+        )
+    ):
+        result, _, _ = _run(tmp_path, routes=_routes(route), run_id=f"no-model-{index}")
+        assert result.beat == "wsb"  # completed — the raising client was never touched
+
+
+def test_the_item_text_is_exactly_a_render_of_the_count_observation(tmp_path) -> None:
+    """(ii) Reconstructed independently, character for character, from the observation
+    payload — so no code path can append commentary unnoticed. The reconstruction here
+    deliberately does NOT call the beat's render helpers: it pins the template itself."""
+    result, trace, _ = _run(tmp_path)
+    payload = _count_observation(trace)["payload"]
+
+    ranked = sorted(
+        payload["tickers"].items(), key=lambda kv: (-kv[1]["count"], kv[0])
+    )[: WSB_CONFIG["top_n"]]
+    total = payload["post_total"]
+
+    def plural(n: int) -> str:
+        return f"{n} post" + ("" if n == 1 else "s")
+
+    first_ticker, first = ranked[0][0], ranked[0][1]["count"]
+    clauses = [f"{first_ticker} mentioned in {plural(first)}"]
+    clauses.extend(f"{t} in {r['count']}" for t, r in ranked[1:])
+    expected = (
+        f"On r/wallstreetbets' hot page tonight ({plural(total)}): "
+        + ", ".join(clauses)
+        + ". https://www.reddit.test/r/wallstreetbets/"
+    )
+
+    assert result.items[0].text == expected
+    assert result.items[0].text + "!" != expected, "any appended character must fail"
+
+
+def test_the_quiet_line_is_exactly_a_render_of_the_scanned_total(tmp_path) -> None:
+    """(ii) for the quiet template."""
+    result, trace, _ = _run(
+        tmp_path, routes=_routes(Route(FEED_URL, fixture="feed_wsb_nomatch.xml"))
+    )
+    total = _count_observation(trace)["payload"]["post_total"]
+    assert result.items[0].text == (
+        f"No ticker mentions counted on r/wallstreetbets' hot page tonight "
+        f"({total} posts scanned)."
+    )
+
+
+def test_the_only_ordering_is_count_descending_with_alphabetical_ties(tmp_path) -> None:
+    """(iii) Asserted on tied counts: no weighting, no selection beyond top_n."""
+    result, _, _ = _run(
+        tmp_path, routes=_routes(Route(FEED_URL, fixture="feed_wsb_tied.xml"))
+    )
+    text = result.items[0].text
+    # AAPL/MSFT/NVDA tied at 2 sort alphabetically; GME (1) trails.
+    assert "AAPL mentioned in 2 posts, MSFT in 2, NVDA in 2, GME in 1." in text
