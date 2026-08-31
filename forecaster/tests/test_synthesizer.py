@@ -167,7 +167,7 @@ def test_the_model_phrases_and_never_originates(tmp_path: Path) -> None:
 
     call = agent.calls[0]
     assert call.system and "phrase" in call.system.lower()
-    assert set(call.structured) == {"lines", "unavailable"}
+    assert set(call.structured) == {"lines"}
     for line in call.structured["lines"]:
         assert any(
             line == item.text for result in results for item in result.items
