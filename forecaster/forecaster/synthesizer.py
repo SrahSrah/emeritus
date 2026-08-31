@@ -450,14 +450,19 @@ def _quarantine_and_recompose(
     ordered.items = kept
     quarantine_lines = [quarantine_line(beat, kind) for beat, kind in digest.quarantined]
 
-    structured = _structured_payload(ordered, list(unavailable_lines) + quarantine_lines)
+    # The FR-30 notice never reaches the model. Handed over as a value to phrase, the
+    # model may paraphrase it — and then the verbatim append below fires anyway, telling
+    # the reader twice (run 20260828T202927). The notice is code-assembled only.
+    structured = _structured_payload(ordered, unavailable_lines)
     response = agent_client.complete(
         PROMPT, structured=structured, system=SYSTEM_PROMPT, effort=effort
     )
     text = response.text
-    for line in list(unavailable_lines) + quarantine_lines:
+    for line in unavailable_lines:
         if line not in text:
             text = f"{text}\n{line}" if text else line
+    for line in quarantine_lines:
+        text = f"{text}\n{line}" if text else line
 
     digest.text = text
     digest.usage = response

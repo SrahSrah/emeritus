@@ -272,3 +272,49 @@ def test_the_withholding_notice_never_repeats_the_ungrounded_words(tmp_path: Pat
         if record["decision"] == "item_quarantined"
     ]
     assert "greatest leap" in quarantines[0]["reason"]
+
+
+def test_the_withholding_notice_appears_exactly_once_even_if_the_model_rewords(
+    tmp_path: Path,
+) -> None:
+    """Run 20260828T202927 delivered the notice twice: the model paraphrased the
+    quarantine line it had been handed, so the verbatim safety-net append fired too.
+    The notice is code-assembled only — the model never receives it to reword.
+    """
+    from forecaster.synthesizer import quarantine_line
+
+    class RewordsNotices(FakeAgentClient):
+        """Echoes values like the base fake, but rewords any withholding notice —
+        exactly what the live model did."""
+
+        def complete(self, prompt, *, structured=None, system=None, effort="low"):
+            response = super().complete(
+                prompt, structured=structured, system=system, effort=effort
+            )
+            reworded = [
+                "Withheld: one news item, because a quoted phrase in it couldn't be traced."
+                if "withheld" in line
+                else line
+                for line in response.text.splitlines()
+            ]
+            return AgentResponse(text="\n".join(reworded))
+
+    trace = trace_in(tmp_path, "notice-once")
+    result = _news_result(
+        trace, ('It was called "the greatest leap ever seen".', "evals")
+    )
+    client = RewordsNotices()
+
+    digest = _synthesize(trace, [result], client=client)
+    trace.close()
+
+    assert digest.text.lower().count("withheld") == 1
+    assert quarantine_line("news", "ungrounded_quote") in digest.text
+
+    # The invariant behind the fix: the recompose payload carries no notice to reword.
+    assert len(client.calls) == 2
+    recompose_payload = client.calls[1].structured or {}
+    handed_lines = list(recompose_payload.get("lines", [])) + list(
+        recompose_payload.get("unavailable", [])
+    )
+    assert not any("withheld" in line.lower() for line in handed_lines)
