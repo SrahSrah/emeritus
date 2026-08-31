@@ -98,6 +98,14 @@ worth writing about each week.
   - **Acceptance:** Done when three fixtures (final-only, in-progress, no-game) each produce the
     correct branch, asserted on the structured `BeatResult` rather than on prose.
   - **Touches:** `forecaster/beats/astros.py`
+  - **Amended 2026-08-31 (Sarah): the most recent completed game is reported on every night
+    where today's game is not final.** The in-progress branch always did this; the
+    not-started and no-game branches gained the same look-back call, so the digest carries
+    yesterday's score alongside tonight's first-pitch time or the off-day line. The
+    final-only branch is deliberately unchanged — today's final is the freshest result.
+    Acceptance extends: the preview and no-game fixtures paired with a look-back final
+    yield a `last_completed_score` checkable field and a dated "Last completed" item;
+    an empty look-back window still yields the original single-item shapes.
 
 - **FR-6 — Weather beat worker** `[MVP]`
   - **Requirement:** A worker that produces the run-window forecast and evaluates the freeze
