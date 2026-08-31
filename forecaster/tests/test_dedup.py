@@ -111,6 +111,172 @@ def test_a_newly_declared_field_is_always_included() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Invariant 1, disjoint-key clause — measured 2026-08-31, run 20260831T200550-b5e8543f
+#
+# A same-night wsb rerun was suppressed at cosine 0.8180 against a line whose fact keys
+# were entirely different tickers: the invariant compared values on shared keys only, so
+# every shared key matched (post_total 25 = 25) and entirely new facts had no veto. The
+# ticker counts live in the beat's declared checkable_fields, not BeatItem.fields, which
+# is why `result_checkable` exists.
+# --------------------------------------------------------------------------- #
+
+WSB_EARLIER = (
+    "On r/wallstreetbets' hot page tonight (25 posts): EV mentioned in 2 posts, "
+    "GPU in 2, AGI in 1, API in 1, CI in 1."
+)
+WSB_LATER = (
+    "On r/wallstreetbets' hot page tonight (25 posts): FWRG mentioned in 1 post, "
+    "HIMS in 1, VSXY in 1."
+)
+WSB_LATER_CHECKABLE = {"wsb:post_total": 25, "wsb:FWRG": 1, "wsb:HIMS": 1, "wsb:VSXY": 1}
+
+
+def _wsb_item(fields: dict[str, Any] | None = None) -> BeatItem:
+    return BeatItem(
+        beat="wsb",
+        text=WSB_LATER,
+        fields=fields or {"as_of": "2026-08-31", "post_total": 25},
+    )
+
+
+def _wsb_neighbour(fields: dict[str, Any], similarity: float = 0.8180) -> Neighbour:
+    return Neighbour(
+        sent_item_id=74,
+        beat="wsb",
+        sent_at="2026-08-31T19:27:42",
+        rendered_text=WSB_EARLIER,
+        checkable_fields=fields,
+        similarity=similarity,
+    )
+
+
+def test_disjoint_fact_keys_are_never_suppressed_however_much_matches() -> None:
+    """The measured case: same as_of, same post_total, disjoint tickers. Reframe-only."""
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _wsb_item(),
+        [
+            _wsb_neighbour(
+                {
+                    "as_of": "2026-08-31",
+                    "post_total": 25,
+                    "wsb:post_total": 25,
+                    "wsb:EV": 2,
+                    "wsb:GPU": 2,
+                    "wsb:AGI": 1,
+                    "wsb:API": 1,
+                    "wsb:CI": 1,
+                }
+            )
+        ],
+        agent_client=client,
+        beat="wsb",
+        result_checkable=WSB_LATER_CHECKABLE,
+    )
+
+    assert decision.action == "reframe"
+    assert decision.forced is True
+    assert "wsb:" in decision.reason
+    assert client.calls == [], "a rule must decide this, not the model"
+
+
+def test_the_clause_fires_against_a_row_stored_before_the_fix() -> None:
+    """The shape actually stored on 2026-08-31: `fields` only, no fact keys at all."""
+    client = VerdictClient("SUPPRESS adds nothing")
+    decision = assess_item(
+        _wsb_item(),
+        [_wsb_neighbour({"as_of": "2026-08-31", "post_total": 25})],
+        agent_client=client,
+        beat="wsb",
+        result_checkable=WSB_LATER_CHECKABLE,
+    )
+
+    assert decision.action == "reframe"
+    assert decision.forced is True
+    assert client.calls == []
+
+
+def test_identical_facts_are_still_suppressible_across_a_json_round_trip() -> None:
+    """The control, plus the numeric gotcha: a genuine same-night repeat whose stored
+    values came back string-typed must reach the model and stay suppressible — reading
+    `25` vs `"25.0"` as news would disable suppression for every numeric field."""
+    client = VerdictClient("SUPPRESS identical counts already delivered tonight")
+    decision = assess_item(
+        _wsb_item(),
+        [
+            _wsb_neighbour(
+                {
+                    "as_of": "2026-08-31",
+                    "post_total": "25.0",
+                    "wsb:post_total": "25.0",
+                    "wsb:FWRG": "1.0",
+                    "wsb:HIMS": "1.0",
+                    "wsb:VSXY": "1.0",
+                },
+                similarity=1.0,
+            )
+        ],
+        agent_client=client,
+        beat="wsb",
+        result_checkable=WSB_LATER_CHECKABLE,
+    )
+
+    assert decision.action == "suppress"
+    assert len(client.calls) == 1
+
+
+def test_a_differing_fact_value_vetoes_through_the_declared_surface() -> None:
+    """The merged surface also feeds the differing-value clause: a count that moved is
+    reframe-only even though `BeatItem.fields` never mentions the ticker."""
+    client = VerdictClient("SUPPRESS")
+    decision = assess_item(
+        _wsb_item(),
+        [
+            _wsb_neighbour(
+                {
+                    "as_of": "2026-08-31",
+                    "post_total": 25,
+                    "wsb:post_total": 25,
+                    "wsb:FWRG": 1,
+                    "wsb:HIMS": 3,
+                    "wsb:VSXY": 1,
+                }
+            )
+        ],
+        agent_client=client,
+        beat="wsb",
+        result_checkable=WSB_LATER_CHECKABLE,
+    )
+
+    assert decision.action == "reframe"
+    assert decision.forced is True
+    assert "wsb:HIMS" in decision.reason
+    assert client.calls == []
+
+
+def test_one_legacy_neighbour_does_not_disable_suppression() -> None:
+    """Absent from ALL neighbours, not just the nearest: once a fully-keyed row is also
+    retrieved and every fact matches, a pre-fix row sitting closer must not veto."""
+    client = VerdictClient("SUPPRESS identical counts already delivered tonight")
+    keyed = dict(
+        WSB_LATER_CHECKABLE, **{"as_of": "2026-08-31", "post_total": 25}
+    )
+    decision = assess_item(
+        _wsb_item(),
+        [
+            _wsb_neighbour({"as_of": "2026-08-31", "post_total": 25}, similarity=0.99),
+            _wsb_neighbour(keyed, similarity=0.98),
+        ],
+        agent_client=client,
+        beat="wsb",
+        result_checkable=WSB_LATER_CHECKABLE,
+    )
+
+    assert decision.action == "suppress"
+    assert len(client.calls) == 1
+
+
+# --------------------------------------------------------------------------- #
 # Invariant 2 — an escalation candidate can never be suppressed
 # --------------------------------------------------------------------------- #
 

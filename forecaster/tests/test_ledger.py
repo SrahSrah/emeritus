@@ -73,6 +73,21 @@ def test_a_completed_run_appends_one_row_per_delivered_item(tmp_path: Path) -> N
     assert rows[0].sent_at
 
 
+def test_a_row_records_the_beats_declared_checkable_facts(tmp_path: Path) -> None:
+    """Since 2026-08-31 the stored `checkable_fields` merges the beat's declared facts
+    with the item's `fields` — FR-19's disjoint-key clause reads a missing key as "the
+    reader was never told this", so a row that stored `fields` alone would make every
+    later night's counts look new forever (the measured wsb suppression)."""
+    db = tmp_path / "ledger.db"
+    record_delivered_items(_digest(tmp_path, "run-1"), "run-1", path=db)
+
+    rows = rows_for_run("run-1", path=db)
+    assert all(
+        row.fields["final_score"] == "Houston Astros 3, Chicago White Sox 12"
+        for row in rows
+    )
+
+
 def test_a_second_run_appends_its_own_rows_without_collision(tmp_path: Path) -> None:
     db = tmp_path / "ledger.db"
 

@@ -103,6 +103,10 @@ class Digest:
     usage: AgentResponse | None = None
     dedup: list[tuple[str, DedupDecision]] = field(default_factory=list)
     quarantined: list[tuple[str, str]] = field(default_factory=list)
+    #: Each beat's declared checkable facts, carried to the ledger write so a delivered
+    #: row records them alongside `fields`. FR-19's disjoint-key clause is only as good
+    #: as the neighbour's recorded keys — a row without them reads as "never told".
+    checkable_by_beat: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def beat_order(self) -> list[str]:
@@ -202,6 +206,12 @@ def _apply_dedup(
 
         prior = kept_this_run.setdefault(beat, [])
         surviving: list[Any] = []
+        # The beat-declared checkable facts ride along on both sides of FR-19's first
+        # invariant: as the candidate's `result_checkable`, and merged into the surface
+        # a kept item presents as a same-run neighbour. A wsb ticker count lives only
+        # here, not in `BeatItem.fields` — comparing `fields` alone is the measured
+        # 2026-08-31 gap (one wsb line suppressed against disjoint facts).
+        declared = dict(getattr(result, "checkable_fields", None) or {})
         for item in getattr(result, "items", []) or []:
             text = getattr(item, "text", str(item))
             try:
@@ -233,7 +243,9 @@ def _apply_dedup(
                         reason=f"{type(exc).__name__}: {exc}; including the item unchecked",
                     )
                 surviving.append(item)
-                prior.append((text, dict(getattr(item, "fields", None) or {})))
+                prior.append(
+                    (text, {**declared, **dict(getattr(item, "fields", None) or {})})
+                )
                 continue
 
             decision = assess_item(
@@ -243,6 +255,7 @@ def _apply_dedup(
                 beat=beat,
                 escalation_candidate=bool(getattr(result, "escalation_candidate", False)),
                 effort=effort,
+                result_checkable=declared,
             )
             decisions.append((beat, decision))
 
@@ -287,7 +300,10 @@ def _apply_dedup(
             surviving.append(item)
             # The delivered text (post-reframe) is what later candidates compare against.
             prior.append(
-                (getattr(item, "text", str(item)), dict(getattr(item, "fields", None) or {}))
+                (
+                    getattr(item, "text", str(item)),
+                    {**declared, **dict(getattr(item, "fields", None) or {})},
+                )
             )
 
         result.items = surviving
@@ -369,6 +385,11 @@ def synthesize(
         unavailable_lines=unavailable_lines,
         usage=response,
         dedup=dedup_decisions,
+        checkable_by_beat={
+            getattr(result, "beat", ""): dict(getattr(result, "checkable_fields", None) or {})
+            for result in results
+            if getattr(result, "available", True)
+        },
     )
 
     if trace is None:

@@ -174,7 +174,23 @@ worth writing about each week.
     transplants the invariant from typed fields to grounded prose (veto on a new number, quoted phrase,
     or proper noun) and exempts `text_origin="synthesized"` items from the date guard. Read FR-27 before
     adding any beat whose item text is model-written rather than assembled in code.
-  - **Touches:** `forecaster/memory/dedup.py`, `forecaster/beats/astros.py`
+  - **Amended 2026-08-31 (disjoint fact keys).** Invariant (a) compared values on *shared* keys only,
+    so a candidate whose checkable keys were disjoint from its neighbour's — entirely new facts — had
+    no veto. Measured live, run `20260831T200550-b5e8543f`: a same-night wsb rerun's line (tickers
+    FWRG/HIMS/VSXY) was suppressed at cosine 0.8180 against the earlier line (EV/GPU/AGI/API/CI);
+    every shared key matched (`post_total` 25 = 25) and the model silenced the rest. Two changes:
+    (1) invariant (a)'s comparison surface is now `BeatItem.fields` merged with the beat's declared
+    `checkable_fields`, and a checkable key absent from **every** retrieved neighbour is reframe-only,
+    never suppressible — mirroring the differing-value clause, decided by rule before the model is
+    consulted; (2) a delivered ledger row now stores that merged surface, because the clause reads a
+    missing key as "the reader was never told this" — rows storing `fields` alone would make every
+    night's counts look new forever, and a genuine same-night repeat must stay suppressible. Key
+    absence is membership; value comparison stays numeric-aware (`25` meets a stored `"25.0"`), so
+    the clause cannot be defeated by the JSON round-trip. Rows written before this date lack the fact
+    keys and read as "never told" — a transitional reframe-instead-of-suppress that self-heals as
+    keyed rows accrue, erring on the correct side (repeat, never silence).
+  - **Touches:** `forecaster/memory/dedup.py`, `forecaster/memory/ledger.py`,
+    `forecaster/synthesizer.py`, `forecaster/beats/astros.py`
 
 - **FR-10 — Escalation rules engine** `[MVP]`
   - **Requirement:** Deterministic rules over `BeatResult`s promote items to the top of the digest.

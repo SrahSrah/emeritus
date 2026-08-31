@@ -23,7 +23,11 @@ What is new:
 
 - **`checkable_fields`** — the observed values the line stated, as JSON. Not an identity.
   FR-9b's load-bearing safety rule ("a differing checkable value can never be suppressed")
-  is impossible without the neighbour's actual values to compare against.
+  is impossible without the neighbour's actual values to compare against. Since
+  2026-08-31 the column holds the item's `fields` merged with the beat's declared
+  checkable facts: FR-19's disjoint-key clause treats a key absent from every stored
+  neighbour as "the reader was never told this", so omitting the beat-level facts here
+  would make every night's counts look new forever.
 - **A vector index** (`vec_sent_items`, in `retrieval.py`) — a read-time *accelerator* for
   the similarity search. It stores no verdict.
 
@@ -134,17 +138,28 @@ def record_delivered_items(
     """
     stamp = (sent_at or datetime.now(timezone.utc)).isoformat()
     entries = list(getattr(digest, "ordered", digest).items)
-    rows = [
-        (
-            run_id,
-            getattr(entry, "beat", "") or getattr(getattr(entry, "item", None), "beat", ""),
-            stamp,
-            getattr(getattr(entry, "item", entry), "text", str(entry)),
-            _first_observation_id(getattr(entry, "item", entry)),
-            json.dumps(getattr(getattr(entry, "item", entry), "fields", None) or {}, default=str),
+    # The stored `checkable_fields` is the item's `fields` merged with the beat's
+    # declared checkable facts (`Digest.checkable_by_beat`) — a wsb ticker count is a
+    # value the line stated, and a row that omits it reads as "never told this fact"
+    # to FR-19's disjoint-key clause forever after (measured 2026-08-31). Beat-level
+    # granularity means a multi-item beat's rows each carry the whole declared dict;
+    # the over-approximation errs toward reframe, never toward silence.
+    checkable_by_beat = dict(getattr(digest, "checkable_by_beat", None) or {})
+    rows = []
+    for entry in entries:
+        beat = getattr(entry, "beat", "") or getattr(getattr(entry, "item", None), "beat", "")
+        declared = dict(checkable_by_beat.get(beat) or {})
+        fields = dict(getattr(getattr(entry, "item", entry), "fields", None) or {})
+        rows.append(
+            (
+                run_id,
+                beat,
+                stamp,
+                getattr(getattr(entry, "item", entry), "text", str(entry)),
+                _first_observation_id(getattr(entry, "item", entry)),
+                json.dumps({**declared, **fields}, default=str),
+            )
         )
-        for entry in entries
-    ]
 
     owned = connection is None
     conn = connection if connection is not None else connect(path)

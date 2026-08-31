@@ -25,6 +25,13 @@ So the safety rules below are not tuning parameters. They are invariants, each w
    checkable field whose value differs from the nearest neighbour's recorded value, the
    most retrieval may do is *reframe*. This is what makes the 0.97 collision harmless:
    the scores differ, so the item survives regardless of what the embedding thinks.
+   The comparison surface is the item's `fields` merged with the beat's declared
+   `checkable_fields` — and a candidate declaring a checkable fact under a key **no
+   retrieved neighbour ever recorded** is likewise reframe-only. Shared keys alone are
+   not enough: measured 2026-08-31 (run 20260831T200550-b5e8543f), a same-night wsb
+   rerun whose fact keys were entirely disjoint from its neighbour's — new tickers,
+   nothing shared but the post total — matched on every shared key, reached the model,
+   and was suppressed at cosine 0.8180. Entirely new facts had no veto.
 2. **An escalation candidate can never be suppressed.** A freeze alert is not less urgent
    for resembling last night's.
 3. **An unavailability line can never be suppressed.** FR-18's honesty guarantee outranks
@@ -70,7 +77,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Mapping, Sequence
 
 from forecaster.agent import AgentClientLike, DEFAULT_EFFORT
 from forecaster.memory.retrieval import Neighbour, RetrievalError
@@ -134,9 +141,10 @@ def _same_value(left: Any, right: Any) -> bool:
         return str(left) == str(right)
 
 
-def _checkable_values_differ(item: Any, neighbour: Neighbour) -> tuple[bool, str | None]:
+def _checkable_values_differ(
+    candidate: Mapping[str, Any], neighbour: Neighbour
+) -> tuple[bool, str | None]:
     """Does the candidate state a checked value the neighbour recorded differently?"""
-    candidate = getattr(item, "fields", None) or {}
     prior = neighbour.checkable_fields or {}
     for key, value in candidate.items():
         if key not in prior:
@@ -146,14 +154,31 @@ def _checkable_values_differ(item: Any, neighbour: Neighbour) -> tuple[bool, str
     return False, None
 
 
-def _new_checkable_key(item: Any, neighbour: Neighbour) -> str | None:
+def _new_checkable_key(fields: Mapping[str, Any], neighbour: Neighbour) -> str | None:
     """A field tonight's item declares that the neighbour never carried."""
-    candidate = getattr(item, "fields", None) or {}
     prior = neighbour.checkable_fields or {}
-    for key in candidate:
+    for key in fields:
         if key not in prior:
             return key
     return None
+
+
+def _novel_fact_keys(
+    declared: Mapping[str, Any], neighbours: Sequence[Neighbour]
+) -> list[str]:
+    """Beat-declared checkable keys that appear in no retrieved neighbour.
+
+    A key absent from *every* neighbour means the reader has never been told this fact
+    under any value — which is new information whatever the wording scored. Absent from
+    all, not just the nearest: rows written before 2026-08-31 carry only `fields`, so a
+    genuine repeat can sit next to one old-shaped row, and a single legacy neighbour
+    must not disable suppression once a fully-keyed row is also retrieved.
+    """
+    return [
+        key
+        for key in declared
+        if all(key not in (neighbour.checkable_fields or {}) for neighbour in neighbours)
+    ]
 
 
 def _proper_nouns(text: str) -> list[str]:
@@ -215,6 +240,7 @@ def assess_item(
     escalation_candidate: bool = False,
     effort: str = DEFAULT_EFFORT,
     enabled: bool = True,
+    result_checkable: Mapping[str, Any] | None = None,
 ) -> DedupDecision:
     """Decide whether to include, reframe, or suppress one candidate line.
 
@@ -269,8 +295,13 @@ def assess_item(
             item, neighbours, nearest, agent_client=agent_client, effort=effort
         )
 
-    # Invariant 1 — the one that makes the 0.97 numeral collision harmless.
-    differs, detail = _checkable_values_differ(item, nearest)
+    # Invariant 1 — the one that makes the 0.97 numeral collision harmless. The surface
+    # is `fields` plus the beat-declared checkable facts: a wsb ticker count lives only
+    # in `BeatResult.checkable_fields`, and comparing `fields` alone left it invisible
+    # here (the 2026-08-31 suppression in this module's docstring).
+    fields = dict(getattr(item, "fields", None) or {})
+    declared = dict(result_checkable or {})
+    differs, detail = _checkable_values_differ({**declared, **fields}, nearest)
     if differs:
         return DedupDecision(
             "reframe",
@@ -282,11 +313,28 @@ def assess_item(
             forced=True,
         )
 
-    new_key = _new_checkable_key(item, nearest)
+    new_key = _new_checkable_key(fields, nearest)
     if new_key is not None:
         return DedupDecision(
             "include",
             f"declares {new_key!r}, which no retrieved neighbour carried",
+            neighbours,
+            forced=True,
+        )
+
+    # Invariant 1, disjoint-key clause — matching on every shared key proves nothing
+    # when the candidate's facts are keys the neighbours never recorded.
+    novel = _novel_fact_keys(declared, neighbours)
+    if novel:
+        joined = ", ".join(repr(key) for key in novel[:3])
+        more = "" if len(novel) <= 3 else f" (and {len(novel) - 3} more)"
+        return DedupDecision(
+            "reframe",
+            (
+                f"near-duplicate wording (cosine {nearest.similarity:.4f}) but the "
+                f"candidate states checkable fact(s) under {joined}{more}, key(s) no "
+                "retrieved neighbour ever recorded; suppression is not permitted"
+            ),
             neighbours,
             forced=True,
         )
