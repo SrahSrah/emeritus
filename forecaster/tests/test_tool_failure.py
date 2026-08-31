@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from forecaster.agent import FakeAgentClient
+from forecaster.agent import AgentResponse, FakeAgentClient
 from forecaster.beats.astros import AstrosBeat
 from forecaster.beats.base import BeatResult, run_beat_safely
 from forecaster.beats.weather import WeatherBeat
@@ -136,8 +136,9 @@ def test_the_model_is_never_handed_a_gap_to_fill(tmp_path: Path) -> None:
 
     structured = agent.calls[0].structured
     assert structured is not None
-    # The unavailability line is handed over pre-written; nothing asks for a substitute.
-    assert any("Couldn't reach astros" in line for line in structured["unavailable"])
+    # The failed beat is absent from the payload entirely: no gap, and no pre-written
+    # line the model could reword. The FR-18 line is code-assembled after composition.
+    assert "unavailable" not in structured
     assert all("astros" not in line.lower() for line in structured["lines"])
 
     # The system prompt forbids filling a gap; it never invites one.
@@ -206,6 +207,55 @@ def test_a_failed_beat_that_the_model_omitted_is_appended_anyway(
         digest = synthesize(results, CONFIG, PREFS, trace, agent_client=SilentClient())
 
     assert "Couldn't reach astros tonight" in digest.text
+    assert check_provenance(trace.path).ok
+
+
+def test_the_unavailability_line_appears_exactly_once_even_if_the_model_rewords(
+    tmp_path: Path,
+) -> None:
+    """The FR-30 failure shape, on FR-18's line: handed the pre-written unavailability
+    line, a live model may paraphrase it — then the verbatim safety-net check misses
+    and appends the canonical line too, telling the reader twice. The line is
+    code-assembled only; the model never receives it to reword.
+    """
+
+    class RewordsUnavailability(FakeAgentClient):
+        """Echoes values like the base fake, but rewords any unavailability line —
+        exactly what a live model may do to a line it was handed to phrase."""
+
+        def complete(self, prompt, *, structured=None, system=None, effort="low"):
+            response = super().complete(
+                prompt, structured=structured, system=system, effort=effort
+            )
+            reworded = [
+                "Heads up: we couldn't reach the astros feed tonight."
+                if "couldn't reach" in line.lower()
+                else line
+                for line in response.text.splitlines()
+            ]
+            return AgentResponse(text="\n".join(reworded))
+
+    client, _ = fixture_client([MLB_500, *WX_OK])
+    agent = RewordsUnavailability()
+    trace = trace_in(tmp_path, "line-once")
+    with client, trace:
+        context = make_context(trace=trace, http_client=client)
+        results = [
+            run_beat_safely(AstrosBeat(), context),
+            run_beat_safely(WeatherBeat(), context),
+        ]
+        for result in results:
+            trace.beat_result(result)
+        digest = synthesize(results, CONFIG, PREFS, trace, agent_client=agent)
+
+    assert digest.text.lower().count("couldn't reach") == 1
+    assert "Couldn't reach astros tonight" in digest.text
+
+    # The invariant behind the fix: the payload carries no line to reword — and the
+    # provenance check still passes, because the appended line names the beat.
+    structured = agent.calls[0].structured or {}
+    assert "unavailable" not in structured
+    assert not any("couldn't reach" in line.lower() for line in structured["lines"])
     assert check_provenance(trace.path).ok
 
 

@@ -295,15 +295,17 @@ def _apply_dedup(
     return decisions
 
 
-def _structured_payload(
-    ordered: OrderedItems, unavailable_lines: Sequence[str]
-) -> dict[str, Any]:
-    """Exactly the values the model may phrase — nothing else reaches it."""
+def _structured_payload(ordered: OrderedItems) -> dict[str, Any]:
+    """Exactly the values the model may phrase — nothing else reaches it.
+
+    FR-18 and FR-30 lines are deliberately absent: both are code-assembled after
+    composition, because a line the model is handed is a line the model may reword —
+    and then a verbatim safety-net append tells the reader twice.
+    """
     return {
         "lines": [
             getattr(entry.item, "text", str(entry.item)) for entry in ordered.items
         ],
-        "unavailable": list(unavailable_lines),
     }
 
 
@@ -346,16 +348,19 @@ def synthesize(
         for result in ordered.unavailable
     ]
 
-    structured = _structured_payload(ordered, unavailable_lines)
+    structured = _structured_payload(ordered)
     response = agent_client.complete(
         PROMPT, structured=structured, system=SYSTEM_PROMPT, effort=effort
     )
     text = response.text
 
-    # A failed beat must never silently drop out, whatever the model wrote.
+    # The FR-18 line never reaches the model, for the FR-30 reason: handed over as a
+    # value to phrase, the model may reword it — and then a verbatim `in` check misses
+    # and appends the canonical line too, telling the reader twice. Code-assembled only.
+    # The provenance check stays satisfied: it requires the digest to *name* the failed
+    # beat, and unavailability_line always does.
     for line in unavailable_lines:
-        if line not in text:
-            text = f"{text}\n{line}" if text else line
+        text = f"{text}\n{line}" if text else line
 
     digest = Digest(
         text=text,
@@ -450,18 +455,16 @@ def _quarantine_and_recompose(
     ordered.items = kept
     quarantine_lines = [quarantine_line(beat, kind) for beat, kind in digest.quarantined]
 
-    # The FR-30 notice never reaches the model. Handed over as a value to phrase, the
-    # model may paraphrase it — and then the verbatim append below fires anyway, telling
-    # the reader twice (run 20260828T202927). The notice is code-assembled only.
-    structured = _structured_payload(ordered, unavailable_lines)
+    # Neither the FR-30 notice nor the FR-18 line reaches the model. Handed over as a
+    # value to phrase, the model may paraphrase either — and then a verbatim safety-net
+    # append fires anyway, telling the reader twice (run 20260828T202927). Both are
+    # code-assembled only.
+    structured = _structured_payload(ordered)
     response = agent_client.complete(
         PROMPT, structured=structured, system=SYSTEM_PROMPT, effort=effort
     )
     text = response.text
-    for line in unavailable_lines:
-        if line not in text:
-            text = f"{text}\n{line}" if text else line
-    for line in quarantine_lines:
+    for line in list(unavailable_lines) + quarantine_lines:
         text = f"{text}\n{line}" if text else line
 
     digest.text = text
