@@ -5,11 +5,12 @@ loop to editorialize. One feed fetch per night (the politeness budget is law —
 request 12 s after the first drew a 429 when measured), a pure counter over post titles
 and summaries, and one code-assembled item whose every number is a count.
 
-The counter is deliberately naive — pattern plus stoplist, reasoned rather than measured
-(child PRD §9 Q1). All-caps titles make every short uppercase word a candidate, so false
-positives are expected; the mitigation is honesty, not cleverness: every match is
-post-attributed in the count observation, so a wrong one is findable in minutes and the
-stoplist is config Sarah edits the moment one annoys her.
+The counter is cashtag-only — `$TSLA` counts, bare `TSLA` does not — minus a config
+stoplist. It shipped broader (bare uppercase tokens too), and the first live night
+(2026-08-31) measured why that was wrong: all five reported tokens — EV, GPU, AGI, API,
+CI — were acronyms, not tickers. Sarah cut bare tokens the same day. What cashtag-only
+costs is recall (posters often omit the `$`), which is the correct side to err on here;
+every match stays post-attributed in the count observation, so the trade stays auditable.
 """
 
 from __future__ import annotations
@@ -31,10 +32,9 @@ ADAPTER_COUNT = "wsb.count_mentions"
 SOURCE = "r/wallstreetbets"
 
 #: `$tsla`, `$NVDA` — 1–5 letters, any case, and not a prefix of a longer letter run.
+#: The only pattern since 2026-08-31: bare uppercase tokens were cut after the first
+#: live night reported five acronyms and zero tickers.
 _CASHTAG = re.compile(r"\$([A-Za-z]{1,5})(?![A-Za-z])")
-#: Bare `NVDA` — 2–5 chars, all upper, whole word. Single letters are cashtag-only:
-#: bare `F` would count every sentence containing "F".
-_BARE = re.compile(r"\b([A-Z]{2,5})\b")
 
 
 def count_mentions(
@@ -55,7 +55,6 @@ def count_mentions(
     for entry in entries:
         text = f"{entry.headline}\n{entry.summary}"
         tickers = {match.upper() for match in _CASHTAG.findall(text)}
-        tickers.update(_BARE.findall(text))
         tickers -= stop
         for ticker in tickers:
             record = table.setdefault(ticker, {"count": 0, "post_urls": []})
