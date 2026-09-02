@@ -7,7 +7,9 @@ Repo-level guidance. Sarah's global `~/.claude/CLAUDE.md` still applies; this sp
 Coursework for an **online AI program from Emeritus**, plus the capstone it builds toward.
 Two things live here and they have different rules:
 
-1. **Written checkpoints** (`assignments/`, `modules/`, `writing/`) — a short essay is due
+1. **Written checkpoints** (`assignments/`, `modules/`, `writing/`) — **`assignments/` is
+   gitignored and scrubbed from history (2026-09-02, Sarah's call): the verbatim submitted
+   texts stay local-only and must never be committed or pushed** — a short essay is due
    roughly weekly. This is **prose work**: craft matters, it must sound human, and every
    factual claim gets grounded.
 2. **The Forecaster** (`forecaster/`) — the capstone agent. This is **code work**: terse,

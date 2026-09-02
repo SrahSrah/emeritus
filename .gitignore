@@ -1,6 +1,10 @@
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
 
+# Submitted coursework — kept locally, deliberately out of the public repo
+# (scrubbed from history 2026-09-02; do not re-add)
+assignments/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
@@ -22,3 +26,7 @@ forecaster/data/
 __pycache__/
 *.py[cod]
 .ruff_cache/
+
+# Course notes and program writing — kept locally, out of the public repo (2026-09-02)
+modules/
+writing/

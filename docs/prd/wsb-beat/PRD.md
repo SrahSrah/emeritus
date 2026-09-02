@@ -1,6 +1,6 @@
 # PRD: r/WallStreetBets beat — mention volume, counted, never picked
 
-**Project:** emeritus (capstone) · **Status:** Built (v1, 2026-08-28) · **Feature ID:** `wsb-beat` · **Target path:** `forecaster/forecaster/beats/wsb.py`
+**Project:** emeritus (capstone) · **Status:** Built (v2, 2026-08-31) · **Feature ID:** `wsb-beat` · **Target path:** `forecaster/forecaster/beats/wsb.py`
 
 > Child of [`docs/prd/forecaster/PRD.md`](../forecaster/PRD.md). Taken FR numbers: 1–19 (parent),
 > 20–30 and 37 (ai-news), 31–36 and 38–41 (need-to-know), 42–47 (venue-listings). This spec owns
@@ -77,9 +77,10 @@ emits a count.
   dropped-entry decisions currently hardcode `beat="news"`; it gains a `beat` keyword
   (default `"news"`, existing call sites untouched) so this beat's drop records are labeled
   honestly rather than mislabeled or silenced (FR-49).
-- A ticker-mention counter over post headlines + summaries: cashtags plus bare uppercase tokens,
-  minus a config-owned stoplist (Sarah's choice, 2026-08-24 interview). Counts are
-  posts-mentioning, not occurrences. The counter is **traced as a tool call** with its own
+- A ticker-mention counter over post headlines + summaries: **cashtags only** since
+  2026-08-31 (originally cashtags plus bare uppercase tokens per the 2026-08-24 interview;
+  narrowed by Sarah on the first live night's measured false positives — FR-48 amendment),
+  minus a config-owned stoplist. Counts are posts-mentioning, not occurrences. The counter is **traced as a tool call** with its own
   observation, so the delivered counts have a payload for FR-11 to check them against (FR-48).
 - One code-assembled digest item per night from a fixed template, counts and tickers as
   `checkable_fields`, `as_of`-dated.
@@ -105,7 +106,18 @@ emits a count.
 
 ## 5. Functional requirements
 
-- **FR-48 — Ticker mention counter (pattern + stoplist, config-owned, traced)** `[MVP]`
+- **FR-48 — Ticker mention counter (cashtag-only + stoplist, config-owned, traced)** `[MVP]`
+  - **Amended 2026-08-31 — bare-token matching removed, on measured evidence.** The first
+    live night (run `20260831T192534`) reported five tickers: EV, GPU, AGI, API, CI —
+    every one an acronym, zero real tickers, exactly the §8 minefield firing on contact.
+    Sarah's call the same day: **count cashtags only** (`$` + 1–5 letters; the forum's own
+    shorthand), with the stoplist retained and still applied to cashtags. The five
+    measured false positives joined the config stoplist as its first measured entries.
+    What this costs is recall — posters often omit the `$` — which is the correct side to
+    err on for this beat and stays tracked under §9 Q1. The bare-token clause below is
+    preserved for the record and is **no longer in force**; the acceptance criteria are
+    superseded where they exercised bare tokens (bare `NVDA` now yields no entry, and a
+    regression test asserts the five live false positives never match again).
   - **Requirement:** A pure function (in `beats/wsb.py` — no new tool module; the input is
     already-typed `FeedEntry` objects, not a network resource) that, given the night's entries
     and the `[wsb]` settings, returns per-ticker mention data: for each matched ticker, the
@@ -282,14 +294,13 @@ emits a count.
 
 ## 8. Risks & edge cases
 
-- **All-caps titles are this extractor's minefield.** WSB titles are often fully capitalized
-  ("YOLO'D MY SAVINGS INTO CALLS"), which makes *every* 2–5 letter word a bare-token candidate.
-  The stoplist will never enumerate English; expect real false positives in early counts
-  (`CALLS` is not a ticker; `LOSS` is not a ticker — but `CAKE` and `PLAY` are). Mitigations,
-  honest rather than clever: every match is post-attributed in the count observation, so a
-  false positive is findable in minutes; the stoplist is config Sarah edits the moment one
-  annoys her; and no checkpoint may present the counts as precise (§9 Q1). Rejected
-  mitigation: an exchange-listed ticker allowlist — it converts false positives into silent
+- **All-caps titles were this extractor's minefield — and it fired on night one.** As
+  originally shipped, bare 2–5 letter uppercase words counted, and the first live line was
+  five acronyms and zero tickers (EV, GPU, AGI, API, CI). Resolved 2026-08-31 by the FR-48
+  amendment: cashtag-only matching. The residual risk inverts to **recall**: a night where
+  every poster writes "NVDA calls" with no `$` produces the quiet line, not a count — honest,
+  visible, and the reason no checkpoint may present the counts as complete (§9 Q1). Still
+  rejected: an exchange-listed ticker allowlist — it converts false positives into silent
   false *negatives* (the new meme ticker not on the list), and invisible errors are the kind
   this project forbids.
 - **The rate limit is the outage mode.** One fetch per night at ~24 h spacing should hold (the
@@ -323,6 +334,14 @@ Downstream must not invent answers to these.
    match with its posts, so precision *can* be measured from accumulated nights — spot-check
    the matches, grow the stoplist, and only then let a checkpoint characterize accuracy. Until
    then a checkpoint may say "counted," never "accurately."
+   **Amended 2026-08-31 — the first measurement arrived, and it moved the design.** Live
+   night one: five reported tokens, zero real tickers. Precision of the bare-token pattern
+   measured 0/5 and the pattern was cut (FR-48 amendment); the five tokens are now measured
+   stoplist entries. What remains open flips to the other side: cashtag-only **recall** is
+   unmeasured — the fetch observation still records every entry, so bare-but-real tickers
+   the counter now skips can be tallied from accumulated traces before anyone widens the
+   pattern again. One night is one night: a checkpoint may say the false-positive mode was
+   "observed and removed," not that the counter is now accurate.
 2. **Q2 — the weekly shape is deferred, and the phrasing debt is real.** Sarah chose nightly
    hot with a nightly item (2026-08-24). The measured weekly path exists (`top/.rss?t=week`
    returns 200 under patient spacing) and a cross-night tally store was designed around and
@@ -343,6 +362,13 @@ Downstream must not invent answers to these.
 
 ## 12. Changelog
 
+- **v2 — 2026-08-31:** Cashtag-only matching, Sarah's call on the first live night's
+  measured evidence: the delivered line's five tickers (EV, GPU, AGI, API, CI) were all
+  acronyms — the §8 minefield firing exactly as predicted, 0/5 precision on the bare-token
+  pattern. Bare tokens removed from FR-48; the five false positives added to the config
+  stoplist (its first measured entries); §8's minefield row closed and replaced by the
+  recall risk; §9 Q1 gains the measurement and flips its open half from precision to
+  recall. 623 tests green.
 - **v1 built — 2026-08-28:** FR-48 … FR-52 shipped as Steps 51–56 on `feature/wsb-beat`
   (see [BUILD-PROGRESS.md](BUILD-PROGRESS.md)), 622 tests green, spec built as written —
   no FR amended during the build. Real fixture captured at build time (25 entries, one

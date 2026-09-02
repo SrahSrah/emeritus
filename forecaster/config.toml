@@ -217,8 +217,12 @@ timeout_seconds = 15
 # Tickers reported (the count observation always records the full table).
 top_n = 5
 # Forum vocabulary that collides with plausible tickers. Sarah's list, seeded 2026-08-28;
-# grow it the moment a false positive annoys you. Reasoned, not measured (child §9 Q1).
+# grow it the moment a false positive annoys you. The second row is measured, not
+# reasoned: the first live night (2026-08-31) reported exactly those five as tickers —
+# all acronyms — which is also why matching is cashtag-only now. The stoplist still
+# applies to cashtags, so a joke "$GPU" doesn't count either.
 stoplist = [
   "DD", "YOLO", "CEO", "AI", "ATH", "WSB", "IPO", "FOMO", "GDP", "CPI",
   "FED", "EPS", "ITM", "OTM", "USD", "ETF", "IMO", "LOL", "TLDR", "EDIT",
+  "EV", "GPU", "AGI", "API", "CI",
 ]

@@ -90,10 +90,32 @@ def test_no_game_fixture_takes_the_brief_branch_and_is_not_an_error(
         "claim about an empty observation is not a value FR-11 can support"
     )
     assert result.items[0].fields["game_count"] == 0, "FR-19 still needs it in fields"
-    assert len(recorder.requests) == 1, "no second call is warranted with no game"
+    assert len(recorder.requests) == 2, (
+        "since 2026-08-31 an off day makes the look-back call too; here the window is "
+        "also empty, so nothing further is claimed"
+    )
 
     decisions = [r["decision"] for r in records_of(read_trace(trace.path), "decision")]
     assert "no_game" in decisions
+
+
+def test_an_off_day_still_reports_the_last_completed_game(tmp_path: Path) -> None:
+    """The 2026-08-31 amendment: 'no game today' now travels with yesterday's score."""
+    result, _, recorder, _ = _run(
+        tmp_path,
+        [
+            Route(r"[?&]date=", fixture="mlb_no_game"),
+            Route(r"startDate=", fixture="mlb_final"),
+        ],
+    )
+
+    assert result.available is True
+    assert len(recorder.requests) == 2
+    assert "last_completed_score" in result.checkable_fields
+    assert result.checkable_fields["last_completed_state"] == "Final"
+    assert any(item.text.startswith("Last completed:") for item in result.items)
+    last_item = next(i for i in result.items if i.text.startswith("Last completed:"))
+    assert "game_date" in last_item.fields, "FR-19: the score is about a particular day"
 
 
 def test_offseason_degrades_to_no_games_rather_than_erroring(tmp_path: Path) -> None:
@@ -112,12 +134,20 @@ def test_offseason_degrades_to_no_games_rather_than_erroring(tmp_path: Path) -> 
 
 def test_a_preview_only_day_reports_tonight_as_not_started(tmp_path: Path) -> None:
     result, trace, recorder, _ = _run(
-        tmp_path, [Route(SCHEDULE_URL, fixture="mlb_preview")]
+        tmp_path,
+        [
+            Route(r"[?&]date=", fixture="mlb_preview"),
+            Route(r"startDate=", fixture="mlb_final"),  # look-back range
+        ],
     )
 
     assert result.available is True
     assert result.checkable_fields["game_state"] == "Preview"
-    assert len(recorder.requests) == 1
+    assert len(recorder.requests) == 2, (
+        "since 2026-08-31 the preview branch also reports the last completed game"
+    )
+    assert "last_completed_score" in result.checkable_fields
+    assert any(item.text.startswith("Last completed:") for item in result.items)
 
     decisions = [r["decision"] for r in records_of(read_trace(trace.path), "decision")]
     assert "tonight_not_started" in decisions
@@ -139,11 +169,13 @@ def test_a_repeated_identical_call_within_one_run_hits_the_adapter_once(
     with client, trace:
         context = make_context(trace=trace, http_client=client, scratchpad=scratchpad)
         beat.run(context)
-        beat.run(context)  # identical call signature, same run
+        beat.run(context)  # identical call signatures, same run
 
-    assert len(recorder.requests) == 1
-    assert scratchpad.call_count == 1
-    assert scratchpad.hit_count == 1
+    # Each run makes two distinct calls (today + look-back, since 2026-08-31); the
+    # second run repeats both signatures and must be served from the scratchpad.
+    assert len(recorder.requests) == 2
+    assert scratchpad.call_count == 2
+    assert scratchpad.hit_count == 2
 
 
 def test_injury_signal_is_left_unpopulated_because_v1_has_no_source(

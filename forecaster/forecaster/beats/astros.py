@@ -8,6 +8,12 @@ whether a second call is needed, then stop. Three branches:
   its current score;
 - **no game** → say so briefly.
 
+Amended 2026-08-31 (Sarah): every branch where today's game is not yet final also reports
+the **most recent completed game** — the preview and no-game branches gained the same
+look-back call the live branch always made, so "yesterday's score" is in the digest even
+when tonight's line is just a first-pitch time. The final branch is deliberately
+unchanged: today's final *is* the freshest result, and yesterday's would be noise.
+
 Every call goes through the scratchpad and every decision goes into the trace with its
 reason. Nothing here imports the planner, the synthesizer, or delivery — only the
 protocol, the adapter, the scratchpad, and the trace (FR-2's seam).
@@ -84,7 +90,8 @@ class AstrosBeat:
     name = "astros"
     completion_criterion = (
         "tonight's game state reported, with either a final score, a live score, or an "
-        "explicit 'no game', and the next game previewed when there is one"
+        "explicit 'no game'; the next game previewed when there is one; and the most "
+        "recent completed game reported whenever tonight's is not final"
     )
 
     def should_run(self, context: BeatContext) -> bool:
@@ -120,8 +127,49 @@ class AstrosBeat:
                 context, finals, today, team_id, team_name, tz_name, today_ref
             )
         if upcoming:
-            return self._preview_tonight_branch(context, upcoming, team_name, today_ref)
-        return self._no_game_branch(context, today, team_name, today_ref)
+            return self._preview_tonight_branch(
+                context, upcoming, today, team_id, team_name, tz_name, today_ref
+            )
+        return self._no_game_branch(context, today, team_id, team_name, tz_name, today_ref)
+
+    # -- the look-back call, shared by every branch where today is not final -- #
+
+    def _last_completed(
+        self, context: BeatContext, today: date, team_id: int, tz_name: str
+    ) -> tuple[mlb.Game | None, ObservationRef]:
+        """The most recent final in the look-back window, with its citation."""
+        window_start = today - timedelta(days=LOOKBACK_DAYS)
+        window_end = today - timedelta(days=1)
+        args = {
+            "team_id": team_id,
+            "start_date": window_start.isoformat(),
+            "end_date": window_end.isoformat(),
+        }
+        previous_games, ref = _observe(
+            context,
+            arguments=args,
+            call=lambda: mlb.fetch_schedule(
+                team_id,
+                window_start,
+                window_end,
+                client=context.http_client,
+                tz_name=tz_name,
+            ),
+        )
+        completed = [game for game in previous_games if game.is_final]
+        return (completed[-1] if completed else None), ref
+
+    def _last_completed_item(
+        self, last: mlb.Game, ref: ObservationRef
+    ) -> tuple[BeatItem, str]:
+        last_line = last.score_line() or "no score recorded"
+        item = BeatItem(
+            beat=self.name,
+            text=f"Last completed: {last_line}.",
+            fields={"state": last.abstract_game_state, "game_date": last.game_date},
+            observations=[ref],
+        )
+        return item, last_line
 
     # -- branches ----------------------------------------------------------- #
 
@@ -146,26 +194,7 @@ class AstrosBeat:
             ),
         )
 
-        window_start = today - timedelta(days=LOOKBACK_DAYS)
-        window_end = today - timedelta(days=1)
-        args = {
-            "team_id": team_id,
-            "start_date": window_start.isoformat(),
-            "end_date": window_end.isoformat(),
-        }
-        previous_games, previous_ref = _observe(
-            context,
-            arguments=args,
-            call=lambda: mlb.fetch_schedule(
-                team_id,
-                window_start,
-                window_end,
-                client=context.http_client,
-                tz_name=tz_name,
-            ),
-        )
-        completed = [game_ for game_ in previous_games if game_.is_final]
-        last = completed[-1] if completed else None
+        last, previous_ref = self._last_completed(context, today, team_id, tz_name)
 
         live_line = game.score_line() or "no score yet"
         items = [
@@ -194,15 +223,8 @@ class AstrosBeat:
         observations = [today_ref]
 
         if last is not None:
-            last_line = last.score_line() or "no score recorded"
-            items.append(
-                BeatItem(
-                    beat=self.name,
-                    text=f"Last completed: {last_line}.",
-                    fields={"state": last.abstract_game_state, "game_date": last.game_date},
-                    observations=[previous_ref],
-                )
-            )
+            item, last_line = self._last_completed_item(last, previous_ref)
+            items.append(item)
             checkable["last_completed_score"] = last_line
             checkable["last_completed_state"] = last.abstract_game_state
             observations.append(previous_ref)
@@ -332,7 +354,10 @@ class AstrosBeat:
         self,
         context: BeatContext,
         upcoming: list[mlb.Game],
+        today: date,
+        team_id: int,
         team_name: str,
+        tz_name: str,
         today_ref: ObservationRef,
     ) -> BeatResult:
         game = upcoming[0]
@@ -341,75 +366,115 @@ class AstrosBeat:
             decision="tonight_not_started",
             reason=(
                 f"today's game {game.game_pk} is still {game.abstract_game_state!r}; "
-                "one call is enough"
+                "a second call reports the last completed game (2026-08-31 amendment)"
             ),
         )
+        items = [
+            BeatItem(
+                beat=self.name,
+                text=(
+                    f"Tonight: {game.away_team} at {game.home_team}, first pitch "
+                    f"{_local(game)} local. Not started yet."
+                ),
+                fields={
+                    "state": game.abstract_game_state,
+                    "start_time_local": _local(game),
+                    "game_date": game.game_date,  # FR-19
+                },
+                observations=[today_ref],
+            )
+        ]
+        checkable: dict[str, Any] = {
+            "game_state": game.abstract_game_state,
+            "opponent": game.opponent_of(team_name),
+            "start_time_utc": game.start_time_utc.isoformat(),
+        }
+        observations = [today_ref]
+
+        last, previous_ref = self._last_completed(context, today, team_id, tz_name)
+        if last is not None:
+            item, last_line = self._last_completed_item(last, previous_ref)
+            items.append(item)
+            checkable["last_completed_score"] = last_line
+            checkable["last_completed_state"] = last.abstract_game_state
+            observations.append(previous_ref)
+        else:
+            context.scratchpad.note_missing(
+                self.name, f"no completed game in the {LOOKBACK_DAYS} days before {today}"
+            )
+
         return BeatResult(
             beat=self.name,
-            items=[
-                BeatItem(
-                    beat=self.name,
-                    text=(
-                        f"Tonight: {game.away_team} at {game.home_team}, first pitch "
-                        f"{_local(game)} local. Not started yet."
-                    ),
-                    fields={
-                        "state": game.abstract_game_state,
-                        "start_time_local": _local(game),
-                        "game_date": game.game_date,  # FR-19
-                    },
-                    observations=[today_ref],
-                )
-            ],
-            checkable_fields={
-                "game_state": game.abstract_game_state,
-                "opponent": game.opponent_of(team_name),
-                "start_time_utc": game.start_time_utc.isoformat(),
-            },
-            observations=[today_ref],
+            items=items,
+            checkable_fields=checkable,
+            observations=observations,
         )
 
     def _no_game_branch(
         self,
         context: BeatContext,
         today: date,
+        team_id: int,
         team_name: str,
+        tz_name: str,
         today_ref: ObservationRef,
     ) -> BeatResult:
-        """Off day or offseason. Normal, available result — not an error, not empty."""
+        """Off day or offseason. Normal, available result — not an error, not empty.
+
+        Since 2026-08-31 an off day still reports the most recent completed game, so
+        the digest carries yesterday's score instead of only "no game today."
+        """
         context.trace.decision(
             beat=self.name,
             decision="no_game",
             reason=(
                 f"the schedule returned no games for {today}; that is an off day or the "
-                "offseason, which is information rather than a failure"
+                "offseason, which is information rather than a failure — the last "
+                "completed game is still worth reporting (2026-08-31 amendment)"
             ),
         )
+        items = [
+            BeatItem(
+                beat=self.name,
+                text=f"No {team_name} game today.",
+                # FR-19: identical on every off day without the date, so a run of
+                # off days would go silent about the Astros entirely.
+                fields={"game_count": 0, "date": today.isoformat()},
+                observations=[today_ref],
+            )
+        ]
+        # The off-day line itself still declares nothing checkable: "No Astros game
+        # today." states no number, and `game_count: 0` was a claim about the
+        # observation's *cardinality* rather than a value inside it — the adapter
+        # returns a normalized `Game` list, so an off day records `[]`, and the count
+        # of an empty list is not one of its leaves. FR-11's support check looks for
+        # the value in the payload and cannot see a count, so declaring it failed a run
+        # that had stated nothing wrong.
+        #
+        # Found live 2026-08-13, the first off day since the pipeline started running.
+        # `game_count` stays in the item's `fields`, where FR-19 uses it and where
+        # nothing polices it. FR-11's own scope note applies exactly: a value the
+        # digest does not state is prose, not a claim.
+        checkable: dict[str, Any] = {}
+        observations = [today_ref]
+
+        last, previous_ref = self._last_completed(context, today, team_id, tz_name)
+        if last is not None:
+            item, last_line = self._last_completed_item(last, previous_ref)
+            items.append(item)
+            checkable["last_completed_score"] = last_line
+            checkable["last_completed_state"] = last.abstract_game_state
+            observations.append(previous_ref)
+        else:
+            context.scratchpad.note_missing(
+                self.name, f"no completed game in the {LOOKBACK_DAYS} days before {today}"
+            )
+
         return BeatResult(
             beat=self.name,
-            items=[
-                BeatItem(
-                    beat=self.name,
-                    text=f"No {team_name} game today.",
-                    # FR-19: identical on every off day without the date, so a run of
-                    # off days would go silent about the Astros entirely.
-                    fields={"game_count": 0, "date": today.isoformat()},
-                    observations=[today_ref],
-                )
-            ],
-            # Nothing checkable on an off day. "No Astros game today." states no number,
-            # and `game_count: 0` was a claim about the observation's *cardinality* rather
-            # than a value inside it — the adapter returns a normalized `Game` list, so an
-            # off day records `[]`, and the count of an empty list is not one of its
-            # leaves. FR-11's support check looks for the value in the payload and cannot
-            # see a count, so declaring it failed a run that had stated nothing wrong.
-            #
-            # Found live 2026-08-13, the first off day since the pipeline started running.
-            # `game_count` stays in the item's `fields`, where FR-19 uses it and where
-            # nothing polices it. FR-11's own scope note applies exactly: a value the
-            # digest does not state is prose, not a claim.
-            checkable_fields={},
-            observations=[today_ref],
+            items=items,
+            checkable_fields=checkable,
+            observations=observations,
         )
 
 
