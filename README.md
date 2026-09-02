@@ -1,8 +1,8 @@
 # Emeritus — the Forecaster
 
-> Coursework for an online agentic-AI program, and the capstone agent it builds toward.
-> The capstone is the part you probably came for: it lives in [`forecaster/`](forecaster/)
-> and actually runs, nightly.
+> The Forecaster — an autonomous nightly digest agent — lives in [`forecaster/`](forecaster/),
+> surrounded by the documents that specify, audit, and track it: the PRDs, the divergence
+> ledger, and the build ledgers. It runs nightly, for real.
 
 ## Program
 
@@ -108,8 +108,6 @@ Windows Task Scheduler job wrapping [`forecaster/scripts/run_nightly.ps1`](forec
 
 ```
 .
-├── modules/                  per-module notes
-├── writing/                  longer pieces the program prompts
 ├── docs/prd/                 one folder per increment: PRD, build prompts, build ledger
 ├── docs/DIVERGENCES.md       submitted-vs-shipped ledger
 └── forecaster/               the agent: source, tests, config, scheduler script

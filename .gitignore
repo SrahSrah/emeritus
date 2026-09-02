@@ -26,3 +26,7 @@ forecaster/data/
 __pycache__/
 *.py[cod]
 .ruff_cache/
+
+# Course notes and program writing — kept locally, out of the public repo (2026-09-02)
+modules/
+writing/
