@@ -8,8 +8,8 @@ often correct. What's not acceptable is drift nobody recorded — a grader readi
 N in order shouldn't hit an unexplained moving target, and next week's essay shouldn't claim a
 capability that shipped disabled.
 
-**Read by** `write-next-assignment` (so the draft can acknowledge a revision in a sentence).
-**Written by** `continue-capstone-build` (at its conflict gate, and again after the build reveals reality).
+**Read** before any checkpoint is drafted, so the text can acknowledge a revision in a sentence.
+**Written** at each build increment: at its conflict gate, and again after the build reveals reality.
 
 | # | Submitted | Shipped | Resolution | Date |
 |---|---|---|---|---|
@@ -27,7 +27,7 @@ capability that shipped disabled.
 
 ## How to add a row
 
-At `continue-capstone-build`'s conflict gate, and again after the build discovers reality. Record what was
+At each increment's conflict gate, and again after the build discovers reality. Record what was
 *submitted* verbatim enough to be findable, what actually *shipped*, and **why** — the reasoning is the
 part that's useful in a later essay. Date it.
 
