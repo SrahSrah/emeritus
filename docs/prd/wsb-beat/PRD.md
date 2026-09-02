@@ -347,7 +347,7 @@ Downstream must not invent answers to these.
    returns 200 under patient spacing) and a cross-night tally store was designed around and
    rejected as scope. If a later checkpoint wants the literal "what WSB loved this week," that
    is a small follow-on increment — but the *submitted* phrasing already exists, so
-   `continue-capstone-build`'s conflict gate should expect to record the nightly-vs-weekly
+   the next increment's conflict gate should expect to record the nightly-vs-weekly
    nuance when this ships (DIVERGENCES row 10's closure note is the natural place).
 3. **Q3 — comment depth.** Titles and snippets are the tip; the chatter is in comments, behind
    keyed OAuth. Not proposed. If reach ever matters more than the keyless rule, that is Sarah's

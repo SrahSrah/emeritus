@@ -30,3 +30,6 @@ __pycache__/
 # Course notes and program writing — kept locally, out of the public repo (2026-09-02)
 modules/
 writing/
+
+# Session guidance — local only (2026-09-02)
+CLAUDE.md
