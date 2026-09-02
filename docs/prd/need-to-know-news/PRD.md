@@ -449,7 +449,7 @@ and keeping those two apart is itself the design lesson worth writing about.
 - **Checkpoint language.** No checkpoint may call this a working need-to-know beat. What exists
   after this increment: the sixth beat's substrate, observing, with a designed-open bar. That is
   a strong essay *if told straight* — instrument first, decide from evidence — and a divergence
-  from Checkpoint 1's promise if told loosely. `continue-capstone-build`'s conflict gate should
+  from Checkpoint 1's promise if told loosely. the next increment's conflict gate should
   expect a DIVERGENCES row when this ships.
 - **Copyright posture:** inherited unchanged from the AI beat's §8 — personal, single-inbox,
   robots-respecting, rate-limited, TTL-bounded, sources named.

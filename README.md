@@ -1,14 +1,8 @@
-# Emeritus — the Forecaster
+# The Forecaster
 
-> The Forecaster — an autonomous nightly digest agent — lives in [`forecaster/`](forecaster/),
-> surrounded by the documents that specify, audit, and track it: the PRDs, the divergence
-> ledger, and the build ledgers. It runs nightly, for real.
-
-## Program
-
-- **Provider:** Emeritus
-- **Program:** Agentic AI Program: Building Autonomous Systems for Real-World Applications
-- **Format:** self-paced, weekly written checkpoints, final report + recorded presentation
+> An autonomous nightly digest agent. It lives in [`forecaster/`](forecaster/), surrounded
+> by the documents that specify, audit, and track it: the PRDs, the divergence ledger, and
+> the build ledgers. It runs nightly.
 
 ## The Forecaster
 
@@ -113,13 +107,11 @@ Windows Task Scheduler job wrapping [`forecaster/scripts/run_nightly.ps1`](forec
 └── forecaster/               the agent: source, tests, config, scheduler script
 ```
 
-## How I work in here
+## Trackers
 
-- **Notes are mine, not the slides'** — capture what actually landed, in my own words.
-- **Assignments get drafted here first**, then submitted through the portal by me.
-- Trackers stay live: [STATUS.md](STATUS.md) for where things stand,
-  [HUMAN-TODO.md](HUMAN-TODO.md) for what only I can do, and
-  [FEATURES-TODO.md](FEATURES-TODO.md) for build work.
+Kept live as the project moves: [STATUS.md](STATUS.md) for where things stand,
+[HUMAN-TODO.md](HUMAN-TODO.md) for what only I can do, and
+[FEATURES-TODO.md](FEATURES-TODO.md) for build work.
 
 ---
 
