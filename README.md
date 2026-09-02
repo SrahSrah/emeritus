@@ -68,8 +68,10 @@ Start here:
   questions. Each later beat has its own PRD under [`docs/prd/`](docs/prd/).
 - [`docs/DIVERGENCES.md`](docs/DIVERGENCES.md) — every place a submitted checkpoint and the
   shipped code disagreed, and how each was resolved. The design-evolution story, as a ledger.
-- [`assignments/`](assignments/) — the submitted checkpoint essays, verbatim.
 - [`forecaster/`](forecaster/) — source, tests, config, and the nightly scheduler script.
+
+The submitted checkpoint essays themselves are kept out of the repository on purpose; the
+divergence ledger above records what they promised wherever it differs from what shipped.
 
 ## Running it
 
@@ -106,7 +108,6 @@ Windows Task Scheduler job wrapping [`forecaster/scripts/run_nightly.ps1`](forec
 
 ```
 .
-├── assignments/              submitted checkpoint text, verbatim
 ├── modules/                  per-module notes
 ├── writing/                  longer pieces the program prompts
 ├── docs/prd/                 one folder per increment: PRD, build prompts, build ledger

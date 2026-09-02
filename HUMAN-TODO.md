@@ -8,7 +8,7 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done
 ## Now
 
 - [x] **Submit Assignment 3.** Done 2026-08-02. Submitted text logged verbatim at
-      [assignments/assignment-3-retrieval.md](assignments/assignment-3-retrieval.md).
+      `assignments/assignment-3-retrieval.md` (local, untracked).
 - [x] **Merge the AI news beat.** Done 2026-08-04 (PRs #2–#6). **442 tests green**, first green
       end-to-end run with all three beats.
 - [ ] **Decide whether `--news-metric` should count runs that never delivered.** Condition (a)
